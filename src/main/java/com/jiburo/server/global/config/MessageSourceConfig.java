@@ -14,8 +14,8 @@ public class MessageSourceConfig {
 
         messageSource.setBasenames(
                 "i18n/common/messages",
-                "i18n/error/errors",
-                "i18n/validation/validations"
+                "i18n/error/messages",
+                "i18n/validation/messages"
         );
 
         messageSource.setDefaultEncoding("UTF-8");
