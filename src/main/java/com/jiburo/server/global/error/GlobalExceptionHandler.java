@@ -77,10 +77,12 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleException(Exception e) {
-        log.error("Unhandled Exception: ", e); // 스택 트레이스 로깅
+        log.error("Unhandled Exception: ", e);
 
-        // "서버 내부 오류입니다" 메시지 조회
-        String message = getMessage("error.server.internal");
+        // [수정] 하드코딩 문자열 대신 ErrorCode Enum에서 키를 가져옵니다.
+        // 이렇게 하면 오타가 날 일이 없습니다.
+        ErrorCode errorCode = ErrorCode.INTERNAL_SERVER_ERROR;
+        String message = getMessage(errorCode.getMessageKey());
 
         return ResponseEntity
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
