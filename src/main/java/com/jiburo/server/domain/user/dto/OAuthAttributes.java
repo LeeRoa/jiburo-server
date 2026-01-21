@@ -6,11 +6,6 @@ import lombok.Builder;
 
 import java.util.Map;
 
-/**
- * - 모든 필드는 private final로 자동 선언
- * - Getter 자동 생성 (이름이 getNickname()이 아니라 nickname()이 됨)
- * - 생성자, equals, hashCode, toString 자동 생성
- */
 @Builder
 public record OAuthAttributes(
         Map<String, Object> attributes,
@@ -20,10 +15,9 @@ public record OAuthAttributes(
         String email,
         String profileImageUrl
 ) {
-    // static 팩토리 메서드
     public static OAuthAttributes of(String registrationId, String userNameAttributeName, Map<String, Object> attributes) {
         if ("kakao".equals(registrationId)) {
-            return ofKakao("id", attributes);
+            return ofKakao(userNameAttributeName, attributes);
         }
         return ofGoogle(userNameAttributeName, attributes);
     }
