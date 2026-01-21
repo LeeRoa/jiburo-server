@@ -6,72 +6,85 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.util.Locale;
 
 @Slf4j
-@RestControllerAdvice // 모든 컨트롤러의 예외를 여기서 처리함
+@RestControllerAdvice // 모든 컨트롤러에서 발생하는 예외 처리
 @RequiredArgsConstructor
 public class GlobalExceptionHandler {
 
     private final MessageSource messageSource;
 
     /**
-     * [1] @Valid 유효성 검사 실패 시 발생
-     * 주로 DTO의 제약조건(@NotNull, @Size 등) 위반 시
+     * [1] BusinessException 처리
+     * 서비스 로직에서 개발자가 의도적으로 던진 예외를 처리합니다.
+     * 예: throw new BusinessException(ErrorCode.USER_NOT_FOUND);
+     */
+    @ExceptionHandler(BusinessException.class)
+    public ResponseEntity<ApiResponse<Void>> handleBusinessException(BusinessException e) {
+        ErrorCode errorCode = e.getErrorCode();
+        HttpStatus httpStatus = errorCode.getStatus();
+
+        // 다국어 메시지 조회
+        String message = getMessage(errorCode.getMessageKey());
+
+        log.warn("Business Exception: Code={}, Message={}", errorCode, message);
+
+        // ResponseEntity를 사용하여 실제 HTTP 상태 코드와 Body 데이터를 함께 설정
+        return ResponseEntity
+                .status(httpStatus)
+                .body(ApiResponse.fail(httpStatus.value(), message));
+    }
+
+    /**
+     * [2] @Valid 유효성 검사 실패 처리
+     * Request Body의 데이터가 DTO 제약조건을 위반했을 때 발생합니다.
      */
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ApiResponse<Void> handleValidationException(MethodArgumentNotValidException e) {
+    public ResponseEntity<ApiResponse<Void>> handleValidationException(MethodArgumentNotValidException e) {
         BindingResult bindingResult = e.getBindingResult();
         StringBuilder builder = new StringBuilder();
 
-        // 에러가 여러 개일 경우 첫 번째 메시지만 보내거나, 모두 보낼 수 있음
+        // 첫 번째 에러 메시지만 가져오거나, 반복문으로 모두 나열 가능
+        // 여기서는 모든 필드 에러를 나열하는 방식 사용
         for (FieldError fieldError : bindingResult.getFieldErrors()) {
             builder.append("[");
             builder.append(fieldError.getField());
             builder.append("](은)는 ");
-            // DTO에 설정한 메시지(예: {valid.email.empty})가 이미 다국어 처리되어 들어옴
             builder.append(fieldError.getDefaultMessage());
-            builder.append(" ");
+            builder.append(". ");
         }
 
-        log.warn("Validation Error: {}", builder);
-        return ApiResponse.fail(HttpStatus.BAD_REQUEST.value(), builder.toString().trim());
+        String message = builder.toString().trim();
+        log.warn("Validation Error: {}", message);
+
+        // 유효성 검사 실패는 무조건 400 Bad Request
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.fail(HttpStatus.BAD_REQUEST.value(), message));
     }
 
     /**
-     * [2] 비즈니스 로직 예외 (IllegalArgumentException 등)
-     * 예: throw new IllegalArgumentException("error.user.not_found");
-     */
-    @ExceptionHandler(IllegalArgumentException.class)
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ApiResponse<Void> handleIllegalArgumentException(IllegalArgumentException e) {
-        // 예외 메시지로 들어온 키값(예: error.user.not_found)을 다국어 메시지로 변환
-        String messageKey = e.getMessage();
-        String translatedMessage = getMessage(messageKey);
-
-        log.warn("Business Error: {}", translatedMessage);
-        return ApiResponse.fail(HttpStatus.BAD_REQUEST.value(), translatedMessage);
-    }
-
-    /**
-     * [3] 나머지 모든 예외
+     * [3] 그 외 모든 예외 처리 (최후의 보루)
+     * 예상치 못한 서버 에러(NPE 등)를 처리합니다.
      */
     @ExceptionHandler(Exception.class)
-    @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
-    public ApiResponse<Void> handleException(Exception e) {
-        log.error("Unknown Error: ", e); // 서버 로그에는 전체 스택트레이스 남김
+    public ResponseEntity<ApiResponse<Void>> handleException(Exception e) {
+        log.error("Unhandled Exception: ", e); // 스택 트레이스 로깅
 
-        // 사용자에게는 "서버 내부 오류입니다" 같은 공통 메시지 전달
+        // "서버 내부 오류입니다" 메시지 조회
         String message = getMessage("error.server.internal");
-        return ApiResponse.fail(HttpStatus.INTERNAL_SERVER_ERROR.value(), message);
+
+        return ResponseEntity
+                .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ApiResponse.fail(HttpStatus.INTERNAL_SERVER_ERROR.value(), message));
     }
 
     // 다국어 메시지 조회 헬퍼 메서드
@@ -80,7 +93,7 @@ public class GlobalExceptionHandler {
             Locale locale = LocaleContextHolder.getLocale();
             return messageSource.getMessage(code, null, locale);
         } catch (Exception e) {
-            // 메시지 코드를 못 찾으면 코드 그 자체를 반환
+            // 메시지 키를 못 찾으면 키 값을 그대로 반환 (안전장치)
             return code;
         }
     }
