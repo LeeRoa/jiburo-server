@@ -1,0 +1,28 @@
+package com.jiburo.server.global.config;
+
+import org.springframework.context.MessageSource;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.support.ReloadableResourceBundleMessageSource;
+
+@Configuration
+public class MessageSourceConfig {
+
+    @Bean
+    public MessageSource messageSource() {
+        ReloadableResourceBundleMessageSource messageSource = new ReloadableResourceBundleMessageSource();
+
+        messageSource.setBasenames(
+                "i18n/common/messages",
+                "i18n/error/errors",
+                "i18n/validation/validations"
+        );
+
+        messageSource.setDefaultEncoding("UTF-8");
+        messageSource.setAlwaysUseMessageFormat(true); // 메시지 포맷팅 활성화
+        messageSource.setUseCodeAsDefaultMessage(true); // 메시지 못 찾으면 코드 그대로 출력
+        messageSource.setFallbackToSystemLocale(false);
+
+        return messageSource;
+    }
+}

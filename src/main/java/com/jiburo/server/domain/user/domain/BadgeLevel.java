@@ -27,7 +27,7 @@ public enum BadgeLevel {
      * 점수를 입력받아 해당 점수에 맞는 레벨인지 확인하는 로직 등에 활용 가능
      */
     public static BadgeLevel findLevelByScore(int score) {
-        // 내림차순으로 체크하여 가장 높은 등급 반환 (로직 구현 시 필요)
+        // TODO 내림차순으로 체크하여 가장 높은 등급 반환 (로직 구현 시 필요)
         if (score >= MASTER_SHERLOCK.requiredScore) return MASTER_SHERLOCK;
         if (score >= SENIOR_DETECTIVE.requiredScore) return SENIOR_DETECTIVE;
         if (score >= JUNIOR_DETECTIVE.requiredScore) return JUNIOR_DETECTIVE;

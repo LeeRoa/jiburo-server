@@ -51,6 +51,6 @@ public class User {
     // 비즈니스 로직: 활동 점수 증가 및 등급 승급
     public void increaseScore(int score) {
         this.activityScore += score;
-        // Todo 여기에 점수에 따른 BadgeLevel 승급 로직 추가
+        // TODO 여기에 점수에 따른 BadgeLevel 승급 로직 추가
     }
 }
