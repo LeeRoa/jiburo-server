@@ -79,8 +79,6 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleException(Exception e) {
         log.error("Unhandled Exception: ", e);
 
-        // [수정] 하드코딩 문자열 대신 ErrorCode Enum에서 키를 가져옵니다.
-        // 이렇게 하면 오타가 날 일이 없습니다.
         ErrorCode errorCode = ErrorCode.INTERNAL_SERVER_ERROR;
         String message = getMessage(errorCode.getMessageKey());
 
