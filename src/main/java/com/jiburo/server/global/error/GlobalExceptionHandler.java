@@ -1,10 +1,9 @@
 package com.jiburo.server.global.error;
 
 import com.jiburo.server.global.common.response.ApiResponse;
+import com.jiburo.server.global.util.MessageUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.MessageSource;
-import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindingResult;
@@ -13,14 +12,10 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-import java.util.Locale;
-
 @Slf4j
 @RestControllerAdvice // 모든 컨트롤러에서 발생하는 예외 처리
 @RequiredArgsConstructor
 public class GlobalExceptionHandler {
-
-    private final MessageSource messageSource;
 
     /**
      * [1] BusinessException 처리
@@ -33,7 +28,7 @@ public class GlobalExceptionHandler {
         HttpStatus httpStatus = errorCode.getStatus();
 
         // 다국어 메시지 조회
-        String message = getMessage(errorCode.getMessageKey());
+        String message = MessageUtils.getMessage(errorCode.getMessageKey());
 
         log.warn("Business Exception: Code={}, Message={}", errorCode, message);
 
@@ -80,21 +75,10 @@ public class GlobalExceptionHandler {
         log.error("Unhandled Exception: ", e);
 
         ErrorCode errorCode = ErrorCode.INTERNAL_SERVER_ERROR;
-        String message = getMessage(errorCode.getMessageKey());
+        String message = MessageUtils.getMessage(errorCode.getMessageKey());
 
         return ResponseEntity
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ApiResponse.fail(HttpStatus.INTERNAL_SERVER_ERROR.value(), message));
-    }
-
-    // 다국어 메시지 조회 헬퍼 메서드
-    private String getMessage(String code) {
-        try {
-            Locale locale = LocaleContextHolder.getLocale();
-            return messageSource.getMessage(code, null, locale);
-        } catch (Exception e) {
-            // 메시지 키를 못 찾으면 키 값을 그대로 반환 (안전장치)
-            return code;
-        }
     }
 }
