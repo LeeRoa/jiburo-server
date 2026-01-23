@@ -1,5 +1,6 @@
 package com.jiburo.server.domain.user.jwt;
 
+import com.jiburo.server.domain.user.dto.TokenResponseDto;
 import com.jiburo.server.global.error.BusinessException;
 import com.jiburo.server.global.error.ErrorCode;
 import io.jsonwebtoken.*;
@@ -45,7 +46,7 @@ public class JwtTokenProvider {
     }
 
     // 1. 토큰 생성 (로그인 성공 시 호출)
-    public TokenDto generateTokenDto(Authentication authentication) {
+    public TokenResponseDto generateTokenDto(Authentication authentication) {
         // 권한들 가져오기 (ROLE_USER 등)
         String authorities = authentication.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
@@ -68,7 +69,7 @@ public class JwtTokenProvider {
                 .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
 
-        return TokenDto.builder()
+        return TokenResponseDto.builder()
                 .grantType(BEARER_TYPE)
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)

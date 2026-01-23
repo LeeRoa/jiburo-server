@@ -19,10 +19,13 @@ public enum ErrorCode {
     // 403 Forbidden: 권한 없음 (내 글이 아님, 관리자 전용 등)
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "error.auth.unauthorized"),
     ACCESS_DENIED(HttpStatus.FORBIDDEN, "error.auth.access_denied"),
+    OAUTH_PROVIDER_FAILED(HttpStatus.BAD_GATEWAY, "error.auth.oauth_failed"),
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "error.user.not_found"),
     DUPLICATE_EMAIL(HttpStatus.CONFLICT, "error.user.duplicate_email"),
     DUPLICATE_NICKNAME(HttpStatus.CONFLICT, "error.user.duplicate_nickname"),
-    OAUTH_PROVIDER_FAILED(HttpStatus.BAD_GATEWAY, "error.auth.oauth_failed"),
+    INVALID_TOKEN(HttpStatus.UNAUTHORIZED, "error.token.invalid"),      // 유효하지 않은 토큰
+    EXPIRED_TOKEN(HttpStatus.UNAUTHORIZED, "error.token.expired"),      // 만료된 토큰 (필요시 추가)
+    INVALID_REFRESH_TOKEN(HttpStatus.UNAUTHORIZED, "error.token.refresh_invalid"), // 리프레시 토큰 불일치
 
     // [3] Animal & Map (유기동물 및 지도)
     ANIMAL_NOT_FOUND(HttpStatus.NOT_FOUND, "error.animal.not_found"),

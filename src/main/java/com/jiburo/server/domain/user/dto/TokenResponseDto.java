@@ -1,9 +1,9 @@
-package com.jiburo.server.domain.user.jwt;
+package com.jiburo.server.domain.user.dto;
 
 import lombok.Builder;
 
 @Builder
-public record TokenDto(
+public record TokenResponseDto(
         String grantType,   // Bearer
         String accessToken,
         String refreshToken,

@@ -1,5 +1,6 @@
 package com.jiburo.server.domain.user.jwt;
 
+import com.jiburo.server.domain.user.dto.TokenResponseDto;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -32,12 +33,12 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
     public void onAuthenticationSuccess(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull Authentication authentication) throws IOException, ServletException {
 
         // 1. 토큰 생성
-        TokenDto tokenDto = jwtTokenProvider.generateTokenDto(authentication);
+        TokenResponseDto tokenResponseDto = jwtTokenProvider.generateTokenDto(authentication);
 
         // 2. 리다이렉트 URI 생성
         String targetUrl = UriComponentsBuilder.fromUriString(redirectUri)
-                .queryParam("accessToken", tokenDto.accessToken())
-                .queryParam("refreshToken", tokenDto.refreshToken())
+                .queryParam("accessToken", tokenResponseDto.accessToken())
+                .queryParam("refreshToken", tokenResponseDto.refreshToken())
                 .build().toUriString();
 
         log.info("Social Login Success! Redirecting to: {}", targetUrl);
