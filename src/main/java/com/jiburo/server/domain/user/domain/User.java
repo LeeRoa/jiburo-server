@@ -69,4 +69,13 @@ public class User extends BaseTimeEntity {
     public void updateBadge(String newBadgeCode) {
         this.badgeCode = newBadgeCode;
     }
+
+    public User updateProfile(String nickname, String profileImageUrl) {
+        // 기존 값과 다를 때만 갱신 (Dirty Checking)
+        if (!this.nickname.equals(nickname) || !this.profileImageUrl.equals(profileImageUrl)) {
+            this.nickname = nickname;
+            this.profileImageUrl = profileImageUrl;
+        }
+        return this;
+    }
 }
