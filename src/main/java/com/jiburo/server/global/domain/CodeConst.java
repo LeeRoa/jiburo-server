@@ -48,6 +48,11 @@ public final class CodeConst {
         public static final String USER_UPDATE = "USER_UPDATE";       // 프로필 수정
         public static final String USER_WITHDRAW = "USER_WITHDRAW";   // 회원 탈퇴
 
+        // 인증/보안 관련
+        public static final String AUTH_LOGIN = "AUTH_LOGIN";       // 로그인
+        public static final String AUTH_REISSUE = "AUTH_REISSUE";   // 토큰 재발급 (Access Token 갱신)
+        public static final String AUTH_LOGOUT = "AUTH_LOGOUT";     // 로그아웃
+
         // 신고/관리 관련
         public static final String REPORT_CREATE = "REPORT_CREATE";   // 악성 게시글 신고
         public static final String BADGE_UPGRADE = "BADGE_UPGRADE";   // 등급 승급
