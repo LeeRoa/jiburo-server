@@ -1,5 +1,6 @@
 package com.jiburo.server.global.log;
 
+import com.jiburo.server.domain.user.dto.CustomOAuth2User;
 import com.jiburo.server.global.log.annotation.AuditLog;
 import com.jiburo.server.global.log.event.AuditLogEvent;
 import jakarta.servlet.http.HttpServletRequest;
@@ -9,6 +10,8 @@ import org.aspectj.lang.JoinPoint;
 import org.aspectj.lang.annotation.AfterReturning;
 import org.aspectj.lang.annotation.Aspect;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
@@ -29,13 +32,13 @@ public class AuditLogAspect {
             HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.currentRequestAttributes()).getRequest();
             String clientIp = request.getRemoteAddr();
 
-            // 2. 사용자 ID 가져오기 (SecurityContextHolder 사용 예시)
-            // 실제 구현한 Security 로직에 맞춰 수정 필요 (예: userDetails.getId())
+            // 2. 사용자 ID 가져오기
             Long userId = 0L; // 임시: 로그인 안 했으면 0 (Guest)
-            // Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-            // if (auth != null && auth.getPrincipal() instanceof CustomUserDetails) {
-            //     userId = ((CustomUserDetails) auth.getPrincipal()).getId();
-            // }
+
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null && auth.getPrincipal() instanceof CustomOAuth2User) {
+                userId = ((CustomOAuth2User) auth.getPrincipal()).getUserId();
+            }
 
             // 3. 파라미터 정보 (무엇을 수정했는지)
             Object[] args = joinPoint.getArgs();
