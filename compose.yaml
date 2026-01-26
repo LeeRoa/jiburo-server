@@ -1,1 +1,28 @@
-services: { }
+services:
+  db:
+    image: mariadb:10.11
+    container_name: jiburo-db
+    restart: always
+    environment:
+      MARIADB_ROOT_PASSWORD: ondo2026root!@#
+      MARIADB_DATABASE: jiburo_db
+      MARIADB_USER: jiburo_user
+      MARIADB_PASSWORD: ondo2026user!@#
+    ports:
+      - "13306:3306"  # 외부 접속 시 13306 포트 사용
+    volumes:
+      - ./mysql_data:/var/lib/mysql
+
+  app:
+    build: .
+    container_name: jiburo-server
+    restart: always
+    ports:
+      - "18080:8080"  # 외부 접속 시 18080 포트 사용
+    environment:
+      # 컨테이너끼리는 서비스 이름(db)과 내부 포트(3306)로 통신하므로 여기는 그대로 둡니다.
+      SPRING_DATASOURCE_URL: jdbc:mariadb://db:3306/jiburo_db
+      SPRING_DATASOURCE_USERNAME: jiburo_user
+      SPRING_DATASOURCE_PASSWORD: user_password
+    depends_on:
+      - db
