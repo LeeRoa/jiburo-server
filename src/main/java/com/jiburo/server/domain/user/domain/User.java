@@ -9,7 +9,6 @@ import org.hibernate.annotations.Comment; // DB 코멘트용
 
 @Entity
 @Getter
-// H2, PostgreSQL 등에서 'user'는 예약어인 경우가 많아 테이블명을 'users'로 명시적으로 지정합니다.
 @Table(name = "users")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class User {
