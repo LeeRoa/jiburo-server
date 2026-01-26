@@ -46,7 +46,7 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
 
         // 6. 결과 반환 (세션에 저장될 객체 - 우리는 JWT 쓸거라 중요도는 낮지만 시큐리티 흐름상 필요)
         return new DefaultOAuth2User(
-                Collections.singleton(new SimpleGrantedAuthority(user.getRole().getKey())),
+                Collections.singleton(new SimpleGrantedAuthority(user.getRoleKey())),
                 attributes.attributes(),
                 attributes.nameAttributeKey()
         );

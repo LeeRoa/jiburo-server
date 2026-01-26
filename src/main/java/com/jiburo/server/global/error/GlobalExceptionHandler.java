@@ -1,6 +1,6 @@
 package com.jiburo.server.global.error;
 
-import com.jiburo.server.global.common.response.ApiResponse;
+import com.jiburo.server.global.response.ApiResponse;
 import com.jiburo.server.global.util.MessageUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

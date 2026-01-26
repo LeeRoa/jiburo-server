@@ -1,7 +1,7 @@
 package com.jiburo.server.domain.user.jwt;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.jiburo.server.global.common.response.ApiResponse;
+import com.jiburo.server.global.response.ApiResponse;
 import com.jiburo.server.global.error.ErrorCode;
 import com.jiburo.server.global.util.MessageUtils;
 import jakarta.servlet.http.HttpServletRequest;

@@ -3,7 +3,7 @@ package com.jiburo.server.domain.user.controller;
 import com.jiburo.server.domain.user.dto.TokenRequestDto;
 import com.jiburo.server.domain.user.dto.TokenResponseDto;
 import com.jiburo.server.domain.user.service.AuthService;
-import com.jiburo.server.global.common.response.ApiResponse;
+import com.jiburo.server.global.response.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;

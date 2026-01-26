@@ -1,4 +1,4 @@
-package com.jiburo.server.global.common.response;
+package com.jiburo.server.global.response;
 
 import lombok.Getter;
 import org.springframework.http.HttpStatus;
