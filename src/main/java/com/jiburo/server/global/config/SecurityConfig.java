@@ -46,7 +46,11 @@ public class SecurityConfig {
 
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
-                                "/h2-console/**", "/favicon.ico", "/error", "/swagger-ui/**",
+                                "/api/v1/posts/**",
+                                "/v3/api-docs/**",
+                                "/swagger-ui/**",
+                                "/swagger-ui.html",
+                                "/h2-console/**", "/favicon.ico", "/error",
                                 "/api/v1/auth/**",
                                 "/oauth2/authorization/**", // 로그인 시작 URL
                                 "/login/oauth2/code/**"     // 로그인 완료 후 코드 받는 URL

@@ -1,5 +1,5 @@
 -- 1. 권한 (ROLE)
--- 이미 'ROLE' 그룹에 'USER' 코드가 있다면 무시하고 넘어갑니다.
+-- CodeConst.Role 매핑
 INSERT IGNORE INTO common_codes (code_group, code, message_key, ref_1, use_yn, created_at, updated_at)
 VALUES ('ROLE', 'USER', 'role.user', null, true, NOW(), NOW());
 
@@ -8,6 +8,7 @@ VALUES ('ROLE', 'ADMIN', 'role.admin', null, true, NOW(), NOW());
 
 
 -- 2. 뱃지 등급 (BADGE)
+-- CodeConst.Badge 매핑 (ref_1은 승급 기준 점수)
 INSERT IGNORE INTO common_codes (code_group, code, message_key, ref_1, use_yn, created_at, updated_at)
 VALUES ('BADGE', 'BEGINNER', 'badge.beginner.title', '0', true, NOW(), NOW());
 
@@ -21,7 +22,23 @@ INSERT IGNORE INTO common_codes (code_group, code, message_key, ref_1, use_yn, c
 VALUES ('BADGE', 'MASTER', 'badge.master.title', '300', true, NOW(), NOW());
 
 
--- 3. 동물 종류 (ANIMAL)
+-- 3. 게시글 대분류 (CATEGORY) - [NEW]
+-- CodeConst.PostCategory 매핑
+INSERT IGNORE INTO common_codes (code_group, code, message_key, ref_1, use_yn, created_at, updated_at)
+VALUES ('CATEGORY', 'ANIMAL', 'category.animal', null, true, NOW(), NOW());
+
+INSERT IGNORE INTO common_codes (code_group, code, message_key, ref_1, use_yn, created_at, updated_at)
+VALUES ('CATEGORY', 'PERSON', 'category.person', null, true, NOW(), NOW());
+
+INSERT IGNORE INTO common_codes (code_group, code, message_key, ref_1, use_yn, created_at, updated_at)
+VALUES ('CATEGORY', 'ITEM', 'category.item', null, true, NOW(), NOW());
+
+INSERT IGNORE INTO common_codes (code_group, code, message_key, ref_1, use_yn, created_at, updated_at)
+VALUES ('CATEGORY', 'ETC', 'category.etc', null, true, NOW(), NOW());
+
+
+-- 4. 동물 종류 (ANIMAL)
+-- CodeConst.Animal 매핑 (CATEGORY가 'ANIMAL'일 때 사용되는 서브 코드)
 INSERT IGNORE INTO common_codes (code_group, code, message_key, ref_1, use_yn, created_at, updated_at)
 VALUES ('ANIMAL', 'DOG', 'post.animal.dog', null, true, NOW(), NOW());
 
@@ -32,7 +49,8 @@ INSERT IGNORE INTO common_codes (code_group, code, message_key, ref_1, use_yn, c
 VALUES ('ANIMAL', 'ETC', 'post.animal.etc', null, true, NOW(), NOW());
 
 
--- 4. 게시글 상태 (STATUS)
+-- 5. 게시글 상태 (STATUS)
+-- CodeConst.Status 매핑
 INSERT IGNORE INTO common_codes (code_group, code, message_key, ref_1, use_yn, created_at, updated_at)
 VALUES ('STATUS', 'LOST', 'post.status.lost', null, true, NOW(), NOW());
 
@@ -43,7 +61,8 @@ INSERT IGNORE INTO common_codes (code_group, code, message_key, ref_1, use_yn, c
 VALUES ('STATUS', 'COMPLETE', 'post.status.complete', null, true, NOW(), NOW());
 
 
--- 5. 성별 (GENDER)
+-- 6. 성별 (GENDER)
+-- CodeConst.Gender (없지만 Post Entity에 사용되므로 유지)
 INSERT IGNORE INTO common_codes (code_group, code, message_key, ref_1, use_yn, created_at, updated_at)
 VALUES ('GENDER', 'MALE', 'post.gender.male', null, true, NOW(), NOW());
 
@@ -52,3 +71,23 @@ VALUES ('GENDER', 'FEMALE', 'post.gender.female', null, true, NOW(), NOW());
 
 INSERT IGNORE INTO common_codes (code_group, code, message_key, ref_1, use_yn, created_at, updated_at)
 VALUES ('GENDER', 'UNKNOWN', 'post.gender.unknown', null, true, NOW(), NOW());
+
+
+-- 7. 로그 액션 유형 (LOG_ACTION) - [NEW/Optional]
+-- CodeConst.LogAction 매핑 (관리자 페이지 필터용)
+INSERT IGNORE INTO common_codes (code_group, code, message_key, ref_1, use_yn, created_at, updated_at) VALUES ('LOG_ACTION', 'POST_CREATE', 'log.post.create', null, true, NOW(), NOW());
+INSERT IGNORE INTO common_codes (code_group, code, message_key, ref_1, use_yn, created_at, updated_at) VALUES ('LOG_ACTION', 'POST_UPDATE', 'log.post.update', null, true, NOW(), NOW());
+INSERT IGNORE INTO common_codes (code_group, code, message_key, ref_1, use_yn, created_at, updated_at) VALUES ('LOG_ACTION', 'POST_DELETE', 'log.post.delete', null, true, NOW(), NOW());
+INSERT IGNORE INTO common_codes (code_group, code, message_key, ref_1, use_yn, created_at, updated_at) VALUES ('LOG_ACTION', 'POST_STATUS_CHANGE', 'log.post.status_change', null, true, NOW(), NOW());
+
+INSERT IGNORE INTO common_codes (code_group, code, message_key, ref_1, use_yn, created_at, updated_at) VALUES ('LOG_ACTION', 'USER_JOIN', 'log.user.join', null, true, NOW(), NOW());
+INSERT IGNORE INTO common_codes (code_group, code, message_key, ref_1, use_yn, created_at, updated_at) VALUES ('LOG_ACTION', 'USER_LOGIN', 'log.user.login', null, true, NOW(), NOW());
+INSERT IGNORE INTO common_codes (code_group, code, message_key, ref_1, use_yn, created_at, updated_at) VALUES ('LOG_ACTION', 'USER_UPDATE', 'log.user.update', null, true, NOW(), NOW());
+INSERT IGNORE INTO common_codes (code_group, code, message_key, ref_1, use_yn, created_at, updated_at) VALUES ('LOG_ACTION', 'USER_WITHDRAW', 'log.user.withdraw', null, true, NOW(), NOW());
+
+INSERT IGNORE INTO common_codes (code_group, code, message_key, ref_1, use_yn, created_at, updated_at) VALUES ('LOG_ACTION', 'AUTH_LOGIN', 'log.auth.login', null, true, NOW(), NOW());
+INSERT IGNORE INTO common_codes (code_group, code, message_key, ref_1, use_yn, created_at, updated_at) VALUES ('LOG_ACTION', 'AUTH_REISSUE', 'log.auth.reissue', null, true, NOW(), NOW());
+INSERT IGNORE INTO common_codes (code_group, code, message_key, ref_1, use_yn, created_at, updated_at) VALUES ('LOG_ACTION', 'AUTH_LOGOUT', 'log.auth.logout', null, true, NOW(), NOW());
+
+INSERT IGNORE INTO common_codes (code_group, code, message_key, ref_1, use_yn, created_at, updated_at) VALUES ('LOG_ACTION', 'REPORT_CREATE', 'log.report.create', null, true, NOW(), NOW());
+INSERT IGNORE INTO common_codes (code_group, code, message_key, ref_1, use_yn, created_at, updated_at) VALUES ('LOG_ACTION', 'BADGE_UPGRADE', 'log.badge.upgrade', null, true, NOW(), NOW());

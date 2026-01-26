@@ -57,4 +57,12 @@ public final class CodeConst {
         public static final String REPORT_CREATE = "REPORT_CREATE";   // 악성 게시글 신고
         public static final String BADGE_UPGRADE = "BADGE_UPGRADE";   // 등급 승급
     }
+
+    // 게시글 대분류 (대상)
+    public static class PostCategory {
+        public static final String ANIMAL = "ANIMAL"; // 동물
+        public static final String PERSON = "PERSON"; // 사람 (추후 확장)
+        public static final String ITEM = "ITEM";     // 물건 (추후 확장)
+        public static final String ETC = "ETC";     // 기타
+    }
 }

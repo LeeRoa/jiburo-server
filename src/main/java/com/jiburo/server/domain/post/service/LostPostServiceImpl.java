@@ -2,6 +2,8 @@ package com.jiburo.server.domain.post.service;
 
 import com.jiburo.server.domain.post.domain.LostPost;
 import com.jiburo.server.domain.post.dto.*;
+import com.jiburo.server.domain.post.dto.detail.AnimalDetailDto; // [추가]
+import com.jiburo.server.domain.post.dto.detail.TargetDetailDto; // [추가]
 import com.jiburo.server.domain.post.repository.LostPostRepository;
 import com.jiburo.server.domain.user.dao.UserRepository;
 import com.jiburo.server.domain.user.domain.User;
@@ -13,8 +15,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -30,16 +30,24 @@ public class LostPostServiceImpl implements LostPostService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
+        // 1. 상세 정보 객체 생성 (JSON 변환용)
+        // 현재는 '동물'만 처리하지만, 나중에 categoryCode에 따라 분기(Switch) 가능
+        TargetDetailDto detail = AnimalDetailDto.builder()
+                .animalType(requestDto.animalTypeCode())
+                .breed(requestDto.breed())
+                .gender(requestDto.genderCode())
+                .color(requestDto.color())
+                .age(requestDto.age())
+                .build();
+
+        // 2. 엔티티 생성
         LostPost post = LostPost.builder()
                 .user(user)
+                .categoryCode(CodeConst.PostCategory.ANIMAL) // 현재는 동물 고정 (DTO에 추가되면 requestDto.categoryCode() 사용)
                 .title(requestDto.title())
                 .content(requestDto.content())
                 .statusCode(CodeConst.Status.LOST)
-                .animalTypeCode(requestDto.animalTypeCode())
-                .breed(requestDto.breed())
-                .genderCode(requestDto.genderCode())
-                .color(requestDto.color())
-                .age(requestDto.age())
+                .detail(detail) // 객체를 통째로 넣으면 Converter가 JSON으로 변환
                 .imageUrl(requestDto.imageUrl())
                 .latitude(requestDto.latitude())
                 .longitude(requestDto.longitude())
@@ -63,12 +71,29 @@ public class LostPostServiceImpl implements LostPostService {
         LostPost post = findPostByIdOrThrow(postId);
         validateWriter(post, userId);
 
+        // 1. 수정할 상세 정보 객체 생성
+        // (수정 시 카테고리가 바뀔 수도 있으므로, DTO의 categoryCode를 확인해야 함)
+        // 여기서는 일단 ANIMAL로 가정하고 업데이트
+        TargetDetailDto detail = AnimalDetailDto.builder()
+                .animalType(requestDto.animalTypeCode())
+                .breed(requestDto.breed())
+                .gender(requestDto.genderCode())
+                .color(requestDto.color())
+                .age(requestDto.age())
+                .build();
+
+        // 2. 엔티티 업데이트 호출
         post.update(
-                requestDto.title(), requestDto.content(), requestDto.imageUrl(),
-                requestDto.animalTypeCode(), requestDto.breed(), requestDto.genderCode(),
-                requestDto.color(), requestDto.age(),
-                requestDto.latitude(), requestDto.longitude(), requestDto.foundLocation(),
-                requestDto.lostDate(), requestDto.reward()
+                requestDto.title(),
+                requestDto.content(),
+                requestDto.imageUrl(),
+                requestDto.categoryCode(),
+                detail,
+                requestDto.latitude(),
+                requestDto.longitude(),
+                requestDto.foundLocation(),
+                requestDto.lostDate(),
+                requestDto.reward()
         );
     }
 
@@ -92,7 +117,6 @@ public class LostPostServiceImpl implements LostPostService {
 
     @Override
     public Page<LostPostResponseDto> search(LostPostSearchCondition condition, Pageable pageable) {
-        // Repository가 반환한 Page<Entity>를 Page<Dto>로 변환 (.map 사용)
         return lostPostRepository.search(condition, pageable)
                 .map(LostPostResponseDto::from);
     }

@@ -1,12 +1,16 @@
 package com.jiburo.server.domain.post.dto;
 
 import java.time.LocalDate;
+import java.util.Map;
 
 // 검색 필터 조건 (null이면 전체 조회)
 public record LostPostSearchCondition(
-        String statusCode,     // 상태 (LOST, COMPLETE)
-        String animalTypeCode, // 동물 종류 (DOG, CAT)
-        String keyword,        // 검색어 (제목 + 내용 + 장소)
-        LocalDate dateFrom,    // 날짜 검색 시작일
-        LocalDate dateTo       // 날짜 검색 종료일
+        String categoryCode, // 어떤 대분류인지 (ANIMAL, PERSON...)
+        String statusCode,
+        String keyword,
+        LocalDate dateFrom,
+        LocalDate dateTo,
+
+        // "animalType=DOG", "breed=말티즈", "clothing=패딩" 무엇이든 받을 수 있는 맵
+        Map<String, String> detailFilters
 ) {}
