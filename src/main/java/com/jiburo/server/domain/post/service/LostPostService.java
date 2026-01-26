@@ -2,17 +2,15 @@ package com.jiburo.server.domain.post.service;
 
 import com.jiburo.server.domain.post.dto.LostPostCreateRequestDto;
 import com.jiburo.server.domain.post.dto.LostPostResponseDto;
+import com.jiburo.server.domain.post.dto.LostPostSearchCondition;
 import com.jiburo.server.domain.post.dto.LostPostUpdateRequestDto;
-
-import java.util.List;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 public interface LostPostService {
 
     // 등록
     Long create(Long userId, LostPostCreateRequestDto requestDto);
-
-    // 전체 조회
-    List<LostPostResponseDto> findAll();
 
     // 단건 조회
     LostPostResponseDto findById(Long id);
@@ -25,4 +23,6 @@ public interface LostPostService {
 
     // 삭제
     void delete(Long userId, Long postId);
+
+    Page<LostPostResponseDto> search(LostPostSearchCondition condition, Pageable pageable);
 }

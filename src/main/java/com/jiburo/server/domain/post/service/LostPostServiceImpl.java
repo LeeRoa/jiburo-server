@@ -9,6 +9,8 @@ import com.jiburo.server.global.domain.CodeConst;
 import com.jiburo.server.global.error.BusinessException;
 import com.jiburo.server.global.error.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -50,13 +52,6 @@ public class LostPostServiceImpl implements LostPostService {
     }
 
     @Override
-    public List<LostPostResponseDto> findAll() {
-        return lostPostRepository.findAllDesc().stream()
-                .map(LostPostResponseDto::from)
-                .toList();
-    }
-
-    @Override
     public LostPostResponseDto findById(Long id) {
         LostPost post = findPostByIdOrThrow(id);
         return LostPostResponseDto.from(post);
@@ -93,6 +88,13 @@ public class LostPostServiceImpl implements LostPostService {
         validateWriter(post, userId);
 
         lostPostRepository.delete(post);
+    }
+
+    @Override
+    public Page<LostPostResponseDto> search(LostPostSearchCondition condition, Pageable pageable) {
+        // Repository가 반환한 Page<Entity>를 Page<Dto>로 변환 (.map 사용)
+        return lostPostRepository.search(condition, pageable)
+                .map(LostPostResponseDto::from);
     }
 
     private LostPost findPostByIdOrThrow(Long id) {

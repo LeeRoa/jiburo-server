@@ -1,6 +1,9 @@
 package com.jiburo.server.domain.post.controller;
 
-import com.jiburo.server.domain.post.dto.*;
+import com.jiburo.server.domain.post.dto.LostPostCreateRequestDto;
+import com.jiburo.server.domain.post.dto.LostPostResponseDto;
+import com.jiburo.server.domain.post.dto.LostPostSearchCondition;
+import com.jiburo.server.domain.post.dto.LostPostUpdateRequestDto;
 import com.jiburo.server.domain.post.service.LostPostService;
 import com.jiburo.server.domain.user.dto.CustomOAuth2User;
 import com.jiburo.server.global.domain.CodeConst;
@@ -8,10 +11,12 @@ import com.jiburo.server.global.log.annotation.AuditLog;
 import com.jiburo.server.global.response.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
@@ -33,8 +38,11 @@ public class LostPostController {
 
     // [전체 조회]
     @GetMapping
-    public ApiResponse<List<LostPostResponseDto>> getAllPosts() {
-        return ApiResponse.success(lostPostService.findAll());
+    public ApiResponse<Page<LostPostResponseDto>> getPosts(
+            @ModelAttribute LostPostSearchCondition condition,
+            @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable
+    ) {
+        return ApiResponse.success(lostPostService.search(condition, pageable));
     }
 
     // [단건 조회]
