@@ -120,9 +120,24 @@ public class LostPost extends com.jiburo.server.global.consts.entity.BaseTimeEnt
     }
 
     // 내용 수정
-    public void updateInfo(String title, String content, String imageUrl) {
+    public void update(String title, String content, String imageUrl,
+                       String animalTypeCode, String breed, String genderCode,
+                       String color, Integer age,
+                       Double latitude, Double longitude, String foundLocation,
+                       LocalDate lostDate, int reward) {
+
         this.title = title;
         this.content = content;
         this.imageUrl = imageUrl;
+        this.animalTypeCode = animalTypeCode;
+        this.breed = breed;
+        this.genderCode = genderCode;
+        this.color = color;
+        this.age = age;
+        this.latitude = latitude;
+        this.longitude = longitude;
+        this.foundLocation = foundLocation;
+        this.lostDate = lostDate;
+        this.reward = reward;
     }
 }
