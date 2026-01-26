@@ -20,6 +20,7 @@ public enum ErrorCode {
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "error.auth.unauthorized"),
     ACCESS_DENIED(HttpStatus.FORBIDDEN, "error.auth.access_denied"),
     OAUTH_PROVIDER_FAILED(HttpStatus.BAD_GATEWAY, "error.auth.oauth_failed"),
+    OAUTH_PROVIDER_INVALID(HttpStatus.BAD_GATEWAY, "error.auth.oauth_invalid"),
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "error.user.not_found"),
     DUPLICATE_EMAIL(HttpStatus.CONFLICT, "error.user.duplicate_email"),
     DUPLICATE_NICKNAME(HttpStatus.CONFLICT, "error.user.duplicate_nickname"),
