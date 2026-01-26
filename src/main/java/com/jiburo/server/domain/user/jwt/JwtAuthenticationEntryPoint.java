@@ -1,5 +1,6 @@
 package com.jiburo.server.domain.user.jwt;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jiburo.server.global.common.response.ApiResponse;
 import com.jiburo.server.global.error.ErrorCode;
 import com.jiburo.server.global.util.MessageUtils;
@@ -10,7 +11,6 @@ import org.springframework.http.MediaType;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.stereotype.Component;
-import tools.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 

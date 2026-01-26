@@ -34,7 +34,7 @@ public enum ErrorCode {
     REGION_NOT_SUPPORTED(HttpStatus.BAD_REQUEST, "error.animal.region_not_supported"), // 서비스 지원 외 지역
 
     // [4] Image Upload (사진 업로드 - 모바일 웹 필수)
-    FILE_SIZE_EXCEEDED(HttpStatus.CONTENT_TOO_LARGE, "error.file.size_exceeded"),
+    FILE_SIZE_EXCEEDED(HttpStatus.PAYLOAD_TOO_LARGE, "error.file.size_exceeded"),
     FILE_UPLOAD_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "error.file.upload_failed"),
     INVALID_FILE_FORMAT(HttpStatus.BAD_REQUEST, "error.file.invalid_format"),
 
