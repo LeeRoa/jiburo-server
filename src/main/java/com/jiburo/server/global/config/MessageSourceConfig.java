@@ -14,6 +14,7 @@ public class MessageSourceConfig {
 
         messageSource.setBasenames(
                 "classpath:i18n/common/messages",
+                "classpath:i18n/entity/messages",
                 "classpath:i18n/error/messages",
                 "classpath:i18n/validation/messages"
         );
