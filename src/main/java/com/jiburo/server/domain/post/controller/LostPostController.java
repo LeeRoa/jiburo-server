@@ -9,7 +9,6 @@ import com.jiburo.server.domain.user.dto.CustomOAuth2User;
 import com.jiburo.server.global.domain.CodeConst;
 import com.jiburo.server.global.log.annotation.AuditLog;
 import com.jiburo.server.global.response.ApiResponse;
-import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -30,7 +29,7 @@ public class LostPostController {
     @AuditLog(action = CodeConst.LogAction.POST_CREATE)
     @PostMapping
     public ApiResponse<Long> createPost(
-            @Parameter(hidden = true) @AuthenticationPrincipal CustomOAuth2User user,
+            @AuthenticationPrincipal CustomOAuth2User user,
             @Valid @RequestBody LostPostCreateRequestDto requestDto
     ) {
         Long postId = lostPostService.create(user.getUserId(), requestDto);
