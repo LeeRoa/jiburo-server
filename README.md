@@ -29,10 +29,9 @@
 
 1.  **리포지토리 클론:**
     ```bash
-    git clone [프로젝트_레포지토리_URL]
+    git clone https://github.com/LeeRoa/jiburo-server
     cd readme_gen_jiburo-server_j903d1of
     ```
-    (여기서 `[프로젝트_레포지토리_URL]`을 실제 GitHub URL로 대체하세요.)
 
 2.  **Docker Compose를 이용한 빌드 및 실행:**
     프로젝트 루트 디렉토리에서 다음 명령어를 실행하여 애플리케이션을 빌드하고 실행합니다.
