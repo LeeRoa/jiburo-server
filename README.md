@@ -30,7 +30,7 @@
 1.  **리포지토리 클론:**
     ```bash
     git clone https://github.com/LeeRoa/jiburo-server
-    cd readme_gen_jiburo-server_j903d1of
+    cd jiburo-server
     ```
 
 2.  **Docker Compose를 이용한 빌드 및 실행:**
@@ -61,7 +61,7 @@ Docker Compose를 통해 애플리케이션이 성공적으로 시작되면, 백
 프로젝트의 주요 디렉토리 및 파일은 다음과 같습니다.
 
 ```
-readme_gen_jiburo-server_j903d1of/
+jiburo-server/
 ├── gradle                                  # Gradle Wrapper 관련 파일
 │   └── wrapper
 ├── src                                     # 소스 코드 디렉토리
