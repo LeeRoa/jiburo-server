@@ -43,9 +43,9 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         OAuth2AuthenticationToken authToken = (OAuth2AuthenticationToken) authentication;
         OAuth2User oAuth2User = (OAuth2User) authentication.getPrincipal();
 
+
         String provider = authToken.getAuthorizedClientRegistrationId();
         String providerId = oAuth2User.getName();
-
         String oauthId = provider + "_" + providerId;
 
         User dbUser = userRepository.findByOauthId(oauthId)

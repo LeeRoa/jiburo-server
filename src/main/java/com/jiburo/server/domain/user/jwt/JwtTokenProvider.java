@@ -1,5 +1,6 @@
 package com.jiburo.server.domain.user.jwt;
 
+import com.jiburo.server.domain.user.dto.CustomOAuth2User;
 import com.jiburo.server.domain.user.dto.TokenResponseDto;
 import com.jiburo.server.global.error.BusinessException;
 import com.jiburo.server.global.error.ErrorCode;
@@ -12,14 +13,13 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.userdetails.User;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
 import java.security.Key;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Date;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -87,15 +87,17 @@ public class JwtTokenProvider {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE); // 권한 정보가 없는 토큰 예외 처리
         }
 
-        // 클레임에서 권한 정보 가져오기
         Collection<? extends GrantedAuthority> authorities =
-                Arrays.stream(claims.get(AUTHORITIES_KEY).toString().split(","))
+                Arrays.stream(claims.get("auth").toString().split(","))
                         .map(SimpleGrantedAuthority::new)
                         .collect(Collectors.toList());
 
-        // UserDetails 객체를 만들어서 Authentication 리턴
-        // (여기서는 비밀번호가 필요 없으므로 빈 문자열 처리)
-        UserDetails principal = new User(claims.getSubject(), "", authorities);
+        // 2. [핵심] sub에 담긴 UUID 문자열을 다시 UUID 객체로 변환
+        // 만약 토큰의 sub가 UUID 형식이 아니면 여기서 터지거나 null이 될 수 있음
+        UUID userId = UUID.fromString(claims.getSubject());
+
+        // 3. CustomOAuth2User 생성 (UUID를 받는 생성자 호출 확인!)
+        CustomOAuth2User principal = new CustomOAuth2User(userId, authorities);
 
         return new UsernamePasswordAuthenticationToken(principal, "", authorities);
     }
