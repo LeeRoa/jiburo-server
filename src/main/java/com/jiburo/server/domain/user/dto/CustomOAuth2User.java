@@ -7,17 +7,16 @@ import org.springframework.security.oauth2.core.user.DefaultOAuth2User;
 
 import java.util.Collection;
 import java.util.Map;
+import java.util.UUID; // ★ 중요
 
 @Getter
 public class CustomOAuth2User extends DefaultOAuth2User {
 
-    private final Long userId;
+    private final UUID userId;
     private final String email;
     private final String roleCode;
 
-    /**
-     * 부모(DefaultOAuth2User) 생성자를 호출하고, 우리에게 필요한 userId를 추가로 세팅합니다.
-     */
+    // 1. 로그인 성공 시 (User 엔티티 받음)
     public CustomOAuth2User(Collection<? extends GrantedAuthority> authorities,
                             Map<String, Object> attributes,
                             String nameAttributeKey,
@@ -26,5 +25,13 @@ public class CustomOAuth2User extends DefaultOAuth2User {
         this.userId = user.getId();
         this.email = user.getEmail();
         this.roleCode = user.getRoleCode();
+    }
+
+    // 2. JWT 필터 시 (UUID userId 받음)
+    public CustomOAuth2User(UUID userId, Collection<? extends GrantedAuthority> authorities) {
+        super(authorities, Map.of("id", userId.toString()), "id");
+        this.userId = userId;
+        this.email = null;
+        this.roleCode = null;
     }
 }

@@ -7,22 +7,24 @@ import com.jiburo.server.domain.post.dto.LostPostUpdateRequestDto;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import java.util.UUID;
+
 public interface LostPostService {
 
     // 등록
-    Long create(Long userId, LostPostCreateRequestDto requestDto);
+    Long create(UUID userId, LostPostCreateRequestDto requestDto);
 
     // 단건 조회
     LostPostResponseDto findById(Long id);
 
     // 수정
-    void update(Long userId, Long postId, LostPostUpdateRequestDto requestDto);
+    void update(UUID userId, Long postId, LostPostUpdateRequestDto requestDto);
 
     // 상태 변경
-    void updateStatus(Long userId, Long postId, String statusCode);
+    void updateStatus(UUID userId, Long postId, String statusCode);
 
     // 삭제
-    void delete(Long userId, Long postId);
+    void delete(UUID userId, Long postId);
 
     Page<LostPostResponseDto> search(LostPostSearchCondition condition, Pageable pageable);
 }

@@ -8,6 +8,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.Comment;
 
+import java.util.UUID;
+
 @Entity
 @Getter
 @Table(name = "users")
@@ -15,8 +17,9 @@ import org.hibernate.annotations.Comment;
 public class User extends BaseTimeEntity {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.UUID) // ★ UUID 자동 생성 전략
+    @Column(columnDefinition = "BINARY(16)") // ★ DB 저장 효율을 위해 BINARY(16) 사용
+    private UUID id;
 
     @Column(nullable = false, unique = true)
     @Comment("소셜 로그인 식별자 (Provider_ID 형태)")

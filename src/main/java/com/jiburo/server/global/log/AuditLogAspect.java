@@ -16,6 +16,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
+import java.util.UUID;
+
 @Slf4j
 @Aspect
 @Component
@@ -33,7 +35,7 @@ public class AuditLogAspect {
             String clientIp = request.getRemoteAddr();
 
             // 2. 사용자 ID 가져오기
-            Long userId = 0L; // 임시: 로그인 안 했으면 0 (Guest)
+            UUID userId = null;
 
             Authentication auth = SecurityContextHolder.getContext().getAuthentication();
             if (auth != null && auth.getPrincipal() instanceof CustomOAuth2User) {

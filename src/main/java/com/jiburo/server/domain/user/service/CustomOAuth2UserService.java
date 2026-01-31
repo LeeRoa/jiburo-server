@@ -45,7 +45,7 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
         // 5. 사용자 저장 또는 업데이트 (여기서 영속화된 User 객체를 받음)
         User user = saveOrUpdate(attributes);
 
-        // 6. 결과 반환 [핵심 변경]
+        // 6. 결과 반환
         // DefaultOAuth2User 대신 -> CustomOAuth2User를 리턴하면서 'user' 엔티티를 통째로 넘김
         return new CustomOAuth2User(
                 Collections.singleton(new SimpleGrantedAuthority(user.getRoleKey())),

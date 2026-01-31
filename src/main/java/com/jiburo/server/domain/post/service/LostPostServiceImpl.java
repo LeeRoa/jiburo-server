@@ -16,6 +16,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.UUID;
+
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -26,7 +28,7 @@ public class LostPostServiceImpl implements LostPostService {
 
     @Override
     @Transactional
-    public Long create(Long userId, LostPostCreateRequestDto requestDto) {
+    public Long create(UUID userId, LostPostCreateRequestDto requestDto) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
@@ -67,7 +69,7 @@ public class LostPostServiceImpl implements LostPostService {
 
     @Override
     @Transactional
-    public void update(Long userId, Long postId, LostPostUpdateRequestDto requestDto) {
+    public void update(UUID userId, Long postId, LostPostUpdateRequestDto requestDto) {
         LostPost post = findPostByIdOrThrow(postId);
         validateWriter(post, userId);
 
@@ -99,7 +101,7 @@ public class LostPostServiceImpl implements LostPostService {
 
     @Override
     @Transactional
-    public void updateStatus(Long userId, Long postId, String statusCode) {
+    public void updateStatus(UUID userId, Long postId, String statusCode) {
         LostPost post = findPostByIdOrThrow(postId);
         validateWriter(post, userId);
 
@@ -108,7 +110,7 @@ public class LostPostServiceImpl implements LostPostService {
 
     @Override
     @Transactional
-    public void delete(Long userId, Long postId) {
+    public void delete(UUID userId, Long postId) {
         LostPost post = findPostByIdOrThrow(postId);
         validateWriter(post, userId);
 
@@ -126,7 +128,7 @@ public class LostPostServiceImpl implements LostPostService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
     }
 
-    private void validateWriter(LostPost post, Long userId) {
+    private void validateWriter(LostPost post, UUID userId) {
         if (!post.getUser().getId().equals(userId)) {
             throw new BusinessException(ErrorCode.POST_ACCESS_DENIED);
         }

@@ -9,6 +9,7 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
 @Getter
@@ -22,7 +23,7 @@ public class AuditLog {
     private Long id;
 
     @Column(nullable = false)
-    private Long userId; // 누가 (User 객체 대신 ID만 저장, 연관관계 X)
+    private UUID userId; // 누가 (User 객체 대신 ID만 저장, 연관관계 X)
 
     @Column(nullable = false)
     private String action; // 무엇을 (예: POST_CREATE)
@@ -37,7 +38,7 @@ public class AuditLog {
     private LocalDateTime createdAt; // 언제
 
     @Builder
-    public AuditLog(Long userId, String action, String targetData, String clientIp) {
+    public AuditLog(UUID userId, String action, String targetData, String clientIp) {
         this.userId = userId;
         this.action = action;
         this.targetData = targetData;
