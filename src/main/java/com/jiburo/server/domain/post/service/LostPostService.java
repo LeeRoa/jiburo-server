@@ -3,6 +3,7 @@ package com.jiburo.server.domain.post.service;
 import com.jiburo.server.domain.post.dto.*;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
 
 import java.util.List;
 import java.util.UUID;
@@ -28,5 +29,5 @@ public interface LostPostService {
 
     List<LostPostResponseDto> getPostsForMap(LostPostMapRequestDto request);
 
-    List<LostPostResponseDto> getPostsForList(LostPostNearbyRequestDto request);
+    Slice<LostPostResponseDto> getPostsForList(LostPostNearbyRequestDto request);
 }

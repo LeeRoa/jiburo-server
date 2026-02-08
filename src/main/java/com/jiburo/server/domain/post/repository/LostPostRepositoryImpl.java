@@ -12,8 +12,7 @@ import com.querydsl.jpa.impl.JPAQuery;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.*;
 import org.springframework.data.support.PageableExecutionUtils;
 import org.springframework.util.StringUtils;
 
@@ -25,6 +24,12 @@ import java.util.List;
 import static com.jiburo.server.domain.post.domain.QLostPost.lostPost;
 import static com.jiburo.server.domain.user.domain.QUser.user;
 
+/**
+ * 게시글 조회 관련 QueryDSL 구현체
+ * - 동적 검색 (JSON 필드 포함)
+ * - 지도 기반 조회 (Viewport, Radius)
+ * - 무한 스크롤 (Slice)
+ */
 @Slf4j
 @RequiredArgsConstructor
 public class LostPostRepositoryImpl implements LostPostRepositoryCustom {
@@ -38,6 +43,11 @@ public class LostPostRepositoryImpl implements LostPostRepositoryCustom {
             "brand", "model"                                 // 물건 관련 (확장 대비)
     );
 
+    /**
+     * [통합 검색] 조건에 맞는 게시글 페이징 조회
+     * - 기본 필드 + JSON 상세 필드 동적 검색 지원
+     * - Count 쿼리 최적화 적용 (PageableExecutionUtils)
+     */
     @Override
     public Page<LostPost> search(LostPostSearchCondition condition, Pageable pageable) {
 
@@ -63,7 +73,12 @@ public class LostPostRepositoryImpl implements LostPostRepositoryCustom {
         return PageableExecutionUtils.getPage(content, pageable, countQuery::fetchOne);
     }
 
-    // 1. 지도 드래그용: 사각형 범위 검색 (빠름)
+    /**
+     * [지도 렌더링] Viewport(화면 영역) 기반 게시글 조회
+     * - 지도의 남서(SW) ~ 북동(NE) 좌표 사이의 데이터를 조회
+     * - 인덱스(idx_lost_post_location)를 사용하여 빠른 조회 가능
+     * - 마커 렌더링 성능을 위해 limit 적용
+     */
     @Override
     public List<LostPost> searchByViewport(LostPostMapRequestDto request) {
         return queryFactory
@@ -76,33 +91,51 @@ public class LostPostRepositoryImpl implements LostPostRepositoryCustom {
                 .fetch();
     }
 
-    // 마커 클릭용: 반경 검색 + 거리순 정렬
+    /**
+     * [리스트 렌더링] 반경(Radius) 기반 무한 스크롤 조회 (Slice)
+     * - 중심 좌표 기준 반경 N km 이내 데이터 조회
+     * - 성능 최적화 1: Bounding Box로 1차 필터링하여 인덱스 유도
+     * - 성능 최적화 2: Haversine 공식으로 정밀 거리 계산 및 정렬
+     * - 성능 최적화 3: Slice 방식 (Limit + 1)으로 Count 쿼리 제거
+     */
     @Override
-    public List<LostPost> searchByRadius(LostPostNearbyRequestDto request) {
-        // 반경 기반 Bounding Box 생성 (인덱스 태우기용)
-        // 위도 1도 ≒ 111km
-        double radiusInDegree = request.radius() / 111.0;
+    public Slice<LostPost> searchByRadius(LostPostNearbyRequestDto request) {
+        // 1. 페이징 정보 생성 (page, size)
+        Pageable pageable = PageRequest.of(request.page(), request.size());
 
+        // 2. [최적화] 반경 기반 Bounding Box 생성 (인덱스 태우기용)
+        // 위도 1도 ≒ 111km (근사치 적용하여 1차 필터링 범위 설정)
+        double radiusInDegree = request.radius() / 111.0;
         Double minLat = request.centerLat() - radiusInDegree;
         Double maxLat = request.centerLat() + radiusInDegree;
         Double minLng = request.centerLng() - radiusInDegree;
         Double maxLng = request.centerLng() + radiusInDegree;
 
-        // Haversine 공식
+        // 3. Haversine 거리 계산 표현식 생성
         NumberExpression<Double> distanceExpression = getDistanceExpression(request.centerLat(), request.centerLng());
 
-        return queryFactory
+        // 4. 쿼리 실행 (요청 사이즈 + 1 조회)
+        List<LostPost> content = queryFactory
                 .selectFrom(lostPost)
                 .where(
                         latitudeBetween(minLat, maxLat),
                         longitudeBetween(minLng, maxLng),
-
-                        // 정밀 필터링
                         distanceExpression.loe(request.radius())
                 )
-                .orderBy(distanceExpression.asc())
-                .limit(request.limit())
+                .orderBy(distanceExpression.asc()) // 거리순 정렬
+                .offset(pageable.getOffset())      // 어디서부터 가져올지 (page * size)
+                .limit(pageable.getPageSize() + 1) // 요청보다 1개 더 가져옴 (hasNext 확인용)
                 .fetch();
+
+        // 4. hasNext 판단 로직
+        boolean hasNext = false;
+        if (content.size() > pageable.getPageSize()) {
+            content.remove(pageable.getPageSize()); // 확인용으로 가져온 마지막 1개는 제거
+            hasNext = true; // 다음 페이지 있음
+        }
+
+        // 5. Slice 객체로 반환
+        return new SliceImpl<>(content, pageable, hasNext);
     }
 
     private BooleanExpression latitudeBetween(Double min, Double max) {
@@ -113,7 +146,11 @@ public class LostPostRepositoryImpl implements LostPostRepositoryCustom {
         return min != null && max != null ? lostPost.longitude.between(min, max) : null;
     }
 
-    // 거리 계산 수식 (MySQL 기준)
+    /**
+     * Haversine 공식을 이용한 거리 계산 표현식 (MySQL 호환)
+     * - 6371: 지구 반지름 (km)
+     * - 결과 단위: km
+     */
     private NumberExpression<Double> getDistanceExpression(Double lat, Double lng) {
         return Expressions.numberTemplate(Double.class,
                 "6371 * acos(cos(radians({0})) * cos(radians({1})) * cos(radians({2}) - radians({3})) + sin(radians({0})) * sin(radians({1})))",
@@ -137,7 +174,7 @@ public class LostPostRepositoryImpl implements LostPostRepositoryCustom {
     }
 
     /**
-     * [핵심] JSON 동적 필터 생성
+     * JSON 동적 필터 생성
      * - null 대신 "빈 BooleanBuilder"를 반환해 and() 처리 안정성 확보
      * - JSON path는 constant()로 감싸 문자열 리터럴로 바인딩을 보장
      */
@@ -177,7 +214,7 @@ public class LostPostRepositoryImpl implements LostPostRepositoryCustom {
         return jsonBuilder;
     }
 
-    // --- 기본 조건들 ---
+    // --- 기본 검색 조건 ---
 
     private BooleanExpression eqCategoryCode(String categoryCode) {
         return StringUtils.hasText(categoryCode) ? lostPost.categoryCode.eq(categoryCode) : null;

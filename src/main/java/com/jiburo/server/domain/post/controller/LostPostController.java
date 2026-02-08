@@ -10,6 +10,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -93,7 +94,7 @@ public class LostPostController {
 
     // 마커 클릭 시 호출 (리스트용)
     @GetMapping("/nearby")
-    public ApiResponse<List<LostPostResponseDto>> getNearbyPosts(@ModelAttribute LostPostNearbyRequestDto request) {
+    public ApiResponse<Slice<LostPostResponseDto>> getNearbyPosts(@ModelAttribute LostPostNearbyRequestDto request) {
         return ApiResponse.success(lostPostService.getPostsForList(request));
     }
 }

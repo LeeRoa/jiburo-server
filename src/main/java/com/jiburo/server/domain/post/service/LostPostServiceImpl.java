@@ -13,6 +13,7 @@ import com.jiburo.server.global.error.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -134,10 +135,9 @@ public class LostPostServiceImpl implements LostPostService {
 
     // 리스트 렌더링용 (클릭 시 상세)
     @Override
-    public List<LostPostResponseDto> getPostsForList(LostPostNearbyRequestDto request) {
-        return lostPostRepository.searchByRadius(request).stream()
-                .map(LostPostResponseDto::from)
-                .toList();
+    public Slice<LostPostResponseDto> getPostsForList(LostPostNearbyRequestDto request) {
+        Slice<LostPost> postSlice = lostPostRepository.searchByRadius(request);
+        return postSlice.map(LostPostResponseDto::from);
     }
 
     private LostPost findPostByIdOrThrow(Long id) {
