@@ -1,10 +1,13 @@
 package com.jiburo.server.domain.post.repository;
 
 import com.jiburo.server.domain.post.domain.LostPost;
+import com.jiburo.server.domain.post.dto.LostPostMapRequestDto;
+import com.jiburo.server.domain.post.dto.LostPostNearbyRequestDto;
 import com.jiburo.server.domain.post.dto.LostPostSearchCondition;
 import com.querydsl.core.BooleanBuilder;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.core.types.dsl.Expressions;
+import com.querydsl.core.types.dsl.NumberExpression;
 import com.querydsl.jpa.impl.JPAQuery;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import lombok.RequiredArgsConstructor;
@@ -60,6 +63,63 @@ public class LostPostRepositoryImpl implements LostPostRepositoryCustom {
         return PageableExecutionUtils.getPage(content, pageable, countQuery::fetchOne);
     }
 
+    // 1. 지도 드래그용: 사각형 범위 검색 (빠름)
+    @Override
+    public List<LostPost> searchByViewport(LostPostMapRequestDto request) {
+        return queryFactory
+                .selectFrom(lostPost)
+                .where(
+                        latitudeBetween(request.minLat(), request.maxLat()),
+                        longitudeBetween(request.minLng(), request.maxLng())
+                )
+                .limit(request.limit()) // 마커 너무 많으면 성능 저하되므로 제한
+                .fetch();
+    }
+
+    // 마커 클릭용: 반경 검색 + 거리순 정렬
+    @Override
+    public List<LostPost> searchByRadius(LostPostNearbyRequestDto request) {
+        // 반경 기반 Bounding Box 생성 (인덱스 태우기용)
+        // 위도 1도 ≒ 111km
+        double radiusInDegree = request.radius() / 111.0;
+
+        Double minLat = request.centerLat() - radiusInDegree;
+        Double maxLat = request.centerLat() + radiusInDegree;
+        Double minLng = request.centerLng() - radiusInDegree;
+        Double maxLng = request.centerLng() + radiusInDegree;
+
+        // Haversine 공식
+        NumberExpression<Double> distanceExpression = getDistanceExpression(request.centerLat(), request.centerLng());
+
+        return queryFactory
+                .selectFrom(lostPost)
+                .where(
+                        latitudeBetween(minLat, maxLat),
+                        longitudeBetween(minLng, maxLng),
+
+                        // 정밀 필터링
+                        distanceExpression.loe(request.radius())
+                )
+                .orderBy(distanceExpression.asc())
+                .limit(request.limit())
+                .fetch();
+    }
+
+    private BooleanExpression latitudeBetween(Double min, Double max) {
+        return min != null && max != null ? lostPost.latitude.between(min, max) : null;
+    }
+
+    private BooleanExpression longitudeBetween(Double min, Double max) {
+        return min != null && max != null ? lostPost.longitude.between(min, max) : null;
+    }
+
+    // 거리 계산 수식 (MySQL 기준)
+    private NumberExpression<Double> getDistanceExpression(Double lat, Double lng) {
+        return Expressions.numberTemplate(Double.class,
+                "6371 * acos(cos(radians({0})) * cos(radians({1})) * cos(radians({2}) - radians({3})) + sin(radians({0})) * sin(radians({1})))",
+                lat, lostPost.latitude, lostPost.longitude, lng, lat, lostPost.latitude);
+    }
+
     private BooleanBuilder getSearchPredicates(LostPostSearchCondition condition) {
         BooleanBuilder builder = new BooleanBuilder();
 
@@ -108,7 +168,7 @@ public class LostPostRepositoryImpl implements LostPostRepositoryCustom {
             BooleanExpression expr = Expressions.stringTemplate(
                     "JSON_UNQUOTE(JSON_EXTRACT({0}, {1}))",
                     lostPost.detail,
-                    Expressions.constant("$." + jsonKey) // ✅ 문자열 리터럴로 바인딩 보장
+                    Expressions.constant("$." + jsonKey)
             ).eq(jsonValue);
 
             jsonBuilder.and(expr);

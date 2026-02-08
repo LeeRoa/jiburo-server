@@ -1,9 +1,6 @@
 package com.jiburo.server.domain.post.controller;
 
-import com.jiburo.server.domain.post.dto.LostPostCreateRequestDto;
-import com.jiburo.server.domain.post.dto.LostPostResponseDto;
-import com.jiburo.server.domain.post.dto.LostPostSearchCondition;
-import com.jiburo.server.domain.post.dto.LostPostUpdateRequestDto;
+import com.jiburo.server.domain.post.dto.*;
 import com.jiburo.server.domain.post.service.LostPostService;
 import com.jiburo.server.domain.user.dto.CustomOAuth2User;
 import com.jiburo.server.global.domain.CodeConst;
@@ -17,6 +14,8 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
@@ -84,5 +83,17 @@ public class LostPostController {
     ) {
         lostPostService.delete(user.getUserId(), id);
         return ApiResponse.success();
+    }
+
+    // 지도 이동 시 호출 (마커용)
+    @GetMapping("/map")
+    public ApiResponse<List<LostPostResponseDto>> getMapPosts(@ModelAttribute LostPostMapRequestDto request) {
+        return ApiResponse.success(lostPostService.getPostsForMap(request));
+    }
+
+    // 마커 클릭 시 호출 (리스트용)
+    @GetMapping("/nearby")
+    public ApiResponse<List<LostPostResponseDto>> getNearbyPosts(@ModelAttribute LostPostNearbyRequestDto request) {
+        return ApiResponse.success(lostPostService.getPostsForList(request));
     }
 }

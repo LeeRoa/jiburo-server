@@ -4,9 +4,11 @@ import com.jiburo.server.domain.post.domain.LostPost;
 import com.jiburo.server.domain.post.dto.detail.TargetDetailDto; // [중요] 상세 객체 임포트
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 public record LostPostResponseDto(
         Long id,
+        UUID authorId, // 작성자 ID
         String authorNickname, // 작성자
         String title,
         String content,
@@ -29,6 +31,7 @@ public record LostPostResponseDto(
     public static LostPostResponseDto from(LostPost entity) {
         return new LostPostResponseDto(
                 entity.getId(),
+                entity.getUser().getId(),
                 entity.getUser().getNickname(),
                 entity.getTitle(),
                 entity.getContent(),

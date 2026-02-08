@@ -16,6 +16,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -121,6 +122,22 @@ public class LostPostServiceImpl implements LostPostService {
     public Page<LostPostResponseDto> search(LostPostSearchCondition condition, Pageable pageable) {
         return lostPostRepository.search(condition, pageable)
                 .map(LostPostResponseDto::from);
+    }
+
+    // 지도 렌더링용 (마커 뿌리기)
+    @Override
+    public List<LostPostResponseDto> getPostsForMap(LostPostMapRequestDto request) {
+        return lostPostRepository.searchByViewport(request).stream()
+                .map(LostPostResponseDto::from)
+                .toList();
+    }
+
+    // 리스트 렌더링용 (클릭 시 상세)
+    @Override
+    public List<LostPostResponseDto> getPostsForList(LostPostNearbyRequestDto request) {
+        return lostPostRepository.searchByRadius(request).stream()
+                .map(LostPostResponseDto::from)
+                .toList();
     }
 
     private LostPost findPostByIdOrThrow(Long id) {

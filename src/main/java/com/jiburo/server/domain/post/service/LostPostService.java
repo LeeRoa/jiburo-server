@@ -1,12 +1,10 @@
 package com.jiburo.server.domain.post.service;
 
-import com.jiburo.server.domain.post.dto.LostPostCreateRequestDto;
-import com.jiburo.server.domain.post.dto.LostPostResponseDto;
-import com.jiburo.server.domain.post.dto.LostPostSearchCondition;
-import com.jiburo.server.domain.post.dto.LostPostUpdateRequestDto;
+import com.jiburo.server.domain.post.dto.*;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import java.util.List;
 import java.util.UUID;
 
 public interface LostPostService {
@@ -27,4 +25,8 @@ public interface LostPostService {
     void delete(UUID userId, Long postId);
 
     Page<LostPostResponseDto> search(LostPostSearchCondition condition, Pageable pageable);
+
+    List<LostPostResponseDto> getPostsForMap(LostPostMapRequestDto request);
+
+    List<LostPostResponseDto> getPostsForList(LostPostNearbyRequestDto request);
 }
