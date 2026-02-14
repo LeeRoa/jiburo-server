@@ -35,3 +35,7 @@ out/
 
 ### VS Code ###
 .vscode/
+
+# MariaDB data
+dev_mysql_data/
+mysql_data/
