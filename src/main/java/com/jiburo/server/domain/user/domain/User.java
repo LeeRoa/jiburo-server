@@ -7,6 +7,8 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.Comment;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.annotations.UuidGenerator;
 
 import java.util.UUID;
 
@@ -17,8 +19,9 @@ import java.util.UUID;
 public class User extends BaseTimeEntity {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID) // ★ UUID 자동 생성 전략
-    @Column(columnDefinition = "BINARY(16)") // ★ DB 저장 효율을 위해 BINARY(16) 사용
+    @GeneratedValue(generator = "uuid2")
+    @UuidGenerator
+    @JdbcTypeCode(java.sql.Types.BINARY)
     private UUID id;
 
     @Column(nullable = false, unique = true)

@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  dev-db: # 운영용과 이름 겹치지 않게 설정
+    image: mariadb:10.11
+    container_name: jiburo-dev-db
+    restart: always
+    environment:
+      MARIADB_ROOT_PASSWORD: 1234
+      MARIADB_DATABASE: jiburo_db
+      MARIADB_USER: jiburo_dev
+      MARIADB_PASSWORD: jiburodev12!
+    ports:
+      - "23306:3306" # 로컬 DB 툴 접속 및 앱 연결용
+    volumes:
+      - ./dev_mysql_data:/var/lib/mysql # 운영용 볼륨과 섞이지 않게 따로 관리

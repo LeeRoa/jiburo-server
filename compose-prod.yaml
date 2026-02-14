@@ -1,0 +1,44 @@
+services:
+  db:
+    ports:
+      - "13306:3306"
+
+  app:
+    build: .
+    container_name: jiburo-server
+    restart: always
+    ports:
+      - "18080:8080"
+    environment:
+      # 1. DB 연결
+      SPRING_DATASOURCE_URL: jdbc:mariadb://db:3306/jiburo_db
+      SPRING_DATASOURCE_USERNAME: jiburo_user
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      SPRING_DATASOURCE_DRIVER_CLASS_NAME: org.mariadb.jdbc.Driver
+      SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT: org.hibernate.dialect.MariaDBDialect
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+
+      # 2. 보안 및 인증 핵심
+      JWT_SECRET: ${JWT_SECRET}
+      SERVER_FORWARD_HEADERS_STRATEGY: native
+
+      # 3. 프론트엔드 리다이렉트 (로그인 완료 후 돌아갈 곳)
+      APP_OAUTH2_AUTHORIZED-REDIRECT-URI: "https://jiburo.on-do.kro.kr/oauth/callback"
+
+      # 4. Google 설정
+      SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT-ID: ${GOOGLE_CLIENT_ID}
+      SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT-SECRET: ${GOOGLE_CLIENT_SECRET}
+      SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_REDIRECT-URI: "https://jiburo.on-do.kro.kr/login/oauth2/code/google"
+
+      # 5. Kakao 설정
+      SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_KAKAO_CLIENT-ID: ${KAKAO_CLIENT_ID}
+      SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_KAKAO_CLIENT-SECRET: ${KAKAO_CLIENT_SECRET}
+      SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_KAKAO_REDIRECT-URI: "https://jiburo.on-do.kro.kr/login/oauth2/code/kakao"
+
+      # 6. Naver 설정
+      SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_NAVER_CLIENT-ID: ${NAVER_CLIENT_ID}
+      SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_NAVER_CLIENT-SECRET: ${NAVER_CLIENT_SECRET}
+      SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_NAVER_REDIRECT-URI: "https://jiburo.on-do.kro.kr/login/oauth2/code/naver"
+
+    depends_on:
+      - db
