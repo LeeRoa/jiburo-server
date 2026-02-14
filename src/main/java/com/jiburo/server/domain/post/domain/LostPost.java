@@ -12,6 +12,8 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Getter
@@ -59,6 +61,9 @@ public class LostPost extends com.jiburo.server.global.consts.entity.BaseTimeEnt
     @Column(nullable = false)
     @Comment("대표 이미지 URL")
     private String imageUrl;
+
+    @OneToMany(mappedBy = "lostPost", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<LostPostImage> images = new ArrayList<>();
 
     @Column(nullable = false)
     @Comment("위도 (Latitude)")
@@ -126,5 +131,24 @@ public class LostPost extends com.jiburo.server.global.consts.entity.BaseTimeEnt
 
         // primitive type인 int는 0이 올 수 있으므로 주의 (여기선 그냥 덮어쓰기)
         this.reward = reward;
+    }
+
+    public void updateImages(List<String> newImageUrls) {
+        // 1. 기존 이미지 삭제 (orphanRemoval = true 덕분에 DB에서도 삭제됨)
+        this.images.clear();
+
+        // 2. 새 이미지 추가
+        if (newImageUrls != null && !newImageUrls.isEmpty()) {
+            // 첫 번째 이미지는 대표 이미지로 설정
+            this.imageUrl = newImageUrls.get(0);
+
+            for (int i = 0; i < newImageUrls.size(); i++) {
+                this.images.add(LostPostImage.builder()
+                        .lostPost(this)
+                        .imageUrl(newImageUrls.get(i))
+                        .order(i + 1)
+                        .build());
+            }
+        }
     }
 }
