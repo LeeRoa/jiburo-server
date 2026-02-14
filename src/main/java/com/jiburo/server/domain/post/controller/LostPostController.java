@@ -75,6 +75,18 @@ public class LostPostController {
         return ApiResponse.success();
     }
 
+    // [이미지 변경]
+    @AuditLog(action = CodeConst.LogAction.POST_STATUS_CHANGE)
+    @PatchMapping("/{id}/images")
+    public ApiResponse<Void> updateImages(
+            @AuthenticationPrincipal CustomOAuth2User user,
+            @PathVariable Long id,
+            @RequestParam String statusCode
+    ) {
+        lostPostService.updateStatus(user.getUserId(), id, statusCode);
+        return ApiResponse.success();
+    }
+
     // [삭제]
     @AuditLog(action = CodeConst.LogAction.POST_DELETE)
     @DeleteMapping("/{id}")

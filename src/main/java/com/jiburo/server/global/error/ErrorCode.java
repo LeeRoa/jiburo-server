@@ -13,6 +13,7 @@ public enum ErrorCode {
     INVALID_INPUT_VALUE(HttpStatus.BAD_REQUEST, "error.global.invalid_input"),
     METHOD_NOT_ALLOWED(HttpStatus.METHOD_NOT_ALLOWED, "error.global.method_not_allowed"),
     INVALID_TYPE_VALUE(HttpStatus.BAD_REQUEST, "error.global.invalid_type"),
+    FEATURE_NOT_READY(HttpStatus.NOT_IMPLEMENTED, "error.global.feature.not_ready"),
 
     // [2] Auth & User (인증 및 사용자)
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "error.auth.unauthorized"),
@@ -43,7 +44,8 @@ public enum ErrorCode {
 
     // [6] Post (게시글 - 분실물/목격 제보) [추가된 부분]
     POST_NOT_FOUND(HttpStatus.NOT_FOUND, "error.post.not_found"), // 게시글 없음
-    POST_ACCESS_DENIED(HttpStatus.FORBIDDEN, "error.post.access_denied"); // 작성자 불일치 (수정/삭제 권한 없음)
+    POST_ACCESS_DENIED(HttpStatus.FORBIDDEN, "error.post.access_denied"), // 작성자 불일치 (수정/삭제 권한 없음)
+    POST_CATEGORY_INVALID(HttpStatus.BAD_REQUEST, "error.post.category_invalid"); // 지원하지 않는 게시글의 카테고리
 
     private final HttpStatus status;
     private final String messageKey;

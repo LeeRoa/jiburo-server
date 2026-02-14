@@ -45,20 +45,8 @@ public class LostPostServiceImpl implements LostPostService {
                 .build();
 
         // 2. 엔티티 생성
-        LostPost post = LostPost.builder()
-                .user(user)
-                .categoryCode(CodeConst.PostCategory.ANIMAL) // 현재는 동물 고정 (DTO에 추가되면 requestDto.categoryCode() 사용)
-                .title(requestDto.title())
-                .content(requestDto.content())
-                .statusCode(CodeConst.Status.LOST)
-                .detail(detail) // 객체를 통째로 넣으면 Converter가 JSON으로 변환
-                .imageUrl(requestDto.imageUrl())
-                .latitude(requestDto.latitude())
-                .longitude(requestDto.longitude())
-                .foundLocation(requestDto.foundLocation())
-                .lostDate(requestDto.lostDate())
-                .reward(requestDto.reward())
-                .build();
+        LostPost post = requestDto.toEntity(user);
+        post.updateImages(requestDto.imageUrls());
 
         return lostPostRepository.save(post).getId();
     }
@@ -108,6 +96,11 @@ public class LostPostServiceImpl implements LostPostService {
         validateWriter(post, userId);
 
         post.changeStatus(statusCode);
+    }
+
+    @Override
+    public void updateImages(UUID userId, Long postId) {
+
     }
 
     @Override
