@@ -69,21 +69,9 @@ public class LostPostController {
     public ApiResponse<Void> updateStatus(
             @AuthenticationPrincipal CustomOAuth2User user,
             @PathVariable Long id,
-            @RequestParam String statusCode // 파라미터명 statusCode로 명시
+            @RequestBody @Valid LostPostStatusUpdateRequestDto requestDto
     ) {
-        lostPostService.updateStatus(user.getUserId(), id, statusCode);
-        return ApiResponse.success();
-    }
-
-    // [이미지 변경]
-    @AuditLog(action = CodeConst.LogAction.POST_STATUS_CHANGE)
-    @PatchMapping("/{id}/images")
-    public ApiResponse<Void> updateImages(
-            @AuthenticationPrincipal CustomOAuth2User user,
-            @PathVariable Long id,
-            @RequestParam String statusCode
-    ) {
-        lostPostService.updateStatus(user.getUserId(), id, statusCode);
+        lostPostService.updateStatus(user.getUserId(), id, requestDto);
         return ApiResponse.success();
     }
 

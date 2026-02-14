@@ -2,8 +2,8 @@ package com.jiburo.server.domain.post.service;
 
 import com.jiburo.server.domain.post.domain.LostPost;
 import com.jiburo.server.domain.post.dto.*;
-import com.jiburo.server.domain.post.dto.detail.AnimalDetailDto; // [추가]
-import com.jiburo.server.domain.post.dto.detail.TargetDetailDto; // [추가]
+import com.jiburo.server.domain.post.dto.detail.AnimalDetailDto;
+import com.jiburo.server.domain.post.dto.detail.TargetDetailDto;
 import com.jiburo.server.domain.post.repository.LostPostRepository;
 import com.jiburo.server.domain.user.dao.UserRepository;
 import com.jiburo.server.domain.user.domain.User;
@@ -33,16 +33,6 @@ public class LostPostServiceImpl implements LostPostService {
     public Long create(UUID userId, LostPostCreateRequestDto requestDto) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-
-        // 1. 상세 정보 객체 생성 (JSON 변환용)
-        // 현재는 '동물'만 처리하지만, 나중에 categoryCode에 따라 분기(Switch) 가능
-        TargetDetailDto detail = AnimalDetailDto.builder()
-                .animalType(requestDto.animalTypeCode())
-                .breed(requestDto.breed())
-                .gender(requestDto.genderCode())
-                .color(requestDto.color())
-                .age(requestDto.age())
-                .build();
 
         // 2. 엔티티 생성
         LostPost post = requestDto.toEntity(user);
@@ -78,9 +68,8 @@ public class LostPostServiceImpl implements LostPostService {
         post.update(
                 requestDto.title(),
                 requestDto.content(),
-                requestDto.imageUrl(),
                 requestDto.categoryCode(),
-                detail,
+                requestDto.toDetail(),
                 requestDto.latitude(),
                 requestDto.longitude(),
                 requestDto.foundLocation(),
@@ -89,18 +78,40 @@ public class LostPostServiceImpl implements LostPostService {
         );
     }
 
+    // TODO 분실 대상을 찾았을 경우 찾은 대상에게 뱃지를 줘야함.
     @Override
     @Transactional
-    public void updateStatus(UUID userId, Long postId, String statusCode) {
+    public void updateStatus(UUID userId, Long postId, LostPostStatusUpdateRequestDto requestDto) {
         LostPost post = findPostByIdOrThrow(postId);
-        validateWriter(post, userId);
+        validateWriter(post, userId); // 작성자 확인
 
-        post.changeStatus(statusCode);
-    }
+        String newStatus = requestDto.statusCode();
 
-    @Override
-    public void updateImages(UUID userId, Long postId) {
+        // 1. [완료 처리 로직] 상태가 COMPLETE로 변경되는 경우
+        if (CodeConst.Status.COMPLETE.equals(newStatus)) {
+            User finder = null;
 
+            // 1-1. 찾아준 사람이 우리 앱 회원인가? (ID가 넘어왔는가?)
+            if (requestDto.finderId() != null) {
+                // 본인이 본인을 지정할 수도 있고(자력 해결), 다른 사람을 지정할 수도 있음
+                finder = userRepository.findById(requestDto.finderId())
+                        .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+            }
+
+            // 1-2. 엔티티 업데이트 (상태 + 해결사 정보)
+            post.complete(finder, requestDto.resultNote());
+
+            // TODO [보상 로직] 다른 회원이 찾아줬다면 뱃지/경험치 지급!
+            if (finder != null && !finder.getId().equals(userId)) {
+                // 작성자(userId)가 아닌 다른 사람(finder)이 찾았을 때만 보상
+                // badgeService.giveReward(finder, "GOOD_NEIGHBOR");
+            }
+
+        } else {
+            // 2. [일반 상태 변경] (LOST <-> PROTECTING)
+            // 해결사 정보는 초기화하거나 유지 (정책에 따라 다름, 여기선 단순 상태 변경)
+            post.changeStatus(newStatus);
+        }
     }
 
     @Override

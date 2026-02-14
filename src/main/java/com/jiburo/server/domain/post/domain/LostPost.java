@@ -2,6 +2,7 @@ package com.jiburo.server.domain.post.domain;
 
 import com.jiburo.server.domain.post.dto.detail.TargetDetailDto;
 import com.jiburo.server.domain.user.domain.User;
+import com.jiburo.server.global.domain.CodeConst;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -84,6 +85,13 @@ public class LostPost extends com.jiburo.server.global.consts.entity.BaseTimeEnt
     @Comment("사례금 (단위: 원)")
     private int reward;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "finder_id") // Nullable (본인이 찾았거나 비회원이 찾았을 수 있음)
+    private User finder;
+
+    @Column(length = 500)
+    private String resultNote;
+
     @Builder
     public LostPost(User user, String categoryCode, String title, String content, String statusCode,
                     TargetDetailDto detail, // [변경] 개별 필드 대신 객체 통째로 받음
@@ -109,16 +117,15 @@ public class LostPost extends com.jiburo.server.global.consts.entity.BaseTimeEnt
         this.statusCode = newStatusCode;
     }
 
-    public void update(String title, String content, String imageUrl,
+    public void update(String title, String content,
                        String categoryCode,
                        TargetDetailDto detail,
                        Double latitude, Double longitude, String foundLocation,
                        LocalDate lostDate, int reward) {
 
-        // Null 체크 후 업데이트 (Dirty Checking)
+        // Null 체크 후 업데이트
         if (title != null) this.title = title;
         if (content != null) this.content = content;
-        if (imageUrl != null) this.imageUrl = imageUrl;
         if (categoryCode != null) this.categoryCode = categoryCode;
 
         // 상세 정보 업데이트 (카테고리가 바뀌면 상세 정보 구조도 바뀜 -> JSON이 알아서 처리)
@@ -133,22 +140,45 @@ public class LostPost extends com.jiburo.server.global.consts.entity.BaseTimeEnt
         this.reward = reward;
     }
 
+    // LostPost.java
+
     public void updateImages(List<String> newImageUrls) {
-        // 1. 기존 이미지 삭제 (orphanRemoval = true 덕분에 DB에서도 삭제됨)
+        if (newImageUrls == null || newImageUrls.isEmpty()) {
+            // (정책에 따라 빈 리스트를 허용하지 않는다면 예외 처리, 허용한다면 clear)
+            this.images.clear();
+            return;
+        }
+
+        // 1. 변경 감지: 기존 URL 목록과 새 URL 목록이 순서까지 완전히 같은지 비교
+        List<String> currentUrls = this.images.stream()
+                .map(LostPostImage::getImageUrl)
+                .toList();
+
+        // List.equals()는 요소의 '순서'와 '내용'이 모두 같아야 true를 반환함
+        // 즉, [A, B]와 [B, A]도 다르다고 판단하므로 썸네일(0번 인덱스) 변경도 감지 가능
+        if (currentUrls.equals(newImageUrls)) {
+            return; // 변경 없음 -> 아무것도 안 하고 종료 (쿼리 안 나감)
+        }
+
+        // 2. 변경이 있다면 기존 로직 수행 (삭제 후 재생성)
         this.images.clear();
 
-        // 2. 새 이미지 추가
-        if (newImageUrls != null && !newImageUrls.isEmpty()) {
-            // 첫 번째 이미지는 대표 이미지로 설정
-            this.imageUrl = newImageUrls.get(0);
+        // 3. 대표 이미지(썸네일) 갱신
+        this.imageUrl = newImageUrls.get(0);
 
-            for (int i = 0; i < newImageUrls.size(); i++) {
-                this.images.add(LostPostImage.builder()
-                        .lostPost(this)
-                        .imageUrl(newImageUrls.get(i))
-                        .order(i + 1)
-                        .build());
-            }
+        // 4. 새 이미지 리스트 추가
+        for (int i = 0; i < newImageUrls.size(); i++) {
+            this.images.add(LostPostImage.builder()
+                    .lostPost(this)
+                    .imageUrl(newImageUrls.get(i))
+                    .order(i)
+                    .build());
         }
+    }
+
+    public void complete(User finder, String resultNote) {
+        this.statusCode = CodeConst.Status.COMPLETE;
+        this.finder = finder; // 회원이면 User 객체, 아니면 null
+        this.resultNote = resultNote;
     }
 }

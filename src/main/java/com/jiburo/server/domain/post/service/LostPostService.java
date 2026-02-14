@@ -20,10 +20,7 @@ public interface LostPostService {
     void update(UUID userId, Long postId, LostPostUpdateRequestDto requestDto);
 
     // 상태 변경
-    void updateStatus(UUID userId, Long postId, String statusCode);
-
-    // 게시글 이미지 변경
-    void updateImages(UUID userId, Long postId);
+    void updateStatus(UUID userId, Long postId, LostPostStatusUpdateRequestDto requestDto);
 
     // 삭제
     void delete(UUID userId, Long postId);
