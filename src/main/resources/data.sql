@@ -73,7 +73,7 @@ INSERT IGNORE INTO common_codes (code_group, code, message_key, ref_1, use_yn, c
 VALUES ('GENDER', 'UNKNOWN', 'post.gender.unknown', null, true, NOW(), NOW());
 
 
--- 7. 로그 액션 유형 (LOG_ACTION) - [NEW/Optional]
+-- 7. 로그 액션 유형 (LOG_ACTION)
 -- CodeConst.LogAction 매핑 (관리자 페이지 필터용)
 INSERT IGNORE INTO common_codes (code_group, code, message_key, ref_1, use_yn, created_at, updated_at) VALUES ('LOG_ACTION', 'POST_CREATE', 'log.post.create', null, true, NOW(), NOW());
 INSERT IGNORE INTO common_codes (code_group, code, message_key, ref_1, use_yn, created_at, updated_at) VALUES ('LOG_ACTION', 'POST_UPDATE', 'log.post.update', null, true, NOW(), NOW());
@@ -91,3 +91,8 @@ INSERT IGNORE INTO common_codes (code_group, code, message_key, ref_1, use_yn, c
 
 INSERT IGNORE INTO common_codes (code_group, code, message_key, ref_1, use_yn, created_at, updated_at) VALUES ('LOG_ACTION', 'REPORT_CREATE', 'log.report.create', null, true, NOW(), NOW());
 INSERT IGNORE INTO common_codes (code_group, code, message_key, ref_1, use_yn, created_at, updated_at) VALUES ('LOG_ACTION', 'BADGE_UPGRADE', 'log.badge.upgrade', null, true, NOW(), NOW());
+
+-- 8. 시스템 설정 (CONFIG)
+-- 시스템 전반적인 설정값을 관리 (ref_1 컬럼에 실제 설정값 저장)
+INSERT IGNORE INTO common_codes (code_group, code, message_key, ref_1, use_yn, created_at, updated_at)
+VALUES ('CONFIG', 'MAX_POST_IMAGES', 'config.post.max_images', '5', true, NOW(), NOW());
