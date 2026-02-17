@@ -14,3 +14,12 @@ services:
       - "23306:3306" # 로컬 DB 툴 접속 및 앱 연결용
     volumes:
       - ./dev_mysql_data:/var/lib/mysql # 운영용 볼륨과 섞이지 않게 따로 관리
+
+  # Redis 설정
+  redis:
+    image: redis:alpine
+    container_name: jiburo-redis
+    restart: always
+    ports:
+      - "6379:6379" # Redis 기본 포트
+    command: redis-server --requirepass jiburoredis!@
