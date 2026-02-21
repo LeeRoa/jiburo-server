@@ -1,27 +1,42 @@
 package com.jiburo.server.domain.notification.dto;
 
 import com.jiburo.server.domain.notification.domain.Notification;
+import org.hibernate.annotations.Comment;
+
 import java.time.LocalDateTime;
+import java.util.Arrays;
+import java.util.List;
 
 /**
- * 프론트엔드 전달용 알림 데이터
+ * 알림 목록 조회 및 실시간 전송을 위한 응답 DTO
  */
 public record NotificationResponseDto(
+        @Comment("알림 ID")
         Long id,
-        String typeCode,      // CHAT, COMMENT, WALK_AREA
-        Long targetId,        // 상세 페이지 이동용 ID (게시글 또는 채팅창, 프로필 등..)
-        String senderNickname,
-        String senderProfile,
+
+        @Comment("알림 유형 (번역 키)")
+        String typeCode,
+
+        @Comment("메시지 치환 인자 리스트")
+        List<String> args,
+
+        @Comment("이동 대상 ID")
+        Long targetId,
+
+        @Comment("읽음 여부")
+        boolean isRead,
+
+        @Comment("알림 생성 시간")
         LocalDateTime createdAt
 ) {
-    // 엔티티를 레코드로 변환하는 정적 팩토리 메서드
-    public static NotificationResponseDto fromEntity(Notification notification) {
+    public static NotificationResponseDto from(Notification notification) {
         return new NotificationResponseDto(
                 notification.getId(),
                 notification.getTypeCode(),
+                // 엔티티의 "A,B" 문자열을 ["A", "B"] 리스트로 변환하여 전달
+                notification.getArgs() != null ? Arrays.asList(notification.getArgs().split(",")) : List.of(),
                 notification.getTargetId(),
-                notification.getSender() != null ? notification.getSender().getNickname() : "시스템",
-                notification.getSender() != null ? notification.getSender().getProfileImageUrl() : null,
+                notification.isRead(),
                 notification.getCreatedAt()
         );
     }
