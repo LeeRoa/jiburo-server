@@ -36,7 +36,8 @@ public record LostPostCreateRequestDto(
         @NotBlank String foundLocation, // 주소 텍스트
 
         @NotNull LocalDate lostDate,
-        int reward
+        int reward,
+        @NotNull String visibilityCode
 ) {
     // 1. 엔티티 변환 메인 메서드
     public LostPost toEntity(User user) {
@@ -53,6 +54,7 @@ public record LostPostCreateRequestDto(
                 .foundLocation(this.foundLocation())
                 .lostDate(this.lostDate())
                 .reward(this.reward())
+                .visibilityCode(this.visibilityCode())
                 .build();
     }
 

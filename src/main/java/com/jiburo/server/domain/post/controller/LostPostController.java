@@ -37,9 +37,9 @@ public class LostPostController {
     }
 
     // [전체 조회]
-    @GetMapping
+    @PostMapping
     public ApiResponse<Page<LostPostResponseDto>> getPosts(
-            @ModelAttribute LostPostSearchCondition condition,
+            @RequestBody LostPostSearchCondition condition,
             @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable
     ) {
         return ApiResponse.success(lostPostService.search(condition, pageable));

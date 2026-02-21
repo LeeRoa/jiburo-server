@@ -2,6 +2,7 @@ package com.jiburo.server.domain.post.domain;
 
 import com.jiburo.server.domain.post.dto.detail.TargetDetailDto;
 import com.jiburo.server.domain.user.domain.User;
+import com.jiburo.server.global.consts.entity.BaseTimeEntity;
 import com.jiburo.server.global.domain.CodeConst;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -24,7 +25,7 @@ import java.util.List;
         @Index(name = "idx_lost_post_status", columnList = "status_code"),
         @Index(name = "idx_lost_post_category", columnList = "category_code")
 })
-public class LostPost extends com.jiburo.server.global.consts.entity.BaseTimeEntity {
+public class LostPost extends BaseTimeEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -79,11 +80,15 @@ public class LostPost extends com.jiburo.server.global.consts.entity.BaseTimeEnt
     private String foundLocation;
 
     @Column(nullable = false)
-    @Comment("실종 날짜")
+    @Comment("발견/실종 날짜")
     private LocalDate lostDate;
 
     @Comment("사례금 (단위: 원)")
     private int reward;
+
+    @Column(nullable = false, length = 20)
+    @Comment("공개 권한 코드 (PUBLIC, PROTECTED, PRIVATE)")
+    private String visibilityCode;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "finder_id") // Nullable (본인이 찾았거나 비회원이 찾았을 수 있음)
@@ -94,21 +99,22 @@ public class LostPost extends com.jiburo.server.global.consts.entity.BaseTimeEnt
 
     @Builder
     public LostPost(User user, String categoryCode, String title, String content, String statusCode,
-                    TargetDetailDto detail, // [변경] 개별 필드 대신 객체 통째로 받음
+                    TargetDetailDto detail,
                     String imageUrl, Double latitude, Double longitude, String foundLocation,
-                    LocalDate lostDate, int reward) {
+                    LocalDate lostDate, int reward, String visibilityCode) {
         this.user = user;
         this.categoryCode = categoryCode;
         this.title = title;
         this.content = content;
         this.statusCode = statusCode;
-        this.detail = detail; // [변경]
+        this.detail = detail;
         this.imageUrl = imageUrl;
         this.latitude = latitude;
         this.longitude = longitude;
         this.foundLocation = foundLocation;
         this.lostDate = lostDate;
         this.reward = reward;
+        this.visibilityCode = visibilityCode;
     }
 
     // --- 비즈니스 로직 ---

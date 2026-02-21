@@ -59,7 +59,7 @@ public class LostPostRepositoryImpl implements LostPostRepositoryCustom {
                 .selectFrom(lostPost)
                 .leftJoin(lostPost.user, user).fetchJoin()
                 .where(predicates)
-                .orderBy(lostPost.createdAt.desc(), lostPost.id.desc()) // tie-breaker
+                .orderBy(lostPost.createdAt.desc(), lostPost.id.desc())
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())
                 .fetch();

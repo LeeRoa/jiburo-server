@@ -65,4 +65,10 @@ public final class CodeConst {
         public static final String ITEM = "ITEM";     // 물건 (추후 확장)
         public static final String ETC = "ETC";     // 기타
     }
+
+    public static class PostVisibility {
+        public static final String PUBLIC = "PUBLIC"; // 공개
+        public static final String PROTECTED = "PROTECTED"; // 허용된 사람만 공개
+        public static final String PRIVATE = "PRIVATE"; // 비공개 (자기 자신만)
+    }
 }

@@ -4,7 +4,6 @@ import com.jiburo.server.global.response.ApiResponse;
 import com.jiburo.server.global.util.MessageUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
@@ -25,17 +24,13 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ApiResponse<Void>> handleBusinessException(BusinessException e) {
         ErrorCode errorCode = e.getErrorCode();
-        HttpStatus httpStatus = errorCode.getStatus();
-
-        // 다국어 메시지 조회
         String message = MessageUtils.getMessage(errorCode.getMessageKey());
 
-        log.warn("Business Exception: Code={}, Message={}", errorCode, message);
+        log.warn("Business Exception: Code={}, Message={}", errorCode.name(), message);
 
-        // ResponseEntity를 사용하여 실제 HTTP 상태 코드와 Body 데이터를 함께 설정
         return ResponseEntity
-                .status(httpStatus)
-                .body(ApiResponse.fail(httpStatus.value(), message));
+                .status(errorCode.getStatus())
+                .body(ApiResponse.fail(errorCode, message));
     }
 
     /**
@@ -60,10 +55,10 @@ public class GlobalExceptionHandler {
         String message = builder.toString().trim();
         log.warn("Validation Error: {}", message);
 
-        // 유효성 검사 실패는 무조건 400 Bad Request
+        ErrorCode errorCode = ErrorCode.INVALID_INPUT_VALUE;
         return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.fail(HttpStatus.BAD_REQUEST.value(), message));
+                .status(errorCode.getStatus())
+                .body(ApiResponse.fail(errorCode, message));
     }
 
     /**
@@ -78,7 +73,7 @@ public class GlobalExceptionHandler {
         String message = MessageUtils.getMessage(errorCode.getMessageKey());
 
         return ResponseEntity
-                .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ApiResponse.fail(HttpStatus.INTERNAL_SERVER_ERROR.value(), message));
+                .status(errorCode.getStatus())
+                .body(ApiResponse.fail(errorCode, message));
     }
 }

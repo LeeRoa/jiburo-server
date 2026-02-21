@@ -94,5 +94,10 @@ INSERT IGNORE INTO common_codes (code_group, code, message_key, ref_1, use_yn, c
 
 -- 8. 시스템 설정 (CONFIG)
 -- 시스템 전반적인 설정값을 관리 (ref_1 컬럼에 실제 설정값 저장)
-INSERT IGNORE INTO common_codes (code_group, code, message_key, ref_1, use_yn, created_at, updated_at)
-VALUES ('CONFIG', 'MAX_POST_IMAGES', 'config.post.max_images', '5', true, NOW(), NOW());
+INSERT IGNORE INTO common_codes (code_group, code, message_key, ref_1, use_yn, created_at, updated_at) VALUES ('CONFIG', 'MAX_POST_IMAGES', 'config.post.max_images', '5', true, NOW(), NOW());
+
+-- 9. 게시글 공개 상태 (VISIBILITY)
+-- CodeConst.Visibility 매핑 (공개 권한 제어용)
+INSERT IGNORE INTO common_codes (code_group, code, message_key, ref_1, use_yn, created_at, updated_at) VALUES ('VISIBILITY', 'PUBLIC', 'post.visibility.public', null, true, NOW(), NOW());
+INSERT IGNORE INTO common_codes (code_group, code, message_key, ref_1, use_yn, created_at, updated_at) VALUES ('VISIBILITY', 'PROTECTED', 'post.visibility.protected', null, true, NOW(), NOW());
+INSERT IGNORE INTO common_codes (code_group, code, message_key, ref_1, use_yn, created_at, updated_at) VALUES ('VISIBILITY', 'PRIVATE', 'post.visibility.private', null, true, NOW(), NOW());

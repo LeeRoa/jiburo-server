@@ -29,9 +29,10 @@ public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
         response.setCharacterEncoding("UTF-8");
 
         // 2. ApiResponse JSON 생성
+        ErrorCode errorCode = ErrorCode.UNAUTHORIZED;
         ApiResponse<Void> apiResponse = ApiResponse.fail(
-                ErrorCode.UNAUTHORIZED.getStatus().value(),
-                MessageUtils.getMessage(ErrorCode.UNAUTHORIZED.getMessageKey())
+                errorCode,
+                MessageUtils.getMessage(errorCode.getMessageKey())
         );
 
         // 3. JSON 변환 후 출력
