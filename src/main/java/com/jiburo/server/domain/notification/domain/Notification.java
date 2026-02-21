@@ -35,10 +35,6 @@ public class Notification extends BaseTimeEntity {
     @Comment("알림 유형 코드 (CHAT, COMMENT, WALK_AREA 등)")
     private String typeCode;
 
-    @Column(nullable = false, length = 100)
-    @Comment("다국어 처리를 위한 메시지 키")
-    private String messageKey;
-
     @Column
     @Comment("이동 타겟 ID (게시글 ID, 채팅방 ID 등)")
     private Long targetId;
@@ -52,9 +48,8 @@ public class Notification extends BaseTimeEntity {
         this.receiver = receiver;
         this.sender = sender;
         this.typeCode = typeCode;
-        this.messageKey = messageKey;
         this.targetId = targetId;
-        this.isRead = false; // 생성 시 기본값은 읽지 않음
+        this.isRead = false;
     }
 
     // --- 비즈니스 로직 ---
