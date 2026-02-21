@@ -5,9 +5,12 @@ import com.jiburo.server.domain.post.dto.LostPostMapRequestDto;
 import com.jiburo.server.domain.post.dto.LostPostNearbyRequestDto;
 import com.jiburo.server.domain.post.dto.LostPostSearchCondition;
 import com.querydsl.core.BooleanBuilder;
+import com.querydsl.core.types.Order;
+import com.querydsl.core.types.OrderSpecifier;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.core.types.dsl.Expressions;
 import com.querydsl.core.types.dsl.NumberExpression;
+import com.querydsl.core.types.dsl.PathBuilder;
 import com.querydsl.jpa.impl.JPAQuery;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import lombok.RequiredArgsConstructor;
@@ -36,6 +39,10 @@ public class LostPostRepositoryImpl implements LostPostRepositoryCustom {
 
     private final JPAQueryFactory queryFactory;
 
+    private static final Set<String> ALLOWED_SORT_PROPERTIES = Set.of(
+            "createdAt", "lostDate", "reward"
+    );
+
     // [보안/유효성] 검색을 허용할 JSON Key 목록 (화이트리스트)
     private static final Set<String> ALLOWED_JSON_KEYS = Set.of(
             "animalType", "breed", "gender", "color", "age", // 동물 관련
@@ -50,7 +57,6 @@ public class LostPostRepositoryImpl implements LostPostRepositoryCustom {
      */
     @Override
     public Page<LostPost> search(LostPostSearchCondition condition, Pageable pageable) {
-
         // 1) 검색 조건 생성
         BooleanBuilder predicates = getSearchPredicates(condition);
 
@@ -59,7 +65,7 @@ public class LostPostRepositoryImpl implements LostPostRepositoryCustom {
                 .selectFrom(lostPost)
                 .leftJoin(lostPost.user, user).fetchJoin()
                 .where(predicates)
-                .orderBy(lostPost.createdAt.desc(), lostPost.id.desc())
+                .orderBy(getOrderSpecifiers(pageable.getSort()))
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())
                 .fetch();
@@ -136,6 +142,26 @@ public class LostPostRepositoryImpl implements LostPostRepositoryCustom {
 
         // 5. Slice 객체로 반환
         return new SliceImpl<>(content, pageable, hasNext);
+    }
+
+    private static final OrderSpecifier<?> DEFAULT_ORDER = lostPost.createdAt.desc();
+
+    private OrderSpecifier<?>[] getOrderSpecifiers(Sort sort) {
+        if (sort.isUnsorted()) {
+            return new OrderSpecifier[]{DEFAULT_ORDER};
+        }
+
+        PathBuilder<LostPost> pathBuilder = new PathBuilder<>(LostPost.class, lostPost.getMetadata().getName());
+
+        OrderSpecifier<?>[] result = sort.stream()
+                .filter(order -> ALLOWED_SORT_PROPERTIES.contains(order.getProperty()))
+                .map(order -> {
+                    Order direction = order.isAscending() ? Order.ASC : Order.DESC;
+                    return new OrderSpecifier<>(direction, pathBuilder.getComparable(order.getProperty(), Comparable.class));
+                })
+                .toArray(OrderSpecifier[]::new);
+
+        return result.length > 0 ? result : new OrderSpecifier[]{DEFAULT_ORDER};
     }
 
     private BooleanExpression latitudeBetween(Double min, Double max) {
