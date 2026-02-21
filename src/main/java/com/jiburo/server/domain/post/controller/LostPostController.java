@@ -37,7 +37,7 @@ public class LostPostController {
     }
 
     // [전체 조회]
-    @PostMapping
+    @PostMapping("/search")
     public ApiResponse<Page<LostPostResponseDto>> getPosts(
             @RequestBody LostPostSearchCondition condition,
             @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable
