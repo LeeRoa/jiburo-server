@@ -14,6 +14,7 @@ public enum ErrorCode {
     METHOD_NOT_ALLOWED(HttpStatus.METHOD_NOT_ALLOWED, "error.global.method_not_allowed"),
     INVALID_TYPE_VALUE(HttpStatus.BAD_REQUEST, "error.global.invalid_type"),
     FEATURE_NOT_READY(HttpStatus.NOT_IMPLEMENTED, "error.global.feature.not_ready"),
+    INVALID_IDENTIFIER(HttpStatus.BAD_REQUEST, "error.global.invalid_identifier"),
 
     // [2] Auth & User (인증 및 사용자)
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "error.auth.unauthorized"),

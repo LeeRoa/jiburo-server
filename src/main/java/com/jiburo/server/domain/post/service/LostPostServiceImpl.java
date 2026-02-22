@@ -53,18 +53,7 @@ public class LostPostServiceImpl implements LostPostService {
         LostPost post = findPostByIdOrThrow(postId);
         validateWriter(post, userId);
 
-        // 1. 수정할 상세 정보 객체 생성
-        // (수정 시 카테고리가 바뀔 수도 있으므로, DTO의 categoryCode를 확인해야 함)
-        // 여기서는 일단 ANIMAL로 가정하고 업데이트
-        TargetDetailDto detail = AnimalDetailDto.builder()
-                .animalType(requestDto.animalTypeCode())
-                .breed(requestDto.breed())
-                .gender(requestDto.genderCode())
-                .color(requestDto.color())
-                .age(requestDto.age())
-                .build();
-
-        // 2. 엔티티 업데이트 호출
+        // 엔티티 업데이트 호출
         post.update(
                 requestDto.title(),
                 requestDto.content(),

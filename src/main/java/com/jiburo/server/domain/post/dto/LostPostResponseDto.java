@@ -2,12 +2,14 @@ package com.jiburo.server.domain.post.dto;
 
 import com.jiburo.server.domain.post.domain.LostPost;
 import com.jiburo.server.domain.post.dto.detail.TargetDetailDto; // [중요] 상세 객체 임포트
+import com.jiburo.server.global.util.HashidsUtils;
+
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
 public record LostPostResponseDto(
-        Long id,
+        String id,
         UUID authorId, // 작성자 ID
         String authorNickname, // 작성자
         String title,
@@ -30,7 +32,7 @@ public record LostPostResponseDto(
 ) {
     public static LostPostResponseDto from(LostPost entity) {
         return new LostPostResponseDto(
-                entity.getId(),
+                HashidsUtils.encode(entity.getId()),
                 entity.getUser().getId(),
                 entity.getUser().getNickname(),
                 entity.getTitle(),

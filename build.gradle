@@ -66,6 +66,9 @@ dependencies {
     // Redis
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
 
+    // HashIds 유틸 라이브러리
+    implementation 'org.hashids:hashids:1.0.3'
+
     // 7. Test
     developmentOnly 'org.springframework.boot:spring-boot-devtools'
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
