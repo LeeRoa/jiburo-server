@@ -42,7 +42,7 @@ public class Notification extends BaseTimeEntity {
     private String typeCode;
 
     @Column(length = 255)
-    @Comment("알림 메시지 구성을 위한 가변 인자 (콤마로 구분, 예: '닉네임,게시글제목')")
+    @Comment("알림 메시지 구성을 위한 가변 인자 (콤마로 구분, 예: 닉네임, 게시글제목)")
     private String args;
 
     @Column

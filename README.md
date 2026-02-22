@@ -20,6 +20,10 @@
 
 이 프로젝트는 Docker를 사용하여 쉽게 빌드하고 실행할 수 있습니다.
 
+DB로 인한 시작 오류 시에는
+docker-compose -f compose-dev.yaml down 후 dev mysql 파일 삭제 후
+docker-compose -f compose-dev.yaml up -d 실행
+
 ### 필수 요구사항
 
 *   [Git](https://git-scm.com/)
