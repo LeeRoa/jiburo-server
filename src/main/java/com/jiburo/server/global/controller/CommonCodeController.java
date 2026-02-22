@@ -3,6 +3,7 @@ package com.jiburo.server.global.controller;
 import com.jiburo.server.global.cache.CommonCodeCache;
 import com.jiburo.server.global.dto.CommonCodeResponseDto;
 import com.jiburo.server.global.response.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -13,6 +14,7 @@ import java.util.stream.Collectors;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/common-codes")
+@Tag(name = "Common-Code", description = "공통 코드 관련 API")
 public class CommonCodeController {
 
     private final CommonCodeCache commonCodeCache;

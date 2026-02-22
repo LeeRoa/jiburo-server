@@ -7,6 +7,7 @@ import com.jiburo.server.global.domain.CodeConst;
 import com.jiburo.server.global.log.annotation.AuditLog;
 import com.jiburo.server.global.response.ApiResponse;
 import com.jiburo.server.global.util.HashidsUtils;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springdoc.core.annotations.ParameterObject;
@@ -23,6 +24,7 @@ import java.util.List;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/posts")
+@Tag(name = "LostPost", description = "분실 게시글 관련 API")
 public class LostPostController {
 
     private final LostPostService lostPostService;

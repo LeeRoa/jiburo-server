@@ -6,6 +6,7 @@ import com.jiburo.server.domain.user.service.AuthService;
 import com.jiburo.server.global.domain.CodeConst;
 import com.jiburo.server.global.log.annotation.AuditLog;
 import com.jiburo.server.global.response.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
+@Tag(name = "Auth", description = "사용자(유저) 관련 API")
 public class AuthController {
 
     private final AuthService authService;

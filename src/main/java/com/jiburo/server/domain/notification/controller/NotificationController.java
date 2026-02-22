@@ -4,6 +4,7 @@ import com.jiburo.server.domain.notification.dto.NotificationResponseDto;
 import com.jiburo.server.domain.notification.service.NotificationService;
 import com.jiburo.server.domain.user.dto.CustomOAuth2User;
 import com.jiburo.server.global.response.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/notifications")
+@Tag(name = "Notification", description = "알람 관련 API")
 public class NotificationController {
 
     private final NotificationService notificationService;
