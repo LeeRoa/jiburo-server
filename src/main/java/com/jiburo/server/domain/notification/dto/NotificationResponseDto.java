@@ -1,6 +1,7 @@
 package com.jiburo.server.domain.notification.dto;
 
 import com.jiburo.server.domain.notification.domain.Notification;
+import com.jiburo.server.global.util.HashidsUtils;
 import org.hibernate.annotations.Comment;
 
 import java.time.LocalDateTime;
@@ -12,7 +13,7 @@ import java.util.List;
  */
 public record NotificationResponseDto(
         @Comment("알림 ID")
-        Long id,
+        String id,
 
         @Comment("알림 유형 (번역 키)")
         String typeCode,
@@ -31,7 +32,7 @@ public record NotificationResponseDto(
 ) {
     public static NotificationResponseDto from(Notification notification) {
         return new NotificationResponseDto(
-                notification.getId(),
+                HashidsUtils.encode(notification.getId()),
                 notification.getTypeCode(),
                 // 엔티티의 "A,B" 문자열을 ["A", "B"] 리스트로 변환하여 전달
                 notification.getArgs() != null ? Arrays.asList(notification.getArgs().split(",")) : List.of(),
