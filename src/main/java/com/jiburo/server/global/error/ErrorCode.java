@@ -41,12 +41,13 @@ public enum ErrorCode {
     // [5] Chat & Community
     CHAT_ROOM_NOT_FOUND(HttpStatus.NOT_FOUND, "error.chat.room_not_found"),
     ALREADY_JOINED_ROOM(HttpStatus.CONFLICT, "error.chat.already_joined"),
+    CANNOT_CHAT_WITH_SELF(HttpStatus.BAD_REQUEST, "error.chat.cannot_with_self"),
     BADGE_NOT_FOUND(HttpStatus.NOT_FOUND, "error.badge.not_found"),
 
     // [6] Post (게시글 - 분실물/목격 제보) [추가된 부분]
     POST_NOT_FOUND(HttpStatus.NOT_FOUND, "error.post.not_found"), // 게시글 없음
     POST_ACCESS_DENIED(HttpStatus.FORBIDDEN, "error.post.access_denied"), // 작성자 불일치 (수정/삭제 권한 없음)
-    POST_CATEGORY_INVALID(HttpStatus.BAD_REQUEST, "error.post.category_invalid"); // 지원하지 않는 게시글의 카테고리
+    POST_CATEGORY_INVALID(HttpStatus.BAD_REQUEST, "error.post.category_invalid");
 
     private final HttpStatus status;
     private final String messageKey;
