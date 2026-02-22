@@ -101,3 +101,21 @@ INSERT IGNORE INTO common_codes (code_group, code, message_key, ref_1, use_yn, c
 INSERT IGNORE INTO common_codes (code_group, code, message_key, ref_1, use_yn, created_at, updated_at) VALUES ('VISIBILITY', 'PUBLIC', 'post.visibility.public', null, true, NOW(), NOW());
 INSERT IGNORE INTO common_codes (code_group, code, message_key, ref_1, use_yn, created_at, updated_at) VALUES ('VISIBILITY', 'PROTECTED', 'post.visibility.protected', null, true, NOW(), NOW());
 INSERT IGNORE INTO common_codes (code_group, code, message_key, ref_1, use_yn, created_at, updated_at) VALUES ('VISIBILITY', 'PRIVATE', 'post.visibility.private', null, true, NOW(), NOW());
+
+-- 10. 채팅 메시지 유형 (CHAT_MSG_TYPE)
+INSERT IGNORE INTO common_codes (code_group, code, message_key, ref_1, use_yn, created_at, updated_at)
+VALUES ('CHAT_MSG_TYPE', 'TALK', 'chat.msg.talk', null, true, NOW(), NOW());
+INSERT IGNORE INTO common_codes (code_group, code, message_key, ref_1, use_yn, created_at, updated_at)
+VALUES ('CHAT_MSG_TYPE', 'IMAGE', 'chat.msg.image', null, true, NOW(), NOW());
+INSERT IGNORE INTO common_codes (code_group, code, message_key, ref_1, use_yn, created_at, updated_at)
+VALUES ('CHAT_MSG_TYPE', 'MAP', 'chat.msg.map', null, true, NOW(), NOW());
+INSERT IGNORE INTO common_codes (code_group, code, message_key, ref_1, use_yn, created_at, updated_at)
+VALUES ('CHAT_MSG_TYPE', 'SYS', 'chat.msg.sys', null, true, NOW(), NOW());
+
+-- 11. 알림 유형 (NOTI_TYPE)
+INSERT IGNORE INTO common_codes (code_group, code, message_key, ref_1, use_yn, created_at, updated_at)
+VALUES ('NOTI_TYPE', 'COMMENT', 'noti.type.comment', null, true, NOW(), NOW());
+INSERT IGNORE INTO common_codes (code_group, code, message_key, ref_1, use_yn, created_at, updated_at)
+VALUES ('NOTI_TYPE', 'CHAT', 'noti.type.chat', null, true, NOW(), NOW());
+INSERT IGNORE INTO common_codes (code_group, code, message_key, ref_1, use_yn, created_at, updated_at)
+VALUES ('NOTI_TYPE', 'SYSTEM', 'noti.type.system', null, true, NOW(), NOW());
