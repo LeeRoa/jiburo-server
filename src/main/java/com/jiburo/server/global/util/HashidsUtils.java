@@ -1,6 +1,6 @@
 package com.jiburo.server.global.util;
 
-import com.jiburo.server.global.error.BusinessException;
+import com.jiburo.server.global.error.JiburoException;
 import com.jiburo.server.global.error.ErrorCode;
 import org.hashids.Hashids;
 import org.springframework.beans.factory.annotation.Value;
@@ -45,7 +45,7 @@ public class HashidsUtils {
 
         // 복호화에 실패했거나 (잘못된 문자열), 결과가 없는 경우
         if (decoded.length == 0) {
-            throw new BusinessException(ErrorCode.INVALID_IDENTIFIER);
+            throw new JiburoException(ErrorCode.INVALID_IDENTIFIER);
         }
 
         return decoded[0];

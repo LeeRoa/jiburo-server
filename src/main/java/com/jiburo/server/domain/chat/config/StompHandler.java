@@ -1,7 +1,7 @@
 package com.jiburo.server.domain.chat.config;
 
 import com.jiburo.server.domain.user.jwt.JwtTokenProvider;
-import com.jiburo.server.global.error.BusinessException;
+import com.jiburo.server.global.error.JiburoException;
 import com.jiburo.server.global.error.ErrorCode;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
@@ -44,7 +44,7 @@ public class StompHandler implements ChannelInterceptor {
                     log.debug("STOMP 인증 성공: {}", authentication.getName());
                 } else {
                     log.error("STOMP 인증 실패: 유효하지 않은 JWT 토큰입니다.");
-                    throw new BusinessException(ErrorCode.INVALID_TOKEN);
+                    throw new JiburoException(ErrorCode.INVALID_TOKEN);
                 }
             }
         }

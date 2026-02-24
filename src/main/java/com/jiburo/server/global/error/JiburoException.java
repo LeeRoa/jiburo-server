@@ -3,11 +3,11 @@ package com.jiburo.server.global.error;
 import lombok.Getter;
 
 @Getter
-public class BusinessException extends RuntimeException {
+public class JiburoException extends RuntimeException {
 
     private final ErrorCode errorCode;
 
-    public BusinessException(ErrorCode errorCode) {
+    public JiburoException(ErrorCode errorCode) {
         super(errorCode.getMessageKey());
         this.errorCode = errorCode;
     }

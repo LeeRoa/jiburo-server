@@ -2,7 +2,7 @@ package com.jiburo.server.domain.user.jwt;
 
 import com.jiburo.server.domain.user.dto.CustomOAuth2User;
 import com.jiburo.server.domain.user.dto.TokenResponseDto;
-import com.jiburo.server.global.error.BusinessException;
+import com.jiburo.server.global.error.JiburoException;
 import com.jiburo.server.global.error.ErrorCode;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.io.Decoders;
@@ -84,7 +84,7 @@ public class JwtTokenProvider {
         Claims claims = parseClaims(accessToken);
 
         if (claims.get(AUTHORITIES_KEY) == null) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE); // 권한 정보가 없는 토큰 예외 처리
+            throw new JiburoException(ErrorCode.INVALID_INPUT_VALUE); // 권한 정보가 없는 토큰 예외 처리
         }
 
         Collection<? extends GrantedAuthority> authorities =

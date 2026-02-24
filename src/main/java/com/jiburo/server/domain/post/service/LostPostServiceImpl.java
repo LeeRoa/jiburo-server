@@ -2,13 +2,11 @@ package com.jiburo.server.domain.post.service;
 
 import com.jiburo.server.domain.post.domain.LostPost;
 import com.jiburo.server.domain.post.dto.*;
-import com.jiburo.server.domain.post.dto.detail.AnimalDetailDto;
-import com.jiburo.server.domain.post.dto.detail.TargetDetailDto;
 import com.jiburo.server.domain.post.repository.LostPostRepository;
 import com.jiburo.server.domain.user.dao.UserRepository;
 import com.jiburo.server.domain.user.domain.User;
 import com.jiburo.server.global.domain.CodeConst;
-import com.jiburo.server.global.error.BusinessException;
+import com.jiburo.server.global.error.JiburoException;
 import com.jiburo.server.global.error.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -32,7 +30,7 @@ public class LostPostServiceImpl implements LostPostService {
     @Transactional
     public Long create(UUID userId, LostPostCreateRequestDto requestDto) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+                .orElseThrow(() -> new JiburoException(ErrorCode.USER_NOT_FOUND));
 
         // 2. 엔티티 생성
         LostPost post = requestDto.toEntity(user);
@@ -84,7 +82,7 @@ public class LostPostServiceImpl implements LostPostService {
             if (requestDto.finderId() != null) {
                 // 본인이 본인을 지정할 수도 있고(자력 해결), 다른 사람을 지정할 수도 있음
                 finder = userRepository.findById(requestDto.finderId())
-                        .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+                        .orElseThrow(() -> new JiburoException(ErrorCode.USER_NOT_FOUND));
             }
 
             // 1-2. 엔티티 업데이트 (상태 + 해결사 정보)
@@ -135,12 +133,12 @@ public class LostPostServiceImpl implements LostPostService {
 
     private LostPost findPostByIdOrThrow(Long id) {
         return lostPostRepository.findById(id)
-                .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
+                .orElseThrow(() -> new JiburoException(ErrorCode.POST_NOT_FOUND));
     }
 
     private void validateWriter(LostPost post, UUID userId) {
         if (!post.getUser().getId().equals(userId)) {
-            throw new BusinessException(ErrorCode.POST_ACCESS_DENIED);
+            throw new JiburoException(ErrorCode.POST_ACCESS_DENIED);
         }
     }
 }

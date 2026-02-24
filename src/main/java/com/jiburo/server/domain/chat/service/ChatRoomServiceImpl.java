@@ -11,7 +11,7 @@ import com.jiburo.server.domain.post.domain.LostPost;
 import com.jiburo.server.domain.post.repository.LostPostRepository;
 import com.jiburo.server.domain.user.dao.UserRepository;
 import com.jiburo.server.domain.user.domain.User;
-import com.jiburo.server.global.error.BusinessException;
+import com.jiburo.server.global.error.JiburoException;
 import com.jiburo.server.global.error.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
@@ -47,17 +47,17 @@ public class ChatRoomServiceImpl implements ChatRoomService {
 
         // id 기반 게시글 조회
         LostPost post = lostPostRepository.findById(postId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
+                .orElseThrow(() -> new JiburoException(ErrorCode.POST_NOT_FOUND));
 
         // 채팅 요청자
         User host = userRepository.findById(hostId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+                .orElseThrow(() -> new JiburoException(ErrorCode.USER_NOT_FOUND));
         // 게시글 작성자
         User guest = post.getUser();
 
         // 본인 게시글에 채팅을 거는 경우 방지
         if (hostId.equals(guest.getId())) {
-            throw new BusinessException(ErrorCode.CANNOT_CHAT_WITH_SELF);
+            throw new JiburoException(ErrorCode.CANNOT_CHAT_WITH_SELF);
         }
 
         // 기존 방 존재 여부 확인
@@ -88,7 +88,7 @@ public class ChatRoomServiceImpl implements ChatRoomService {
     public ChatRoomDetailDto findRoomDetail(Long roomId, UUID userId, Pageable pageable) {
         // 권한 체크: 해당 유저가 이 채팅방의 참여자인지 확인
         ChatParticipant participant = chatParticipantRepository.findByChatRoomIdAndUserId(roomId, userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_CHAT_PARTICIPANT));
+                .orElseThrow(() -> new JiburoException(ErrorCode.NOT_CHAT_PARTICIPANT));
 
         // 메시지 내역 조회 (최신순 50개)
         Slice<ChatMessage> messages = chatMessageRepository.findAllByChatRoomId(roomId, pageable);
@@ -102,7 +102,7 @@ public class ChatRoomServiceImpl implements ChatRoomService {
     @Override
     public Slice<ChatMessageResponseDto> searchChatMessages(Long roomId, ChatMessageSearchCondition condition, UUID userId, Pageable pageable) {
         if (!chatParticipantRepository.existsByChatRoomIdAndUserId(roomId, userId)) {
-            throw new BusinessException(ErrorCode.NOT_CHAT_PARTICIPANT);
+            throw new JiburoException(ErrorCode.NOT_CHAT_PARTICIPANT);
         }
 
         return chatMessageRepository.searchMessages(roomId, condition, pageable);

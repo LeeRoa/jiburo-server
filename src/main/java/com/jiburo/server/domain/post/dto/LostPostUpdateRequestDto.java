@@ -3,7 +3,7 @@ package com.jiburo.server.domain.post.dto;
 import com.jiburo.server.domain.post.dto.detail.AnimalDetailDto;
 import com.jiburo.server.domain.post.dto.detail.TargetDetailDto;
 import com.jiburo.server.global.domain.CodeConst;
-import com.jiburo.server.global.error.BusinessException;
+import com.jiburo.server.global.error.JiburoException;
 
 import java.time.LocalDate;
 
@@ -48,10 +48,10 @@ public record LostPostUpdateRequestDto(
 
             // TODO [CASE 2, 3] 물건, 사람 (구현 예정)
             case CodeConst.PostCategory.ITEM, CodeConst.PostCategory.PERSON ->
-                    throw new BusinessException(FEATURE_NOT_READY);
+                    throw new JiburoException(FEATURE_NOT_READY);
 
             // 정의되지 않은 카테고리가 오면 에러 처리
-            default -> throw new BusinessException(POST_CATEGORY_INVALID);
+            default -> throw new JiburoException(POST_CATEGORY_INVALID);
         };
     }
 }

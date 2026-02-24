@@ -3,7 +3,7 @@ package com.jiburo.server.domain.user.service;
 import com.jiburo.server.domain.user.dto.TokenRequestDto;
 import com.jiburo.server.domain.user.dto.TokenResponseDto;
 import com.jiburo.server.domain.user.jwt.JwtTokenProvider;
-import com.jiburo.server.global.error.BusinessException;
+import com.jiburo.server.global.error.JiburoException;
 import com.jiburo.server.global.error.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
@@ -22,7 +22,7 @@ public class AuthServiceImpl implements AuthService {
         // 1. Refresh Token 검증
         // (만료되었거나 조작된 토큰이면 여기서 false가 반환됨 -> 예외 발생)
         if (!jwtTokenProvider.validateToken(requestDto.refreshToken())) {
-            throw new BusinessException(ErrorCode.INVALID_TOKEN);
+            throw new JiburoException(ErrorCode.INVALID_TOKEN);
         }
 
         // 2. Access Token에서 Authentication(유저 정보) 가져오기

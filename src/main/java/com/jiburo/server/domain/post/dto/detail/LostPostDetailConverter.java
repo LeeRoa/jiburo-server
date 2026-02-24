@@ -2,7 +2,7 @@ package com.jiburo.server.domain.post.dto.detail;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.jiburo.server.global.error.BusinessException;
+import com.jiburo.server.global.error.JiburoException;
 import com.jiburo.server.global.error.ErrorCode;
 import jakarta.persistence.AttributeConverter;
 import jakarta.persistence.Converter;
@@ -25,7 +25,7 @@ public class LostPostDetailConverter implements AttributeConverter<TargetDetailD
             return objectMapper.writeValueAsString(attribute);
         } catch (JsonProcessingException e) {
             log.error("JSON writing error", e);
-            throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
+            throw new JiburoException(ErrorCode.INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -40,7 +40,7 @@ public class LostPostDetailConverter implements AttributeConverter<TargetDetailD
             return objectMapper.readValue(dbData, TargetDetailDto.class);
         } catch (JsonProcessingException e) {
             log.error("JSON reading error", e);
-            throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
+            throw new JiburoException(ErrorCode.INTERNAL_SERVER_ERROR);
         }
     }
 }

@@ -2,7 +2,7 @@ package com.jiburo.server.domain.user.dto;
 
 import com.jiburo.server.domain.user.domain.User;
 import com.jiburo.server.global.domain.CodeConst;
-import com.jiburo.server.global.error.BusinessException;
+import com.jiburo.server.global.error.JiburoException;
 import lombok.Builder;
 
 import java.util.Map;
@@ -23,7 +23,7 @@ public record OAuthAttributes(
             case "naver" -> ofNaver(attributes);
             case "kakao" -> ofKakao(userNameAttributeName, attributes);
             case "google" -> ofGoogle(userNameAttributeName, attributes);
-            default -> throw new BusinessException(OAUTH_PROVIDER_INVALID);
+            default -> throw new JiburoException(OAUTH_PROVIDER_INVALID);
         };
     }
 

@@ -8,7 +8,7 @@ import com.jiburo.server.domain.chat.dto.ChatMessageResponseDto;
 import com.jiburo.server.domain.chat.repository.ChatMessageRepository;
 import com.jiburo.server.domain.chat.repository.ChatParticipantRepository;
 import com.jiburo.server.domain.chat.repository.ChatRoomRepository;
-import com.jiburo.server.global.error.BusinessException;
+import com.jiburo.server.global.error.JiburoException;
 import com.jiburo.server.global.error.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -32,11 +32,11 @@ public class ChatMessageServiceImpl implements ChatMessageService {
     public ChatMessageResponseDto saveMessage(Long roomId, UUID senderId, ChatMessageRequestDto dto) {
         // 1. 방 존재 여부 확인
         ChatRoom room = chatRoomRepository.findById(roomId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.CHAT_ROOM_NOT_FOUND));
+                .orElseThrow(() -> new JiburoException(ErrorCode.CHAT_ROOM_NOT_FOUND));
 
         // 2. 보낸 사람이 이 방의 참여자가 맞는지 권한 체크
         ChatParticipant participant = chatParticipantRepository.findByChatRoomIdAndUserId(roomId, senderId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_CHAT_PARTICIPANT));
+                .orElseThrow(() -> new JiburoException(ErrorCode.NOT_CHAT_PARTICIPANT));
 
         // 3. 메시지 엔티티 생성 및 저장 (DTO의 toEntity 활용)
         ChatMessage message = dto.toEntity(room, participant.getUser());

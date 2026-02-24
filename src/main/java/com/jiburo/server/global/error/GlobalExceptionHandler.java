@@ -21,8 +21,8 @@ public class GlobalExceptionHandler {
      * 서비스 로직에서 개발자가 의도적으로 던진 예외를 처리합니다.
      * 예: throw new BusinessException(ErrorCode.USER_NOT_FOUND);
      */
-    @ExceptionHandler(BusinessException.class)
-    public ResponseEntity<ApiResponse<Void>> handleBusinessException(BusinessException e) {
+    @ExceptionHandler(JiburoException.class)
+    public ResponseEntity<ApiResponse<Void>> handleBusinessException(JiburoException e) {
         ErrorCode errorCode = e.getErrorCode();
         String message = MessageUtils.getMessage(errorCode.getMessageKey());
 
