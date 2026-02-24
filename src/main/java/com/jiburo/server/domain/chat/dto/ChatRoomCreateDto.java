@@ -1,5 +1,6 @@
 package com.jiburo.server.domain.chat.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.jiburo.server.domain.chat.domain.ChatRoom;
 import com.jiburo.server.domain.post.domain.LostPost;
 import com.jiburo.server.domain.user.domain.User;
@@ -15,6 +16,7 @@ public record ChatRoomCreateDto(
                 .build();
     }
 
+    @JsonIgnore
     public Long getDecodedPostId() {
         return HashidsUtils.decode(this.postId);
     }
