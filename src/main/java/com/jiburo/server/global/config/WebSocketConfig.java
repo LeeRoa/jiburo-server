@@ -11,11 +11,11 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
-    public void configureMessageBroker(MessageBrokerRegistry config) {
+    public void configureMessageBroker(MessageBrokerRegistry registry) {
         // 메시지를 받을 때 (구독): /sub/chat/room/1
-        config.enableSimpleBroker("/sub");
+        registry.enableSimpleBroker("/sub");
         // 메시지를 보낼 때 (발행): /pub/chat/message
-        config.setApplicationDestinationPrefixes("/pub");
+        registry.setApplicationDestinationPrefixes("/pub");
     }
 
     @Override

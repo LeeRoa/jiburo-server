@@ -46,6 +46,7 @@ public class SecurityConfig {
 
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
+                                "/ws-jiburo/**",
                                 "/api/v1/posts/**",
                                 "/api/v1/common-codes/**",
                                 "/v3/api-docs/**",
