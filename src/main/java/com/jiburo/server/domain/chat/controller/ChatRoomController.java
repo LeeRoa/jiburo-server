@@ -6,8 +6,12 @@ import com.jiburo.server.domain.chat.dto.ChatRoomListDto;
 import com.jiburo.server.domain.chat.service.ChatRoomService;
 import com.jiburo.server.domain.user.dto.CustomOAuth2User;
 import com.jiburo.server.global.response.ApiResponse;
+import com.jiburo.server.global.util.HashidsUtils;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -44,14 +48,15 @@ public class ChatRoomController {
     }
 
     /**
-     * TODO [GET] 채팅 메시지 내역 조회
+     * [GET] 채팅 메시지 내역 조회
      * @param roomId Hashids String
      */
     @GetMapping("/{roomId}/messages")
     public ApiResponse<ChatRoomDetailDto> getRoomMessages(
             @PathVariable String roomId,
-            @AuthenticationPrincipal CustomOAuth2User user) {
-        return null;
+            @AuthenticationPrincipal CustomOAuth2User user,
+            @PageableDefault(size = 50, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        return ApiResponse.success(chatRoomService.findRoomDetail(HashidsUtils.decode(roomId), user.getUserId(), pageable));
     }
 
     // TODO 채팅방 삭제
