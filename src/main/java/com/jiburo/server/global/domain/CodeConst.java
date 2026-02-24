@@ -56,6 +56,14 @@ public final class CodeConst {
         // 신고/관리 관련
         public static final String REPORT_CREATE = "REPORT_CREATE";   // 악성 게시글 신고
         public static final String BADGE_UPGRADE = "BADGE_UPGRADE";   // 등급 승급
+
+        // 채팅 관련
+        public static final String CHAT_ROOM_CREATE = "CHAT_ROOM_CREATE";     // 채팅방 생성 (실종자와 제보자 연결)
+        public static final String CHAT_ROOM_EXIT = "CHAT_ROOM_EXIT";         // 채팅방 나가기 (방 완전히 제거 혹은 퇴장)
+        public static final String CHAT_MESSAGE_SEND = "CHAT_MESSAGE_SEND";   // 메시지 전송 (텍스트)
+        public static final String CHAT_FILE_UPLOAD = "CHAT_FILE_UPLOAD";     // 파일 전송 (이미지, 영상 등)
+        public static final String CHAT_ROOM_ENTER = "CHAT_ROOM_ENTER";       // 채팅방 입장 (세션 연결 시점)
+        public static final String CHAT_ROOM_LEAVE = "CHAT_ROOM_LEAVE";       // 채팅방 이탈 (세션 끊김 시점)
     }
 
     // 게시글 대분류 (대상)
@@ -70,5 +78,13 @@ public final class CodeConst {
         public static final String PUBLIC = "PUBLIC"; // 공개
         public static final String PROTECTED = "PROTECTED"; // 허용된 사람만 공개
         public static final String PRIVATE = "PRIVATE"; // 비공개 (자기 자신만)
+    }
+
+    public static class ChatMsgType {
+        public static final String TALK = "TALK";
+        public static final String IMAGE = "IMAGE";
+        public static final String VIDEO = "VIDEO";
+        public static final String MAP = "MAP";
+        public static final String SYS = "SYS";
     }
 }

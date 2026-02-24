@@ -4,6 +4,8 @@ import com.jiburo.server.domain.chat.dto.ChatMessageRequestDto;
 import com.jiburo.server.domain.chat.dto.ChatMessageResponseDto;
 import com.jiburo.server.domain.chat.service.ChatMessageService;
 import com.jiburo.server.domain.user.dto.CustomOAuth2User;
+import com.jiburo.server.global.domain.CodeConst;
+import com.jiburo.server.global.log.annotation.AuditLog;
 import com.jiburo.server.global.util.HashidsUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -34,6 +36,7 @@ public class ChatController {
      * 클라이언트가 메시지를 보낼 때 호출되는 핸들러
      * 프론트엔드 요청 경로: /pub/chat/rooms/{roomId}
      */
+    @AuditLog(action = CodeConst.LogAction.CHAT_MESSAGE_SEND)
     @MessageMapping("/chat/rooms/{roomId}")
     public void sendMessage(
             @DestinationVariable String roomId,

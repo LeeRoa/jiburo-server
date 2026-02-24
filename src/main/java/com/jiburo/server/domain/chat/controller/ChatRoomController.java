@@ -3,6 +3,8 @@ package com.jiburo.server.domain.chat.controller;
 import com.jiburo.server.domain.chat.dto.*;
 import com.jiburo.server.domain.chat.service.ChatRoomService;
 import com.jiburo.server.domain.user.dto.CustomOAuth2User;
+import com.jiburo.server.global.domain.CodeConst;
+import com.jiburo.server.global.log.annotation.AuditLog;
 import com.jiburo.server.global.response.ApiResponse;
 import com.jiburo.server.global.util.HashidsUtils;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -29,6 +31,7 @@ public class ChatRoomController {
      * [POST] 채팅방 생성
      * @param requestDto postId (Hashids String) 포함
      */
+    @AuditLog(action = CodeConst.LogAction.CHAT_ROOM_CREATE)
     @PostMapping
     public ApiResponse<ChatRoomListDto> createRoom(
             @RequestBody ChatRoomCreateDto requestDto,
