@@ -31,7 +31,7 @@
     </div>
     
     <div style="display: flex; gap: 5px;">
-        <input type="text" id="message" placeholder="한글 메시지 테스트..." style="flex-grow: 1;" onkeypress="if(event.keyCode==13) sendMessage()">
+        <input type="text" id="message" placeholder="메시지를 입력하세요..." style="flex-grow: 1;" onkeypress="if(event.keyCode==13) sendMessage()">
         <button onclick="sendMessage()">2. 전송</button>
     </div>
 
@@ -42,7 +42,7 @@
             const roomId = document.getElementById('roomId').value;
             if(!roomId) return alert("방 ID를 입력해주세요.");
 
-            // 서버 주소 (IP가 바뀌었다면 수정하세요)
+            // 서버 주소
             const socket = new WebSocket('ws://localhost:8080/ws-jiburo');
             stompClient = Stomp.over(socket);
 
