@@ -35,7 +35,6 @@ public class ChatController {
             @Payload ChatMessageRequestDto requestDto,
             Authentication authentication
     ) {
-        log.info("발신자 ID: {}", authentication.getName());
         CustomOAuth2User user = (CustomOAuth2User) authentication.getPrincipal();
         // DB에 메시지 저장 및 방의 마지막 대화 정보 갱신
         ChatMessageResponseDto responseDto = chatMessageService.saveMessage(HashidsUtils.decode(roomId), user.getUserId(), requestDto);

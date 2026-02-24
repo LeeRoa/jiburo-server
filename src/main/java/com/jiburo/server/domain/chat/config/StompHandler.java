@@ -1,6 +1,8 @@
 package com.jiburo.server.domain.chat.config;
 
 import com.jiburo.server.domain.user.jwt.JwtTokenProvider;
+import com.jiburo.server.global.error.BusinessException;
+import com.jiburo.server.global.error.ErrorCode;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,7 +31,7 @@ public class StompHandler implements ChannelInterceptor {
         // 1. 연결 요청(CONNECT)일 때만 토큰 검증
         if (StompCommand.CONNECT == Objects.requireNonNull(accessor).getCommand()) {
             String jwt = accessor.getFirstNativeHeader("Authorization");
-            log.info("STOMP 연결 시도 - JWT: {}", jwt);
+            log.debug("STOMP 연결 시도 - JWT: {}", jwt);
 
             if (jwt != null && jwt.startsWith("Bearer ")) {
                 String token = jwt.substring(7);
@@ -39,10 +41,10 @@ public class StompHandler implements ChannelInterceptor {
                     // 3. 인증 객체 생성 및 세션에 저장
                     Authentication authentication = jwtTokenProvider.getAuthentication(token);
                     accessor.setUser(authentication);
-                    log.info("STOMP 인증 성공: {}", authentication.getName());
+                    log.debug("STOMP 인증 성공: {}", authentication.getName());
                 } else {
-                    log.error("STOMP 인증 실패: 유효하지 않은 토큰");
-                    // 필요 시 예외를 던져 연결을 강제 종료할 수 있습니다.
+                    log.error("STOMP 인증 실패: 유효하지 않은 JWT 토큰입니다.");
+                    throw new BusinessException(ErrorCode.INVALID_TOKEN);
                 }
             }
         }
