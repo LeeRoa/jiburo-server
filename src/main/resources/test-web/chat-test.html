@@ -109,22 +109,45 @@
             });
         },
 
-        // 3. 연결 성공 후 처리
         onConnected: function() {
+            // 1. UI 전환 (설정창 숨기기)
             document.getElementById('configPanel').style.display = 'none';
             document.getElementById('chatView').style.display = 'flex';
 
-            this.appendSystem(`🟢 접속 성공 (ID: ${this.myUserId.split('-')[0]}...)`);
+            // 2. [기존 API 활용] 과거 메시지 내역 불러오기
+            this.fetchRoomDetail();
 
-            // 구독 설정
+            // 3. 실시간 구독 시작
             this.stompClient.subscribe('/sub/chat/rooms/' + this.currentRoomId, (res) => {
                 const data = JSON.parse(res.body);
-
-                // [핵심] 닉네임이 아닌 UUID(senderId)로 내 메시지인지 판별
                 const isMine = (data.senderId === this.myUserId);
-
                 this.appendBubble(data.senderNickname, data.content, isMine);
             });
+        },
+
+        fetchRoomDetail: function() {
+            const token = document.getElementById('token').value;
+
+            // 로아님이 만든 [GET] /{roomId}/messages 호출
+            fetch(`http://localhost:8080/api/v1/chat/rooms/${this.currentRoomId}/messages`, {
+                headers: { 'Authorization': 'Bearer ' + token }
+            })
+                .then(res => res.json())
+                .then(response => {
+                    // ApiResponse<ChatRoomDetailDto> 구조에 맞춰 접근
+                    const detail = response.data;
+
+                    // detail 내에 메시지 리스트가 있다고 가정 (예: detail.messages)
+                    // pageable 설정에 따라 최신순/과거순 정렬 확인 필요!
+                    if (detail.messages && detail.messages.content) {
+                        detail.messages.content.forEach(msg => {
+                            const isMine = (msg.senderId === this.myUserId);
+                            this.appendBubble(msg.senderNickname, msg.content, isMine);
+                        });
+                    }
+                    this.appendSystem("--- 이전 대화 내역을 불러왔습니다 ---");
+                })
+                .catch(err => console.error("내역 로드 실패:", err));
         },
 
         // 4. 메시지 발행
