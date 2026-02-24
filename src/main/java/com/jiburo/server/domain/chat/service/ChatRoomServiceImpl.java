@@ -91,7 +91,7 @@ public class ChatRoomServiceImpl implements ChatRoomService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_CHAT_PARTICIPANT));
 
         // 메시지 내역 조회 (최신순 50개)
-        Slice<ChatMessage> messages = chatMessageRepository.findAllByChatRoomIdOrderByCreatedAtDesc(roomId, pageable);
+        Slice<ChatMessage> messages = chatMessageRepository.findAllByChatRoomId(roomId, pageable);
 
         // 읽음 처리 (방에 들어왔으니 lastReadAt 최신화)
         participant.updateLastRead();

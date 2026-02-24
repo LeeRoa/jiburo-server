@@ -55,7 +55,7 @@ public class ChatRoomController {
     public ApiResponse<ChatRoomDetailDto> getRoomMessages(
             @PathVariable String roomId,
             @AuthenticationPrincipal CustomOAuth2User user,
-            @ParameterObject @PageableDefault(size = 50, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+            @ParameterObject @PageableDefault(size = 50, sort = "createdAt", direction = Sort.Direction.ASC) Pageable pageable) {
         return ApiResponse.success(chatRoomService.findRoomDetail(HashidsUtils.decode(roomId), user.getUserId(), pageable));
     }
 
