@@ -3,13 +3,11 @@ package com.jiburo.server.domain.chat.service;
 import com.jiburo.server.domain.chat.domain.ChatMessage;
 import com.jiburo.server.domain.chat.domain.ChatParticipant;
 import com.jiburo.server.domain.chat.domain.ChatRoom;
-import com.jiburo.server.domain.chat.dto.ChatRoomCreateDto;
-import com.jiburo.server.domain.chat.dto.ChatRoomDetailDto;
-import com.jiburo.server.domain.chat.dto.ChatRoomListDto;
+import com.jiburo.server.domain.chat.dto.*;
+import com.jiburo.server.domain.chat.repository.ChatMessageRepository;
+import com.jiburo.server.domain.chat.repository.ChatParticipantRepository;
 import com.jiburo.server.domain.chat.repository.ChatRoomRepository;
 import com.jiburo.server.domain.post.domain.LostPost;
-import com.jiburo.server.domain.post.repository.ChatMessageRepository;
-import com.jiburo.server.domain.post.repository.ChatParticipantRepository;
 import com.jiburo.server.domain.post.repository.LostPostRepository;
 import com.jiburo.server.domain.user.dao.UserRepository;
 import com.jiburo.server.domain.user.domain.User;
@@ -89,7 +87,6 @@ public class ChatRoomServiceImpl implements ChatRoomService {
     @Override
     public ChatRoomDetailDto findRoomDetail(Long roomId, UUID userId, Pageable pageable) {
         // 권한 체크: 해당 유저가 이 채팅방의 참여자인지 확인
-        // (이 로직이 없으면 roomId만 알아내서 남의 채팅을 훔쳐볼 수 있음)
         ChatParticipant participant = chatParticipantRepository.findByChatRoomIdAndUserId(roomId, userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_CHAT_PARTICIPANT));
 
@@ -100,5 +97,14 @@ public class ChatRoomServiceImpl implements ChatRoomService {
         participant.updateLastRead();
 
         return ChatRoomDetailDto.from(participant.getChatRoom(), messages);
+    }
+
+    @Override
+    public Slice<ChatMessageResponseDto> searchChatMessages(Long roomId, ChatMessageSearchCondition condition, UUID userId, Pageable pageable) {
+        if (!chatParticipantRepository.existsByChatRoomIdAndUserId(roomId, userId)) {
+            throw new BusinessException(ErrorCode.NOT_CHAT_PARTICIPANT);
+        }
+
+        return chatMessageRepository.searchMessages(roomId, condition, pageable);
     }
 }

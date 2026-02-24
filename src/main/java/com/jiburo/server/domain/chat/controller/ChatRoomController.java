@@ -1,15 +1,15 @@
 package com.jiburo.server.domain.chat.controller;
 
-import com.jiburo.server.domain.chat.dto.ChatRoomCreateDto;
-import com.jiburo.server.domain.chat.dto.ChatRoomDetailDto;
-import com.jiburo.server.domain.chat.dto.ChatRoomListDto;
+import com.jiburo.server.domain.chat.dto.*;
 import com.jiburo.server.domain.chat.service.ChatRoomService;
 import com.jiburo.server.domain.user.dto.CustomOAuth2User;
 import com.jiburo.server.global.response.ApiResponse;
 import com.jiburo.server.global.util.HashidsUtils;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -55,8 +55,20 @@ public class ChatRoomController {
     public ApiResponse<ChatRoomDetailDto> getRoomMessages(
             @PathVariable String roomId,
             @AuthenticationPrincipal CustomOAuth2User user,
-            @PageableDefault(size = 50, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+            @ParameterObject @PageableDefault(size = 50, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
         return ApiResponse.success(chatRoomService.findRoomDetail(HashidsUtils.decode(roomId), user.getUserId(), pageable));
+    }
+
+    /**
+     * [GET] 채팅 메시지 키워드 검색
+     */
+    @GetMapping("/{roomId}/messages/search")
+    public ApiResponse<Slice<ChatMessageResponseDto>> searchMessages(
+            @PathVariable String roomId,
+            @AuthenticationPrincipal CustomOAuth2User user,
+            @ModelAttribute ChatMessageSearchCondition condition,
+            @ParameterObject @PageableDefault(size = 20) Pageable pageable) {
+        return ApiResponse.success(chatRoomService.searchChatMessages(HashidsUtils.decode(roomId), condition, user.getUserId(), pageable));
     }
 
     // TODO 채팅방 삭제
