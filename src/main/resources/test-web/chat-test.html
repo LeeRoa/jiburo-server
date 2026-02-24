@@ -2,88 +2,168 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    <title>Jiburo 실시간 채팅 테스트</title>
-    
+    <title>Jiburo 채팅방 🐾</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
-    
     <style>
-        body { font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; padding: 20px; line-height: 1.6; }
-        #chatBox { border: 2px solid #eee; height: 400px; overflow-y: auto; padding: 15px; background: #fff; margin-bottom: 10px; border-radius: 10px; }
-        .msg-line { margin-bottom: 8px; }
-        .nickname { font-weight: bold; color: #ff6b6b; margin-right: 5px; }
-        .content { background: #f1f3f5; padding: 5px 10px; border-radius: 10px; }
-        .system { color: #888; font-size: 0.9em; font-style: italic; text-align: center; display: block; margin: 10px 0; }
-        input { padding: 10px; border: 1px solid #ddd; border-radius: 5px; }
-        button { padding: 10px 15px; background: #ff6b6b; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        :root { --bg: #A2B9CF; --me: #FEE500; --other: #FFFFFF; --text: #333; }
+        * { box-sizing: border-box; }
+        body { font-family: 'Apple SD Gothic Neo', sans-serif; background: var(--bg); margin: 0; display: flex; flex-direction: column; align-items: center; height: 100vh; padding: 20px; }
+
+        /* [UI] 설정 패널 */
+        .panel { background: white; padding: 25px; border-radius: 20px; width: 380px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); display: flex; flex-direction: column; gap: 12px; }
+        input { padding: 14px; border: 1px solid #eee; border-radius: 10px; outline: none; font-size: 14px; }
+        input:focus { border-color: #556677; }
+        .btn-primary { padding: 14px; background: #556677; color: white; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .btn-primary:hover { background: #334455; }
+
+        /* [UI] 채팅 뷰 */
+        #chatView { display: none; width: 400px; flex-direction: column; height: 100%; }
+        #chatBox { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 14px; }
+
+        /* [UI] 말풍선 디자인 */
+        .msg-wrap { display: flex; flex-direction: column; max-width: 85%; position: relative; }
+        .nickname { font-size: 12px; color: #444; margin: 0 4px 4px; font-weight: 600; }
+        .bubble { padding: 10px 14px; border-radius: 16px; font-size: 14px; line-height: 1.4; color: var(--text); box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+
+        /* 내 메시지 (우측) */
+        .my { align-self: flex-end; align-items: flex-end; }
+        .my .bubble { background: var(--me); border-top-right-radius: 2px; }
+        .my .nickname { display: none; } /* 내 닉네임은 숨김 */
+
+        /* 상대 메시지 (좌측) */
+        .other { align-self: flex-start; align-items: flex-start; }
+        .other .bubble { background: var(--other); border-top-left-radius: 2px; }
+
+        /* 시스템 메시지 */
+        .system { align-self: center; background: rgba(0,0,0,0.15); color: white; padding: 5px 15px; border-radius: 20px; font-size: 11px; margin: 10px 0; }
+
+        /* [UI] 전송바 */
+        .send-bar { background: white; padding: 15px; display: flex; gap: 10px; border-radius: 15px; margin-top: 10px; box-shadow: 0 -5px 15px rgba(0,0,0,0.05); }
+        #msgInput { flex: 1; border: none; background: #f0f0f0; }
     </style>
 </head>
 <body>
-    <h2>🐾 Jiburo 실시간 채팅</h2>
-    
-    <div style="margin-bottom: 15px;">
-        <input type="text" id="roomId" placeholder="방 Hash ID 입력" style="width:200px;">
-        <button onclick="connect()">1. 서버 연결</button>
-    </div>
-    
-    <div id="chatBox">
-        <span class="system">서버에 연결하면 대화 내용이 여기에 표시됩니다.</span>
-    </div>
-    
-    <div style="display: flex; gap: 5px;">
-        <input type="text" id="message" placeholder="메시지를 입력하세요..." style="flex-grow: 1;" onkeypress="if(event.keyCode==13) sendMessage()">
-        <button onclick="sendMessage()">2. 전송</button>
-    </div>
 
-    <script>
-        let stompClient = null;
+<div id="configPanel" class="panel">
+    <h3 style="margin:0 0 10px; text-align:center; color:#556677;">Jiburo Login 🐾</h3>
+    <input type="text" id="token" placeholder="JWT Token (Bearer 제외)">
+    <input type="text" id="roomId" placeholder="Room ID (Hashid)">
+    <button class="btn-primary" onclick="ChatApp.connect()">채팅방 입장</button>
+</div>
 
-        function connect() {
-            const roomId = document.getElementById('roomId').value;
-            if(!roomId) return alert("방 ID를 입력해주세요.");
+<div id="chatView">
+    <div id="chatBox"></div>
+    <div class="send-bar">
+        <input type="text" id="msgInput" placeholder="메시지를 입력하세요..." onkeypress="if(event.keyCode==13) ChatApp.send()">
+        <button onclick="ChatApp.send()" style="border:none; background:var(--me); padding:8px 15px; border-radius:8px; cursor:pointer; font-weight:bold;">전송</button>
+        <button onclick="location.reload()" style="border:none; background:none; color:#ff4d4f; cursor:pointer; font-size:12px;">나가기</button>
+    </div>
+</div>
 
-            // 서버 주소
+<script>
+    /**
+     * ChatApp 네임스페이스로 로직 그룹화 (리팩토링)
+     */
+    const ChatApp = {
+        stompClient: null,
+        myUserId: null, // 내 UUID 저장
+        currentRoomId: null,
+
+        // 1. JWT 파싱 및 유저 UUID 추출
+        parseJwt: function(token) {
+            try {
+                const base64Url = token.split('.')[1];
+                const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+                return JSON.parse(window.atob(base64));
+            } catch (e) {
+                console.error("JWT 파싱 에러:", e);
+                return null;
+            }
+        },
+
+        // 2. 연결 로직
+        connect: function() {
+            const token = document.getElementById('token').value.trim();
+            const roomId = document.getElementById('roomId').value.trim();
+            const payload = this.parseJwt(token);
+
+            if (!payload || !roomId) {
+                alert("토큰과 방 ID를 확인해주세요.");
+                return;
+            }
+
+            // [핵심] 내 ID를 토큰의 sub(UUID)에서 추출
+            this.myUserId = payload.sub;
+            this.currentRoomId = roomId;
+
             const socket = new WebSocket('ws://localhost:8080/ws-jiburo');
-            stompClient = Stomp.over(socket);
+            this.stompClient = Stomp.over(socket);
+            this.stompClient.debug = null; // 콘솔 지저분하면 null
 
-            // 연결 시도
-            stompClient.connect({}, function (frame) {
-                printLog("시스템", "🟢 연결 성공! [" + roomId + "] 방을 구독합니다.");
-                
-                // 구독 설정
-                stompClient.subscribe('/sub/chat/rooms/' + roomId, function (response) {
-                    const data = JSON.parse(response.body);
-                    printLog(data.senderNickname || "익명", data.content);
-                });
-            }, function(error) {
-                printLog("시스템", "🔴 에러 발생: " + error);
+            const headers = { 'Authorization': 'Bearer ' + token };
+
+            this.stompClient.connect(headers, (frame) => {
+                this.onConnected();
+            }, (err) => {
+                alert("연결 실패: " + err);
             });
-        }
+        },
 
-        function sendMessage() {
-            const roomId = document.getElementById('roomId').value;
-            const content = document.getElementById('message').value;
-            if(!stompClient || !content) return;
+        // 3. 연결 성공 후 처리
+        onConnected: function() {
+            document.getElementById('configPanel').style.display = 'none';
+            document.getElementById('chatView').style.display = 'flex';
+
+            this.appendSystem(`🟢 접속 성공 (ID: ${this.myUserId.split('-')[0]}...)`);
+
+            // 구독 설정
+            this.stompClient.subscribe('/sub/chat/rooms/' + this.currentRoomId, (res) => {
+                const data = JSON.parse(res.body);
+
+                // [핵심] 닉네임이 아닌 UUID(senderId)로 내 메시지인지 판별
+                const isMine = (data.senderId === this.myUserId);
+
+                this.appendBubble(data.senderNickname, data.content, isMine);
+            });
+        },
+
+        // 4. 메시지 발행
+        send: function() {
+            const msgInput = document.getElementById('msgInput');
+            const content = msgInput.value.trim();
+
+            if (!content || !this.stompClient) return;
 
             const payload = {
                 content: content,
                 messageTypeCode: "TALK"
             };
 
-            // STOMP 발행
-            stompClient.send("/pub/chat/rooms/" + roomId, {}, JSON.stringify(payload));
-            document.getElementById('message').value = '';
-        }
+            this.stompClient.send("/pub/chat/rooms/" + this.currentRoomId, {}, JSON.stringify(payload));
+            msgInput.value = '';
+            msgInput.focus();
+        },
 
-        function printLog(sender, text) {
-            const chatBox = document.getElementById('chatBox');
-            if(sender === "시스템") {
-                chatBox.innerHTML += `<span class="system">${text}</span>`;
-            } else {
-                chatBox.innerHTML += `<div class="msg-line"><span class="nickname">${sender}:</span><span class="content">${text}</span></div>`;
-            }
-            chatBox.scrollTop = chatBox.scrollHeight;
+        // 5. UI 렌더링 함수들
+        appendBubble: function(nick, content, isMine) {
+            const box = document.getElementById('chatBox');
+            const sideClass = isMine ? 'my' : 'other';
+
+            const html = `
+                <div class="msg-wrap ${sideClass}">
+                    <div class="nickname">${nick}</div>
+                    <div class="bubble">${content}</div>
+                </div>
+            `;
+            box.insertAdjacentHTML('beforeend', html);
+            box.scrollTop = box.scrollHeight;
+        },
+
+        appendSystem: function(txt) {
+            const box = document.getElementById('chatBox');
+            box.insertAdjacentHTML('beforeend', `<div class="system">${txt}</div>`);
         }
-    </script>
+    };
+</script>
 </body>
 </html>
