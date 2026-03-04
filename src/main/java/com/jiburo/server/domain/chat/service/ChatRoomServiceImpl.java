@@ -93,8 +93,11 @@ public class ChatRoomServiceImpl implements ChatRoomService {
         // 메시지 내역 조회 (최신순 50개)
         Slice<ChatMessage> messages = chatMessageRepository.findAllByChatRoomId(roomId, pageable);
 
-        // 읽음 처리 (방에 들어왔으니 lastReadAt 최신화)
-        participant.updateLastRead();
+        // 읽음 처리: 조회된 메시지가 하나라도 있다면 가장 최신(첫 번째) 메시지의 ID로 업데이트
+        if (messages.hasContent()) {
+            Long latestMessageId = messages.getContent().get(0).getId();
+            participant.updateLastRead(latestMessageId);
+        }
 
         return ChatRoomDetailDto.from(participant.getChatRoom(), messages);
     }

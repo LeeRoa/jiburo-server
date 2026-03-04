@@ -40,14 +40,13 @@ public class ChatParticipant extends BaseTimeEntity {
     @Comment("해당 유저가 방을 나갔는지 여부 (true일 경우 목록에서 제외하는 Soft Delete 방식)")
     private boolean isExited = false;
 
-    @Comment("해당 유저가 마지막으로 메시지를 읽은 시점 (이 시간 이후의 메시지는 안 읽음으로 처리)")
-    private LocalDateTime lastReadAt;
+    @Comment("해당 유저가 마지막으로 읽은 메시지 PK (ID)")
+    private Long lastReadMessageId = 0L;
 
     @Builder
     public ChatParticipant(ChatRoom chatRoom, User user) {
         this.chatRoom = chatRoom;
         this.user = user;
-        this.lastReadAt = LocalDateTime.now(); // 입장 시점부터 읽은 것으로 간주
     }
 
     /**
@@ -69,9 +68,11 @@ public class ChatParticipant extends BaseTimeEntity {
     }
 
     /**
-     * 읽음 시점 최신화 (채팅방에 진입하거나 활성화 상태일 때 갱신)
+     * 읽음 시점 최신화 (과거 메시지 ID가 들어오면 무시하도록 방어 로직 추가)
      */
-    public void updateLastRead() {
-        this.lastReadAt = LocalDateTime.now();
+    public void updateLastRead(Long messageId) {
+        if (messageId > this.lastReadMessageId) {
+            this.lastReadMessageId = messageId;
+        }
     }
 }

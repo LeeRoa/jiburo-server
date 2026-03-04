@@ -53,7 +53,7 @@ public class ChatRoomRepositoryImpl implements ChatRoomRepositoryCustom {
                         JPAExpressions.select(message.count())
                                 .from(message)
                                 .where(message.chatRoom.id.eq(chatRoom.id)
-                                        .and(message.createdAt.gt(myPart.lastReadAt)))
+                                        .and(message.id.gt(myPart.lastReadMessageId)))
                 )
                 .from(chatRoom)
                 .join(chatRoom.participants, myPart)
