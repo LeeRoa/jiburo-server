@@ -40,6 +40,35 @@
         /* [UI] 전송바 */
         .send-bar { background: white; padding: 15px; display: flex; gap: 10px; border-radius: 15px; margin-top: 10px; box-shadow: 0 -5px 15px rgba(0,0,0,0.05); }
         #msgInput { flex: 1; border: none; background: #f0f0f0; }
+
+        /* 읽음/안 읽음 공통 스타일 */
+        .read-status {
+            font-size: 10px;
+            margin: 0 5px;
+            align-self: flex-end; /* 말풍선 바닥에 정렬 */
+            font-weight: bold;
+            white-space: nowrap;
+        }
+
+        /* 안 읽음: 노란색/금색 계열 */
+        .status-unread { color: #FFD700; }
+
+        /* 읽음: 아주 연한 회색 (배경에 묻히도록) */
+        .status-read { color: #E0E0E0; }
+
+        /* 내 메시지 레이아웃 (오른쪽 정렬, 상태는 왼쪽) */
+        .my .bubble-container {
+            display: flex;
+            flex-direction: row;
+            justify-content: flex-end;
+        }
+
+        /* 상대 메시지 레이아웃 (왼쪽 정렬, 상태는 안 보여줌) */
+        .other .bubble-container {
+            display: flex;
+            flex-direction: row-reverse;
+            justify-content: flex-end;
+        }
     </style>
 </head>
 <body>
@@ -66,114 +95,138 @@
      */
     const ChatApp = {
         stompClient: null,
-        myUserId: null, // 내 UUID 저장
+        myUserId: null,
         currentRoomId: null,
 
-        // 1. JWT 파싱 및 유저 UUID 추출
         parseJwt: function(token) {
             try {
                 const base64Url = token.split('.')[1];
                 const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
                 return JSON.parse(window.atob(base64));
-            } catch (e) {
-                console.error("JWT 파싱 에러:", e);
-                return null;
-            }
+            } catch (e) { return null; }
         },
 
-        // 2. 연결 로직
         connect: function() {
             const token = document.getElementById('token').value.trim();
             const roomId = document.getElementById('roomId').value.trim();
             const payload = this.parseJwt(token);
 
-            if (!payload || !roomId) {
-                alert("토큰과 방 ID를 확인해주세요.");
-                return;
-            }
+            if (!payload || !roomId) { alert("토큰과 방 ID를 확인해주세요."); return; }
 
-            // [핵심] 내 ID를 토큰의 sub(UUID)에서 추출
             this.myUserId = payload.sub;
             this.currentRoomId = roomId;
 
             const socket = new WebSocket('ws://localhost:8080/ws-jiburo');
             this.stompClient = Stomp.over(socket);
-            this.stompClient.debug = null; // 콘솔 지저분하면 null
+            this.stompClient.debug = null;
 
             const headers = { 'Authorization': 'Bearer ' + token };
-
             this.stompClient.connect(headers, (frame) => {
                 this.onConnected();
-            }, (err) => {
-                alert("연결 실패: " + err);
-            });
+            }, (err) => { alert("연결 실패: " + err); });
         },
 
         onConnected: function() {
-            // 1. UI 전환 (설정창 숨기기)
             document.getElementById('configPanel').style.display = 'none';
             document.getElementById('chatView').style.display = 'flex';
 
-            // 2. [기존 API 활용] 과거 메시지 내역 불러오기
+            // 1. 과거 내역 로드 (API 호출 시 백엔드에서 읽음 처리 수행됨)
             this.fetchRoomDetail();
 
-            // 3. 실시간 구독 시작
+            // 2. 실시간 메시지 구독
             this.stompClient.subscribe('/sub/chat/rooms/' + this.currentRoomId, (res) => {
                 const data = JSON.parse(res.body);
                 const isMine = (data.senderId === this.myUserId);
-                this.appendBubble(data.senderNickname, data.content, isMine);
+
+                // 화면에 말풍선 추가 (안 읽음 카운트 포함)
+                this.appendBubble(data.senderNickname, data.content, isMine, data.messageId, data.unreadCount);
+
+                // 상대방이 보낸 메시지라면 즉시 서버에 "읽었음" 알림 전송
+                if (!isMine) {
+                    this.sendReadReceipt(data.messageId);
+                }
+            });
+
+            // 3. [신규] 실시간 읽음 상태 구독 (상대방이 읽었을 때 내 화면의 '1'을 지움)
+            this.stompClient.subscribe('/sub/chat/rooms/' + this.currentRoomId + '/read', (res) => {
+                const data = JSON.parse(res.body);
+                this.updateUnreadUI(data.userId, data.lastReadMessageId);
             });
         },
 
         fetchRoomDetail: function() {
             const token = document.getElementById('token').value;
-
             fetch(`http://localhost:8080/api/v1/chat/rooms/${this.currentRoomId}/messages`, {
                 headers: { 'Authorization': 'Bearer ' + token }
             })
                 .then(res => res.json())
                 .then(response => {
-                    console.log("데이터 확인:", response.data);
                     const history = response.data.messageHistory;
-
                     if (history && Array.isArray(history)) {
                         history.forEach(msg => {
-                            // 2. UUID(senderId) 기반으로 내 메시지인지 판별
                             const isMine = (msg.senderId === this.myUserId);
-                            this.appendBubble(msg.senderNickname, msg.content, isMine);
+                            this.appendBubble(msg.senderNickname, msg.content, isMine, msg.messageId, msg.unreadCount);
                         });
                         this.appendSystem("--- 이전 대화 내역을 불러왔습니다 ---");
                     }
-                })
-                .catch(err => console.error("내역 로드 실패:", err));
+                });
         },
 
-        // 4. 메시지 발행
+        // 서버로 읽음 신호 보내기 (/pub/chat/rooms/{roomId}/read)
+        sendReadReceipt: function(messageId) {
+            if (!this.stompClient) return;
+            const payload = { lastReadMessageId: messageId };
+            this.stompClient.send(`/pub/chat/rooms/${this.currentRoomId}/read`, {}, JSON.stringify(payload));
+        },
+
+        // 화면에서 안 읽음 숫자 지우기
+        updateUnreadUI: function(readerUserId, lastReadId) {
+            // 상대방이 읽었을 때 내 화면의 '안 읽음'들을 '읽음'으로 교체
+            if (readerUserId !== this.myUserId) {
+                // 내 메시지(.my) 중에서 '안 읽음'인 요소들만 선택
+                const unreadLabels = document.querySelectorAll('.my .status-unread');
+
+                unreadLabels.forEach(label => {
+                    const msgId = label.getAttribute('data-msg-id');
+
+                    if (msgId === lastReadId || msgId < lastReadId) {
+                        label.textContent = '읽음';
+                        label.classList.remove('status-unread');
+                        label.classList.add('status-read');
+                    }
+                });
+            }
+        },
+
         send: function() {
             const msgInput = document.getElementById('msgInput');
             const content = msgInput.value.trim();
-
             if (!content || !this.stompClient) return;
 
-            const payload = {
-                content: content,
-                messageTypeCode: "TALK"
-            };
-
+            const payload = { content: content, messageTypeCode: "TALK" };
             this.stompClient.send("/pub/chat/rooms/" + this.currentRoomId, {}, JSON.stringify(payload));
             msgInput.value = '';
             msgInput.focus();
         },
 
-        // 5. UI 렌더링 함수들
-        appendBubble: function(nick, content, isMine) {
+        appendBubble: function(nick, content, isMine, messageId, unreadCount) {
             const box = document.getElementById('chatBox');
             const sideClass = isMine ? 'my' : 'other';
 
+            // 내 메시지일 때만 상태 표시 생성
+            let statusHtml = '';
+            if (isMine) {
+                const statusText = (unreadCount > 0) ? '안 읽음' : '읽음';
+                const statusClass = (unreadCount > 0) ? 'status-unread' : 'status-read';
+                statusHtml = `<span class="read-status ${statusClass}" data-msg-id="${messageId}">${statusText}</span>`;
+            }
+
             const html = `
-                <div class="msg-wrap ${sideClass}">
+                <div class="msg-wrap ${sideClass}" id="msg-${messageId}">
                     <div class="nickname">${nick}</div>
-                    <div class="bubble">${content}</div>
+                    <div class="bubble-container">
+                        ${statusHtml} <div class="bubble">${content}</div>
+                    </div>
                 </div>
             `;
             box.insertAdjacentHTML('beforeend', html);

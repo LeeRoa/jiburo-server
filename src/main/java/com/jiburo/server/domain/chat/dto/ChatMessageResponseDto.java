@@ -13,9 +13,10 @@ public record ChatMessageResponseDto(
         String senderNickname,
         String content,
         String messageTypeCode,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+        int unreadCount
 ) {
-    public static ChatMessageResponseDto from(ChatMessage entity) {
+    public static ChatMessageResponseDto from(ChatMessage entity, int unreadCount) {
         return new ChatMessageResponseDto(
                 HashidsUtils.encode(entity.getId()),
                 HashidsUtils.encode(entity.getChatRoom().getId()),
@@ -23,7 +24,8 @@ public record ChatMessageResponseDto(
                 entity.getSender().getNickname(),
                 entity.getContent(),
                 entity.getMessageTypeCode(),
-                entity.getCreatedAt()
+                entity.getCreatedAt(),
+                unreadCount
         );
     }
 }

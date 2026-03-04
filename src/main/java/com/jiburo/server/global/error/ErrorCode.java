@@ -44,6 +44,7 @@ public enum ErrorCode {
     CANNOT_CHAT_WITH_SELF(HttpStatus.BAD_REQUEST, "error.chat.cannot_with_self"),
     BADGE_NOT_FOUND(HttpStatus.NOT_FOUND, "error.badge.not_found"),
     NOT_CHAT_PARTICIPANT(HttpStatus.FORBIDDEN, "error.chat.not_chat_participant"),
+    PARTNER_NOT_FOUND(HttpStatus.NOT_FOUND, "error.chat.partner_not_found"),
 
     // [6] Post (게시글 - 분실물/목격 제보) [추가된 부분]
     POST_NOT_FOUND(HttpStatus.NOT_FOUND, "error.post.not_found"), // 게시글 없음

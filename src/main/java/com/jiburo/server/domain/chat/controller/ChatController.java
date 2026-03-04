@@ -2,6 +2,7 @@ package com.jiburo.server.domain.chat.controller;
 
 import com.jiburo.server.domain.chat.dto.ChatMessageRequestDto;
 import com.jiburo.server.domain.chat.dto.ChatMessageResponseDto;
+import com.jiburo.server.domain.chat.dto.ChatReadDto;
 import com.jiburo.server.domain.chat.service.ChatMessageService;
 import com.jiburo.server.domain.user.dto.CustomOAuth2User;
 import com.jiburo.server.global.util.HashidsUtils;
@@ -36,5 +37,24 @@ public class ChatController {
         ChatMessageResponseDto responseDto = chatMessageService.saveMessage(HashidsUtils.decode(roomId), user.getUserId(), requestDto);
         // 해당 방을 구독(/sub/chat/rooms/{roomId})하고 있는 모든 클라이언트에게 메시지 전송
         messagingTemplate.convertAndSend("/sub/chat/rooms/" + roomId, responseDto);
+    }
+
+    @MessageMapping("/chat/rooms/{roomId}/read")
+    public void readMessage(
+            @DestinationVariable String roomId,
+            @Payload ChatReadDto.Request requestDto,
+            Authentication authentication
+    ) {
+        CustomOAuth2User user = (CustomOAuth2User) authentication.getPrincipal();
+
+        // 1. DB에 마지막 읽은 메시지 ID 갱신 및 응답 DTO 생성
+        ChatReadDto.Response responseDto = chatMessageService.processReadReceipt(
+                user.getUserId(),
+                HashidsUtils.decode(roomId),
+                HashidsUtils.decode(requestDto.lastReadMessageId())
+        );
+
+        // 2. 해당 방의 읽음 채널(/sub/chat/rooms/{roomId}/read)을 구독 중인 클라이언트들에게 전송
+        messagingTemplate.convertAndSend("/sub/chat/rooms/" + roomId + "/read", responseDto);
     }
 }

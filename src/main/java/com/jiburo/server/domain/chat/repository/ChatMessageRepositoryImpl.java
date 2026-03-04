@@ -26,7 +26,7 @@ public class ChatMessageRepositoryImpl implements ChatMessageRepositoryCustom {
     private final JPAQueryFactory queryFactory;
 
     @Override
-    public Slice<ChatMessageResponseDto> searchMessages(Long roomId, ChatMessageSearchCondition condition, Pageable pageable) {
+    public Slice<ChatMessageResponseDto> searchMessages(Long roomId, Long partnerLastReadId, ChatMessageSearchCondition condition, Pageable pageable) {
         QChatMessage message = QChatMessage.chatMessage;
 
         List<ChatMessage> results = queryFactory
@@ -45,7 +45,11 @@ public class ChatMessageRepositoryImpl implements ChatMessageRepositoryCustom {
 
         List<ChatMessageResponseDto> content = results.stream()
                 .limit(pageable.getPageSize())
-                .map(ChatMessageResponseDto::from)
+                .map(msg -> {
+                    // 내 검색 결과 중, 상대방 커서보다 큰 ID는 '안 읽음(1)', 작거나 같으면 '읽음(0)'
+                    int unreadCount = (msg.getId() > partnerLastReadId) ? 1 : 0;
+                    return ChatMessageResponseDto.from(msg, unreadCount);
+                })
                 .toList();
 
         return new SliceImpl<>(content, pageable, results.size() > pageable.getPageSize());

@@ -5,11 +5,12 @@ import com.jiburo.server.domain.chat.domain.ChatParticipant;
 import com.jiburo.server.domain.chat.domain.ChatRoom;
 import com.jiburo.server.domain.chat.dto.ChatMessageRequestDto;
 import com.jiburo.server.domain.chat.dto.ChatMessageResponseDto;
+import com.jiburo.server.domain.chat.dto.ChatReadDto;
 import com.jiburo.server.domain.chat.repository.ChatMessageRepository;
 import com.jiburo.server.domain.chat.repository.ChatParticipantRepository;
 import com.jiburo.server.domain.chat.repository.ChatRoomRepository;
-import com.jiburo.server.global.error.JiburoException;
 import com.jiburo.server.global.error.ErrorCode;
+import com.jiburo.server.global.error.JiburoException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -45,7 +46,23 @@ public class ChatMessageServiceImpl implements ChatMessageService {
         // 4. 방의 마지막 대화 내용과 시간 최신화 (목록 정렬 및 노출용)
         room.updateLastChat(message.getContent());
 
+        int unreadCount = room.getParticipants().size() - 1;
+
         // 5. 응답용 DTO로 변환하여 반환
-        return ChatMessageResponseDto.from(message);
+        return ChatMessageResponseDto.from(message, unreadCount);
+    }
+
+    @Transactional
+    @Override
+    public ChatReadDto.Response processReadReceipt(UUID userId, Long chatRoomId, Long messageId) {
+
+        ChatParticipant participant = chatParticipantRepository.findByChatRoomIdAndUserId(chatRoomId, userId)
+                .orElseThrow(() -> new JiburoException(ErrorCode.NOT_CHAT_PARTICIPANT));
+
+        // DB 업데이트 (더티 체킹)
+        participant.updateLastRead(messageId);
+
+        // 브로드캐스트할 응답 데이터 반환
+        return new ChatReadDto.Response(userId, messageId);
     }
 }

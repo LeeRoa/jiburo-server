@@ -11,11 +11,12 @@ import com.jiburo.server.domain.post.domain.LostPost;
 import com.jiburo.server.domain.post.repository.LostPostRepository;
 import com.jiburo.server.domain.user.dao.UserRepository;
 import com.jiburo.server.domain.user.domain.User;
-import com.jiburo.server.global.error.JiburoException;
 import com.jiburo.server.global.error.ErrorCode;
+import com.jiburo.server.global.error.JiburoException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,6 +33,7 @@ public class ChatRoomServiceImpl implements ChatRoomService {
     private final ChatMessageRepository chatMessageRepository;
     private final LostPostRepository lostPostRepository;
     private final UserRepository userRepository;
+    private final SimpMessagingTemplate messagingTemplate;
 
     /**
      * [채팅방 생성]
@@ -85,29 +87,49 @@ public class ChatRoomServiceImpl implements ChatRoomService {
     }
 
     @Override
+    @Transactional
     public ChatRoomDetailDto findRoomDetail(Long roomId, UUID userId, Pageable pageable) {
-        // 권한 체크: 해당 유저가 이 채팅방의 참여자인지 확인
-        ChatParticipant participant = chatParticipantRepository.findByChatRoomIdAndUserId(roomId, userId)
+        // 1. 참여자 정보 조회
+        List<ChatParticipant> participants = chatParticipantRepository.findAllByChatRoomId(roomId);
+
+        // 2. 내 정보와 상대방 정보 분리
+        ChatParticipant myPart = participants.stream()
+                .filter(p -> p.getUser().getId().equals(userId))
+                .findFirst()
                 .orElseThrow(() -> new JiburoException(ErrorCode.NOT_CHAT_PARTICIPANT));
 
-        // 메시지 내역 조회 (최신순 50개)
+        ChatParticipant partnerPart = participants.stream()
+                .filter(p -> !p.getUser().getId().equals(userId))
+                .findFirst()
+                .orElseThrow(() -> new JiburoException(ErrorCode.PARTNER_NOT_FOUND));
+
+        // 3. 메시지 내역 조회
         Slice<ChatMessage> messages = chatMessageRepository.findAllByChatRoomId(roomId, pageable);
 
-        // 읽음 처리: 조회된 메시지가 하나라도 있다면 가장 최신(첫 번째) 메시지의 ID로 업데이트
+        // 4. 내 읽음 커서 최신화 (입장했으므로)
         if (messages.hasContent()) {
-            Long latestMessageId = messages.getContent().get(0).getId();
-            participant.updateLastRead(latestMessageId);
+            myPart.updateLastRead(messages.getContent().get(0).getId());
         }
 
-        return ChatRoomDetailDto.from(participant.getChatRoom(), messages);
+        // 5. DTO 생성 시 '상대방의 커서'를 넘겨서 내 메시지를 상대가 읽었는지 판별하게 함
+        return ChatRoomDetailDto.from(myPart.getChatRoom(), messages, partnerPart.getLastReadMessageId());
     }
 
     @Override
     public Slice<ChatMessageResponseDto> searchChatMessages(Long roomId, ChatMessageSearchCondition condition, UUID userId, Pageable pageable) {
+        // 1. 권한 체크 (참여자가 아니면 예외 발생)
         if (!chatParticipantRepository.existsByChatRoomIdAndUserId(roomId, userId)) {
             throw new JiburoException(ErrorCode.NOT_CHAT_PARTICIPANT);
         }
 
-        return chatMessageRepository.searchMessages(roomId, condition, pageable);
+        // 2. 상대방의 마지막 읽은 메시지 ID(커서) 조회
+        Long partnerLastReadId = chatParticipantRepository.findAllByChatRoomId(roomId).stream()
+                .filter(p -> !p.getUser().getId().equals(userId)) // 내가 아닌 유저 필터링
+                .findFirst()
+                .map(ChatParticipant::getLastReadMessageId)
+                .orElseThrow(() -> new JiburoException(ErrorCode.PARTNER_NOT_FOUND));
+
+        // 3. 상대방 커서를 포함하여 검색 쿼리 실행
+        return chatMessageRepository.searchMessages(roomId, partnerLastReadId, condition, pageable);
     }
 }
