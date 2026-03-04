@@ -13,6 +13,7 @@ import com.jiburo.server.domain.user.dao.UserRepository;
 import com.jiburo.server.domain.user.domain.User;
 import com.jiburo.server.global.error.ErrorCode;
 import com.jiburo.server.global.error.JiburoException;
+import com.jiburo.server.global.util.HashidsUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
@@ -89,10 +90,10 @@ public class ChatRoomServiceImpl implements ChatRoomService {
     @Override
     @Transactional
     public ChatRoomDetailDto findRoomDetail(Long roomId, UUID userId, Pageable pageable) {
-        // 1. 참여자 정보 조회
+        // 1. 참여자 목록 한 번에 가져오기
         List<ChatParticipant> participants = chatParticipantRepository.findAllByChatRoomId(roomId);
 
-        // 2. 내 정보와 상대방 정보 분리
+        // 2. 내 정보와 상대방 정보 추출 (한 번의 순회로 최적화 가능하지만, 2명이라 가독성 위주로 작성)
         ChatParticipant myPart = participants.stream()
                 .filter(p -> p.getUser().getId().equals(userId))
                 .findFirst()
@@ -103,15 +104,23 @@ public class ChatRoomServiceImpl implements ChatRoomService {
                 .findFirst()
                 .orElseThrow(() -> new JiburoException(ErrorCode.PARTNER_NOT_FOUND));
 
-        // 3. 메시지 내역 조회
+        // 3. 메시지 내역 조회 (Slice 객체)
         Slice<ChatMessage> messages = chatMessageRepository.findAllByChatRoomId(roomId, pageable);
 
-        // 4. 내 읽음 커서 최신화 (입장했으므로)
+        // 4. 읽음 커서 갱신 및 상대방에게 실시간 알림 발송
         if (messages.hasContent()) {
-            myPart.updateLastRead(messages.getContent().get(0).getId());
+            Long latestMessageId = messages.getContent().get(0).getId(); // 최신 메시지 ID (DESC 정렬 기준)
+
+            // 내 커서 업데이트
+            myPart.updateLastRead(latestMessageId);
+
+            // 상대방 화면의 '안 읽음'을 '읽음'으로 바꾸기 위한 실시간 전송
+            // 상대방은 이 메시지를 받고 자신의 화면에 떠 있는 내 메시지들의 상태를 바꿉니다.
+            ChatReadDto.Response readReceipt = new ChatReadDto.Response(userId, latestMessageId);
+            messagingTemplate.convertAndSend("/sub/chat/rooms/" + HashidsUtils.encode(roomId) + "/read", readReceipt);
         }
 
-        // 5. DTO 생성 시 '상대방의 커서'를 넘겨서 내 메시지를 상대가 읽었는지 판별하게 함
+        // 5. DTO 반환 (내 메시지 옆에 '읽음/안 읽음'을 표시하기 위해 상대방의 커서 위치를 넘김)
         return ChatRoomDetailDto.from(myPart.getChatRoom(), messages, partnerPart.getLastReadMessageId());
     }
 

@@ -12,7 +12,6 @@
         /* [UI] 설정 패널 */
         .panel { background: white; padding: 25px; border-radius: 20px; width: 380px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); display: flex; flex-direction: column; gap: 12px; }
         input { padding: 14px; border: 1px solid #eee; border-radius: 10px; outline: none; font-size: 14px; }
-        input:focus { border-color: #556677; }
         .btn-primary { padding: 14px; background: #556677; color: white; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; transition: 0.2s; }
         .btn-primary:hover { background: #334455; }
 
@@ -28,47 +27,29 @@
         /* 내 메시지 (우측) */
         .my { align-self: flex-end; align-items: flex-end; }
         .my .bubble { background: var(--me); border-top-right-radius: 2px; }
-        .my .nickname { display: none; } /* 내 닉네임은 숨김 */
+        .my .nickname { display: none; }
 
         /* 상대 메시지 (좌측) */
         .other { align-self: flex-start; align-items: flex-start; }
         .other .bubble { background: var(--other); border-top-left-radius: 2px; }
 
-        /* 시스템 메시지 */
-        .system { align-self: center; background: rgba(0,0,0,0.15); color: white; padding: 5px 15px; border-radius: 20px; font-size: 11px; margin: 10px 0; }
+        /* [UI] 읽음/안 읽음 상태 표시 */
+        .bubble-container { display: flex; align-items: flex-end; }
+        .my .bubble-container { flex-direction: row; } /* 숫자를 왼쪽, 말풍선을 오른쪽 */
+        .other .bubble-container { flex-direction: row-reverse; }
 
-        /* [UI] 전송바 */
-        .send-bar { background: white; padding: 15px; display: flex; gap: 10px; border-radius: 15px; margin-top: 10px; box-shadow: 0 -5px 15px rgba(0,0,0,0.05); }
-        #msgInput { flex: 1; border: none; background: #f0f0f0; }
-
-        /* 읽음/안 읽음 공통 스타일 */
         .read-status {
             font-size: 10px;
             margin: 0 5px;
-            align-self: flex-end; /* 말풍선 바닥에 정렬 */
             font-weight: bold;
             white-space: nowrap;
         }
+        .status-unread { color: #FFEB33; } /* 노란색 강조 */
+        .status-read { color: #E0E0E0; }   /* 흐린 회색 */
 
-        /* 안 읽음: 노란색/금색 계열 */
-        .status-unread { color: #FFD700; }
-
-        /* 읽음: 아주 연한 회색 (배경에 묻히도록) */
-        .status-read { color: #E0E0E0; }
-
-        /* 내 메시지 레이아웃 (오른쪽 정렬, 상태는 왼쪽) */
-        .my .bubble-container {
-            display: flex;
-            flex-direction: row;
-            justify-content: flex-end;
-        }
-
-        /* 상대 메시지 레이아웃 (왼쪽 정렬, 상태는 안 보여줌) */
-        .other .bubble-container {
-            display: flex;
-            flex-direction: row-reverse;
-            justify-content: flex-end;
-        }
+        .system { align-self: center; background: rgba(0,0,0,0.15); color: white; padding: 5px 15px; border-radius: 20px; font-size: 11px; margin: 10px 0; }
+        .send-bar { background: white; padding: 15px; display: flex; gap: 10px; border-radius: 15px; margin-top: 10px; box-shadow: 0 -5px 15px rgba(0,0,0,0.05); }
+        #msgInput { flex: 1; border: none; background: #f0f0f0; padding: 10px; border-radius: 10px; }
     </style>
 </head>
 <body>
@@ -90,9 +71,6 @@
 </div>
 
 <script>
-    /**
-     * ChatApp 네임스페이스로 로직 그룹화 (리팩토링)
-     */
     const ChatApp = {
         stompClient: null,
         myUserId: null,
@@ -130,28 +108,26 @@
             document.getElementById('configPanel').style.display = 'none';
             document.getElementById('chatView').style.display = 'flex';
 
-            // 1. 과거 내역 로드 (API 호출 시 백엔드에서 읽음 처리 수행됨)
-            this.fetchRoomDetail();
-
-            // 2. 실시간 메시지 구독
+            // 1. [중요] 실시간 채널들을 먼저 구독 (순서 변경 금지)
+            // 메시지 수신 채널
             this.stompClient.subscribe('/sub/chat/rooms/' + this.currentRoomId, (res) => {
                 const data = JSON.parse(res.body);
                 const isMine = (data.senderId === this.myUserId);
-
-                // 화면에 말풍선 추가 (안 읽음 카운트 포함)
                 this.appendBubble(data.senderNickname, data.content, isMine, data.messageId, data.unreadCount);
 
-                // 상대방이 보낸 메시지라면 즉시 서버에 "읽었음" 알림 전송
-                if (!isMine) {
-                    this.sendReadReceipt(data.messageId);
-                }
+                // 상대방이 보낸 거라면 즉시 읽음 신호 전송
+                if (!isMine) this.sendReadReceipt(data.messageId);
             });
 
-            // 3. [신규] 실시간 읽음 상태 구독 (상대방이 읽었을 때 내 화면의 '1'을 지움)
+            // 읽음 상태 업데이트 채널
             this.stompClient.subscribe('/sub/chat/rooms/' + this.currentRoomId + '/read', (res) => {
                 const data = JSON.parse(res.body);
+                console.log("읽음 알림 수신:", data);
                 this.updateUnreadUI(data.userId, data.lastReadMessageId);
             });
+
+            // 2. 채널 구독이 완료된 후 과거 내역을 로드 (이때 서버에서 읽음 브로드캐스트가 발생함)
+            this.fetchRoomDetail();
         },
 
         fetchRoomDetail: function() {
@@ -172,23 +148,20 @@
                 });
         },
 
-        // 서버로 읽음 신호 보내기 (/pub/chat/rooms/{roomId}/read)
         sendReadReceipt: function(messageId) {
             if (!this.stompClient) return;
             const payload = { lastReadMessageId: messageId };
             this.stompClient.send(`/pub/chat/rooms/${this.currentRoomId}/read`, {}, JSON.stringify(payload));
         },
 
-        // 화면에서 안 읽음 숫자 지우기
         updateUnreadUI: function(readerUserId, lastReadId) {
-            // 상대방이 읽었을 때 내 화면의 '안 읽음'들을 '읽음'으로 교체
+            // 상대방이 읽었다는 신호가 왔을 때 내 화면 갱신
             if (readerUserId !== this.myUserId) {
-                // 내 메시지(.my) 중에서 '안 읽음'인 요소들만 선택
+                // 내 메시지(.my)들 중 '안 읽음'인 모든 라벨을 체크
                 const unreadLabels = document.querySelectorAll('.my .status-unread');
-
                 unreadLabels.forEach(label => {
                     const msgId = label.getAttribute('data-msg-id');
-
+                    // ID가 일치하거나 순서상 이전인 경우 '읽음'으로 변경
                     if (msgId === lastReadId || msgId < lastReadId) {
                         label.textContent = '읽음';
                         label.classList.remove('status-unread');
@@ -213,7 +186,6 @@
             const box = document.getElementById('chatBox');
             const sideClass = isMine ? 'my' : 'other';
 
-            // 내 메시지일 때만 상태 표시 생성
             let statusHtml = '';
             if (isMine) {
                 const statusText = (unreadCount > 0) ? '안 읽음' : '읽음';
@@ -225,7 +197,8 @@
                 <div class="msg-wrap ${sideClass}" id="msg-${messageId}">
                     <div class="nickname">${nick}</div>
                     <div class="bubble-container">
-                        ${statusHtml} <div class="bubble">${content}</div>
+                        ${statusHtml}
+                        <div class="bubble">${content}</div>
                     </div>
                 </div>
             `;
