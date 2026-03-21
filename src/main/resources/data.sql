@@ -121,3 +121,13 @@ INSERT IGNORE INTO common_codes (code_group, code, message_key, ref_1, use_yn, c
 VALUES ('NOTI_TYPE', 'CHAT', 'noti.type.chat', null, true, NOW(), NOW());
 INSERT IGNORE INTO common_codes (code_group, code, message_key, ref_1, use_yn, created_at, updated_at)
 VALUES ('NOTI_TYPE', 'SYSTEM', 'noti.type.system', null, true, NOW(), NOW());
+
+-- 12. 파일 업로드 대상 및 경로 (UPLOAD_TARGET)
+INSERT IGNORE INTO common_codes (code_group, code, message_key, ref_1, use_yn, created_at, updated_at)
+VALUES ('UPLOAD_TARGET', 'CHAT', 'upload.target.chat', 'chat/images', true, NOW(), NOW());
+
+INSERT IGNORE INTO common_codes (code_group, code, message_key, ref_1, use_yn, created_at, updated_at)
+VALUES ('UPLOAD_TARGET', 'POST', 'upload.target.post', 'post/images', true, NOW(), NOW());
+
+INSERT IGNORE INTO common_codes (code_group, code, message_key, ref_1, use_yn, created_at, updated_at)
+VALUES ('UPLOAD_TARGET', 'PROFILE', 'upload.target.profile', 'profile/images', true, NOW(), NOW());
