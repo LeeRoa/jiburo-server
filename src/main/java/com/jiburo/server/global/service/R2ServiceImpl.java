@@ -1,5 +1,6 @@
 package com.jiburo.server.global.service;
 
+import com.jiburo.server.global.dto.PresignedUrlRequestDto;
 import com.jiburo.server.global.dto.PresignedUrlResponseDto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -14,7 +15,7 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
-public class ImageServiceImpl implements ImageService {
+public class R2ServiceImpl implements R2Service {
 
     private final S3Presigner s3Presigner;
 
@@ -22,11 +23,11 @@ public class ImageServiceImpl implements ImageService {
     private String bucketName;
 
     @Override
-    public PresignedUrlResponseDto createPresignedUrl(String extension) {
+    public PresignedUrlResponseDto createPresignedUrl(PresignedUrlRequestDto request) {
         // 고유한 파일명 생성
-        String fileName = UUID.randomUUID() + "." + extension;
+        String fileKey = UUID.randomUUID() + "." + request.extension();
         // R2 버킷 내부의 저장 경로
-        String objectKey = "chat/images/" + fileName;
+        String objectKey = "chat/images/" + fileKey;
 
         PutObjectRequest putObjectRequest = PutObjectRequest.builder()
                 .bucket(bucketName)
@@ -41,6 +42,6 @@ public class ImageServiceImpl implements ImageService {
         PresignedPutObjectRequest presignedRequest = s3Presigner.presignPutObject(presignRequest);
         String url = presignedRequest.url().toString();
 
-        return new PresignedUrlResponseDto(url, fileName);
+        return new PresignedUrlResponseDto(url, fileKey);
     }
 }
