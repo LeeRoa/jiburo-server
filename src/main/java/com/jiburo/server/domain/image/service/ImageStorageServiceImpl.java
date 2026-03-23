@@ -65,15 +65,7 @@ public class ImageStorageServiceImpl implements ImageStorageService {
         PresignedPutObjectRequest presignedRequest = s3Presigner.presignPutObject(presignRequest);
         String url = presignedRequest.url().toString();
 
-        ImageMeta imageMeta = ImageMeta.builder()
-                .user(user)
-                .fileCode(request.fileCode())
-                .fileKey(objectKey)
-                .extension(request.extension())
-                .fileSize(request.fileSize())
-                .statusCode(CodeConst.ImgStatus.PENDING)
-                .build();
-
+        ImageMeta imageMeta = request.toEntity(user, objectKey);
         imageMetaRepository.save(imageMeta);
 
         return new PresignedUrlResponseDto(url, objectKey);
