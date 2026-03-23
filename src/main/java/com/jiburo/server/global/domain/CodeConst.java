@@ -1,5 +1,7 @@
 package com.jiburo.server.global.domain;
 
+import com.jiburo.server.global.error.ErrorCode;
+import com.jiburo.server.global.error.JiburoException;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 
@@ -86,5 +88,26 @@ public final class CodeConst {
         public static final String VIDEO = "VIDEO";
         public static final String MAP = "MAP";
         public static final String SYS = "SYS";
+    }
+
+    public static class UploadTarget {
+        public static final String CHAT = "CHAT";
+        public static final String POST = "POST";
+        public static final String PROFILE = "PROFILE";
+
+        public static String getBasePath(String code) {
+            return switch (code) {
+                case CHAT -> "chat/images";
+                case POST -> "post/images";
+                case PROFILE -> "profile/images";
+                default -> throw new JiburoException(ErrorCode.INVALID_FILE_CODE);
+            };
+        }
+    }
+
+    // 이미지 업로드 상태
+    public static class ImgStatus {
+        public static final String PENDING = "PENDING";     // 임시 URL 발급 후 대기 상태
+        public static final String COMPLETED = "COMPLETED"; // 스토리지 업로드 완료 상태
     }
 }

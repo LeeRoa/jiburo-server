@@ -1,4 +1,4 @@
-package com.jiburo.server.global.config;
+package com.jiburo.server.domain.image.config;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;

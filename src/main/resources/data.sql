@@ -131,3 +131,11 @@ VALUES ('UPLOAD_TARGET', 'POST', 'upload.target.post', 'post/images', true, NOW(
 
 INSERT IGNORE INTO common_codes (code_group, code, message_key, ref_1, use_yn, created_at, updated_at)
 VALUES ('UPLOAD_TARGET', 'PROFILE', 'upload.target.profile', 'profile/images', true, NOW(), NOW());
+
+-- 13. 이미지 업로드 상태 (IMG_STATUS)
+-- ImageMeta 엔티티의 statusCode 관리용 (URL 발급 직후 대기 상태와 스토리지 업로드 완료 상태 구분)
+INSERT IGNORE INTO common_codes (code_group, code, message_key, ref_1, use_yn, created_at, updated_at)
+VALUES ('IMG_STATUS', 'PENDING', 'img.status.pending', null, true, NOW(), NOW());
+
+INSERT IGNORE INTO common_codes (code_group, code, message_key, ref_1, use_yn, created_at, updated_at)
+VALUES ('IMG_STATUS', 'COMPLETED', 'img.status.completed', null, true, NOW(), NOW());

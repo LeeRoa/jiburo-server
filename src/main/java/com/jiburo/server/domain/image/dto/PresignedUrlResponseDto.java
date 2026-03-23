@@ -1,4 +1,4 @@
-package com.jiburo.server.global.dto;
+package com.jiburo.server.domain.image.dto;
 
 public record PresignedUrlResponseDto(
         String presignedUrl,
