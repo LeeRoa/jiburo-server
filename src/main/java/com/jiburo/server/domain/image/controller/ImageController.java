@@ -1,5 +1,6 @@
 package com.jiburo.server.domain.image.controller;
 
+import com.jiburo.server.domain.image.dto.ImageUploadCompleteRequestDto;
 import com.jiburo.server.domain.image.dto.PresignedUrlRequestDto;
 import com.jiburo.server.domain.image.dto.PresignedUrlResponseDto;
 import com.jiburo.server.domain.image.service.ImageStorageService;
@@ -25,5 +26,13 @@ public class ImageController {
             @AuthenticationPrincipal CustomOAuth2User user,
             @RequestBody PresignedUrlRequestDto request) {
         return ApiResponse.success(imageStorageService.createPresignedUrl(user.getUserId(), request));
+    }
+
+    @PostMapping("/complete")
+    public ApiResponse<Void> completeUpload(
+            @AuthenticationPrincipal CustomOAuth2User user,
+            @RequestBody ImageUploadCompleteRequestDto request) {
+        imageStorageService.completeUpload(user.getUserId(), request.fileKey());
+        return ApiResponse.success();
     }
 }

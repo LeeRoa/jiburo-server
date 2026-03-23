@@ -12,6 +12,7 @@ import com.jiburo.server.global.error.JiburoException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequest;
@@ -76,5 +77,26 @@ public class ImageStorageServiceImpl implements ImageStorageService {
         imageMetaRepository.save(imageMeta);
 
         return new PresignedUrlResponseDto(url, objectKey);
+    }
+
+    @Override
+    @Transactional
+    public void completeUpload(UUID userId, String fileKey) {
+        // 1. DB에서 파일 경로로 메타데이터 조회
+        ImageMeta imageMeta = imageMetaRepository.findByFileKeyAndUseYnTrue(fileKey)
+                .orElseThrow(() -> new JiburoException(ErrorCode.INVALID_FILE_FORMAT));
+
+        // 2. 권한 검증 (본인이 발급받은 URL의 파일인지 확인)
+        if (!imageMeta.getUser().getId().equals(userId)) {
+            throw new JiburoException(ErrorCode.POST_ACCESS_DENIED);
+        }
+
+        // 3. 이미 완료된 파일인지 확인
+        if (CodeConst.ImgStatus.COMPLETED.equals(imageMeta.getStatusCode())) {
+            return;
+        }
+
+        // 4. 상태를 COMPLETED로 업데이트
+        imageMeta.updateStatus(CodeConst.ImgStatus.COMPLETED);
     }
 }

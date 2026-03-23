@@ -7,4 +7,6 @@ import java.util.UUID;
 
 public interface ImageStorageService {
     PresignedUrlResponseDto createPresignedUrl(UUID userId, PresignedUrlRequestDto request);
+
+    void completeUpload(UUID userId, String fileKey);
 }
