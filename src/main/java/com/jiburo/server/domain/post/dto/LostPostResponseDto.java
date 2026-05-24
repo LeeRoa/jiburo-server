@@ -5,6 +5,7 @@ import com.jiburo.server.domain.post.domain.enums.CategoryType;
 import com.jiburo.server.domain.post.domain.enums.PostStatus;
 import com.jiburo.server.domain.post.dto.detail.TargetDetailDto; // [중요] 상세 객체 임포트
 import com.jiburo.server.global.util.HashidsUtils;
+import com.jiburo.server.global.util.R2UrlProvider;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -44,7 +45,7 @@ public record LostPostResponseDto(
                 entity.getCategoryCode(),
                 entity.getDetail(),
 
-                entity.getImageUrl(),
+                R2UrlProvider.buildUrl(entity.getImageUrl()),
                 entity.getLatitude(),
                 entity.getLongitude(),
                 entity.getFoundLocation(),

@@ -9,47 +9,44 @@
         * { box-sizing: border-box; }
         body { font-family: 'Apple SD Gothic Neo', sans-serif; background: var(--bg); margin: 0; display: flex; flex-direction: column; align-items: center; height: 100vh; padding: 20px; }
 
-        /* [UI] 설정 패널 */
         .panel { background: white; padding: 25px; border-radius: 20px; width: 380px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); display: flex; flex-direction: column; gap: 12px; }
         input { padding: 14px; border: 1px solid #eee; border-radius: 10px; outline: none; font-size: 14px; }
         .btn-primary { padding: 14px; background: #556677; color: white; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; transition: 0.2s; }
         .btn-primary:hover { background: #334455; }
+        .hint { font-size: 11px; color: #888; margin-top: -6px; }
 
-        /* [UI] 채팅 뷰 */
         #chatView { display: none; width: 400px; flex-direction: column; height: 100%; }
         #chatBox { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 14px; }
 
-        /* [UI] 말풍선 디자인 */
         .msg-wrap { display: flex; flex-direction: column; max-width: 85%; position: relative; }
         .nickname { font-size: 12px; color: #444; margin: 0 4px 4px; font-weight: 600; }
         .bubble { padding: 10px 14px; border-radius: 16px; font-size: 14px; line-height: 1.4; color: var(--text); box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .bubble.media { padding: 6px; }
+        .bubble img, .bubble video { display: block; max-width: 240px; max-height: 240px; border-radius: 10px; }
+        .bubble .filekey { font-family: monospace; font-size: 11px; word-break: break-all; color: #666; }
 
-        /* 내 메시지 (우측) */
         .my { align-self: flex-end; align-items: flex-end; }
         .my .bubble { background: var(--me); border-top-right-radius: 2px; }
         .my .nickname { display: none; }
 
-        /* 상대 메시지 (좌측) */
         .other { align-self: flex-start; align-items: flex-start; }
         .other .bubble { background: var(--other); border-top-left-radius: 2px; }
 
-        /* [UI] 읽음/안 읽음 상태 표시 */
         .bubble-container { display: flex; align-items: flex-end; }
-        .my .bubble-container { flex-direction: row; } /* 숫자를 왼쪽, 말풍선을 오른쪽 */
+        .my .bubble-container { flex-direction: row; }
         .other .bubble-container { flex-direction: row-reverse; }
 
-        .read-status {
-            font-size: 10px;
-            margin: 0 5px;
-            font-weight: bold;
-            white-space: nowrap;
-        }
-        .status-unread { color: #FFEB33; } /* 노란색 강조 */
-        .status-read { color: #E0E0E0; }   /* 흐린 회색 */
+        .read-status { font-size: 10px; margin: 0 5px; font-weight: bold; white-space: nowrap; }
+        .status-unread { color: #FFEB33; }
+        .status-read { color: #E0E0E0; }
 
         .system { align-self: center; background: rgba(0,0,0,0.15); color: white; padding: 5px 15px; border-radius: 20px; font-size: 11px; margin: 10px 0; }
-        .send-bar { background: white; padding: 15px; display: flex; gap: 10px; border-radius: 15px; margin-top: 10px; box-shadow: 0 -5px 15px rgba(0,0,0,0.05); }
+        .send-bar { background: white; padding: 15px; display: flex; gap: 8px; align-items: center; border-radius: 15px; margin-top: 10px; box-shadow: 0 -5px 15px rgba(0,0,0,0.05); }
         #msgInput { flex: 1; border: none; background: #f0f0f0; padding: 10px; border-radius: 10px; }
+        .icon-btn { border: none; background: #f0f0f0; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 16px; }
+        .icon-btn:hover { background: #e0e0e0; }
+        .icon-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        #uploadStatus { font-size: 11px; color: #556677; padding: 4px 12px; min-height: 18px; }
     </style>
 </head>
 <body>
@@ -58,12 +55,17 @@
     <h3 style="margin:0 0 10px; text-align:center; color:#556677;">Jiburo Login 🐾</h3>
     <input type="text" id="token" placeholder="JWT Token (Bearer 제외)">
     <input type="text" id="roomId" placeholder="Room ID (Hashid)">
+    <input type="text" id="r2BaseUrl" placeholder="R2 Public Base URL (선택, 예: https://pub-xxx.r2.dev)">
+    <div class="hint">미입력 시 이미지/동영상 메시지는 fileKey 텍스트로만 표시됩니다.</div>
     <button class="btn-primary" onclick="ChatApp.connect()">채팅방 입장</button>
 </div>
 
 <div id="chatView">
     <div id="chatBox"></div>
+    <div id="uploadStatus"></div>
     <div class="send-bar">
+        <input type="file" id="fileInput" accept="image/*,video/*" style="display:none" onchange="ChatApp.onFilePicked(event)">
+        <button class="icon-btn" onclick="document.getElementById('fileInput').click()" title="파일 첨부">📎</button>
         <input type="text" id="msgInput" placeholder="메시지를 입력하세요..." onkeypress="if(event.keyCode==13) ChatApp.send()">
         <button onclick="ChatApp.send()" style="border:none; background:var(--me); padding:8px 15px; border-radius:8px; cursor:pointer; font-weight:bold;">전송</button>
         <button onclick="location.reload()" style="border:none; background:none; color:#ff4d4f; cursor:pointer; font-size:12px;">나가기</button>
@@ -71,10 +73,14 @@
 </div>
 
 <script>
+    const API_BASE = 'http://localhost:8080';
+
     const ChatApp = {
         stompClient: null,
         myUserId: null,
         currentRoomId: null,
+        r2BaseUrl: '',
+        localPreviews: {}, // fileKey -> object URL (보낸 사람 본인 미리보기용)
 
         parseJwt: function(token) {
             try {
@@ -87,19 +93,21 @@
         connect: function() {
             const token = document.getElementById('token').value.trim();
             const roomId = document.getElementById('roomId').value.trim();
+            const r2Base = document.getElementById('r2BaseUrl').value.trim().replace(/\/+$/, '');
             const payload = this.parseJwt(token);
 
             if (!payload || !roomId) { alert("토큰과 방 ID를 확인해주세요."); return; }
 
             this.myUserId = payload.sub;
             this.currentRoomId = roomId;
+            this.r2BaseUrl = r2Base;
 
             const socket = new WebSocket('ws://localhost:8080/ws-jiburo');
             this.stompClient = Stomp.over(socket);
             this.stompClient.debug = null;
 
             const headers = { 'Authorization': 'Bearer ' + token };
-            this.stompClient.connect(headers, (frame) => {
+            this.stompClient.connect(headers, () => {
                 this.onConnected();
             }, (err) => { alert("연결 실패: " + err); });
         },
@@ -108,31 +116,24 @@
             document.getElementById('configPanel').style.display = 'none';
             document.getElementById('chatView').style.display = 'flex';
 
-            // 1. [중요] 실시간 채널들을 먼저 구독 (순서 변경 금지)
-            // 메시지 수신 채널
             this.stompClient.subscribe('/sub/chat/rooms/' + this.currentRoomId, (res) => {
                 const data = JSON.parse(res.body);
                 const isMine = (data.senderId === this.myUserId);
-                this.appendBubble(data.senderNickname, data.content, isMine, data.messageId, data.unreadCount);
-
-                // 상대방이 보낸 거라면 즉시 읽음 신호 전송
+                this.appendBubble(data.senderNickname, data.content, isMine, data.messageId, data.unreadCount, data.messageTypeCode);
                 if (!isMine) this.sendReadReceipt(data.messageId);
             });
 
-            // 읽음 상태 업데이트 채널
             this.stompClient.subscribe('/sub/chat/rooms/' + this.currentRoomId + '/read', (res) => {
                 const data = JSON.parse(res.body);
-                console.log("읽음 알림 수신:", data);
                 this.updateUnreadUI(data.userId, data.lastReadMessageId);
             });
 
-            // 2. 채널 구독이 완료된 후 과거 내역을 로드 (이때 서버에서 읽음 브로드캐스트가 발생함)
             this.fetchRoomDetail();
         },
 
         fetchRoomDetail: function() {
             const token = document.getElementById('token').value;
-            fetch(`http://localhost:8080/api/v1/chat/rooms/${this.currentRoomId}/messages`, {
+            fetch(`${API_BASE}/api/v1/chat/rooms/${this.currentRoomId}/messages`, {
                 headers: { 'Authorization': 'Bearer ' + token }
             })
                 .then(res => res.json())
@@ -141,7 +142,7 @@
                     if (history && Array.isArray(history)) {
                         history.forEach(msg => {
                             const isMine = (msg.senderId === this.myUserId);
-                            this.appendBubble(msg.senderNickname, msg.content, isMine, msg.messageId, msg.unreadCount);
+                            this.appendBubble(msg.senderNickname, msg.content, isMine, msg.messageId, msg.unreadCount, msg.messageTypeCode);
                         });
                         this.appendSystem("--- 이전 대화 내역을 불러왔습니다 ---");
                     }
@@ -155,13 +156,10 @@
         },
 
         updateUnreadUI: function(readerUserId, lastReadId) {
-            // 상대방이 읽었다는 신호가 왔을 때 내 화면 갱신
             if (readerUserId !== this.myUserId) {
-                // 내 메시지(.my)들 중 '안 읽음'인 모든 라벨을 체크
                 const unreadLabels = document.querySelectorAll('.my .status-unread');
                 unreadLabels.forEach(label => {
                     const msgId = label.getAttribute('data-msg-id');
-                    // ID가 일치하거나 순서상 이전인 경우 '읽음'으로 변경
                     if (msgId === lastReadId || msgId < lastReadId) {
                         label.textContent = '읽음';
                         label.classList.remove('status-unread');
@@ -182,9 +180,128 @@
             msgInput.focus();
         },
 
-        appendBubble: function(nick, content, isMine, messageId, unreadCount) {
+        // --- 미디어 업로드 흐름 ---
+
+        onFilePicked: async function(event) {
+            const file = event.target.files[0];
+            event.target.value = ''; // 같은 파일 재선택 가능하게
+            if (!file) return;
+
+            const kind = this.detectKind(file);
+            if (!kind) {
+                alert('이미지 또는 동영상 파일만 업로드할 수 있습니다.');
+                return;
+            }
+
+            const status = document.getElementById('uploadStatus');
+            try {
+                status.textContent = `[1/3] presigned URL 발급 중... (${file.name})`;
+                const { presignedUrl, fileKey } = await this.requestPresignedUrl(file, kind);
+
+                status.textContent = `[2/3] R2 업로드 중... (${(file.size / 1024).toFixed(1)} KB)`;
+                await this.putToR2(presignedUrl, file);
+
+                status.textContent = `[3/3] 업로드 완료 처리 중...`;
+                await this.completeUpload(fileKey);
+
+                // 로컬 미리보기 캐시 (보낸 사람 본인용)
+                this.localPreviews[fileKey] = URL.createObjectURL(file);
+
+                // STOMP 메시지 전송
+                const msgType = kind === 'IMAGE' ? 'IMAGE' : 'VIDEO';
+                const payload = { content: fileKey, messageTypeCode: msgType };
+                this.stompClient.send("/pub/chat/rooms/" + this.currentRoomId, {}, JSON.stringify(payload));
+
+                status.textContent = `✓ ${msgType} 메시지 전송 완료`;
+                setTimeout(() => { status.textContent = ''; }, 2000);
+            } catch (err) {
+                console.error(err);
+                status.textContent = `✗ 업로드 실패: ${err.message || err}`;
+            }
+        },
+
+        detectKind: function(file) {
+            if (file.type.startsWith('image/')) return 'IMAGE';
+            if (file.type.startsWith('video/')) return 'VIDEO';
+            return null;
+        },
+
+        extractExtension: function(fileName) {
+            const idx = fileName.lastIndexOf('.');
+            return idx >= 0 ? fileName.substring(idx + 1).toLowerCase() : '';
+        },
+
+        requestPresignedUrl: async function(file, kind) {
+            const token = document.getElementById('token').value;
+            const fileCode = kind === 'IMAGE' ? 'CHAT' : 'CHAT_VIDEO';
+            const body = {
+                fileCode: fileCode,
+                originalFileName: file.name,
+                extension: this.extractExtension(file.name),
+                fileSize: file.size
+            };
+            const res = await fetch(`${API_BASE}/api/v1/images/presigned-url`, {
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            if (!res.ok) throw new Error(`presigned-url ${res.status}`);
+            const json = await res.json();
+            return json.data;
+        },
+
+        putToR2: async function(url, file) {
+            const res = await fetch(url, { method: 'PUT', body: file });
+            if (!res.ok) throw new Error(`R2 PUT ${res.status}`);
+        },
+
+        completeUpload: async function(fileKey) {
+            const token = document.getElementById('token').value;
+            const res = await fetch(`${API_BASE}/api/v1/images/complete`, {
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ fileKey })
+            });
+            if (!res.ok) throw new Error(`complete ${res.status}`);
+        },
+
+        // --- 메시지 표시 ---
+
+        buildMediaUrl: function(fileKey) {
+            // 보낸 사람 본인이면 로컬 미리보기 우선 사용
+            if (this.localPreviews[fileKey]) return this.localPreviews[fileKey];
+            if (this.r2BaseUrl) return `${this.r2BaseUrl}/${fileKey}`;
+            return null;
+        },
+
+        renderBubbleContent: function(content, messageTypeCode) {
+            if (messageTypeCode === 'IMAGE') {
+                const url = this.buildMediaUrl(content);
+                return url
+                    ? `<img src="${url}" alt="image" />`
+                    : `<div>[IMAGE]</div><div class="filekey">${content}</div>`;
+            }
+            if (messageTypeCode === 'VIDEO') {
+                const url = this.buildMediaUrl(content);
+                return url
+                    ? `<video src="${url}" controls></video>`
+                    : `<div>[VIDEO]</div><div class="filekey">${content}</div>`;
+            }
+            // TALK 기본
+            return this.escapeHtml(content);
+        },
+
+        escapeHtml: function(s) {
+            return String(s).replace(/[&<>"']/g, c => ({
+                '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+            }[c]));
+        },
+
+        appendBubble: function(nick, content, isMine, messageId, unreadCount, messageTypeCode) {
             const box = document.getElementById('chatBox');
             const sideClass = isMine ? 'my' : 'other';
+            const isMedia = messageTypeCode === 'IMAGE' || messageTypeCode === 'VIDEO';
+            const bubbleClass = isMedia ? 'bubble media' : 'bubble';
 
             let statusHtml = '';
             if (isMine) {
@@ -193,12 +310,13 @@
                 statusHtml = `<span class="read-status ${statusClass}" data-msg-id="${messageId}">${statusText}</span>`;
             }
 
+            const inner = this.renderBubbleContent(content, messageTypeCode);
             const html = `
                 <div class="msg-wrap ${sideClass}" id="msg-${messageId}">
-                    <div class="nickname">${nick}</div>
+                    <div class="nickname">${this.escapeHtml(nick)}</div>
                     <div class="bubble-container">
                         ${statusHtml}
-                        <div class="bubble">${content}</div>
+                        <div class="${bubbleClass}">${inner}</div>
                     </div>
                 </div>
             `;

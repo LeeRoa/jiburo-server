@@ -127,6 +127,9 @@ INSERT IGNORE INTO common_codes (code_group, code, message_key, ref_1, use_yn, c
 VALUES ('UPLOAD_TARGET', 'CHAT', 'upload.target.chat', 'chat/images', true, NOW(), NOW());
 
 INSERT IGNORE INTO common_codes (code_group, code, message_key, ref_1, use_yn, created_at, updated_at)
+VALUES ('UPLOAD_TARGET', 'CHAT_VIDEO', 'upload.target.chat.video', 'chat/videos', true, NOW(), NOW());
+
+INSERT IGNORE INTO common_codes (code_group, code, message_key, ref_1, use_yn, created_at, updated_at)
 VALUES ('UPLOAD_TARGET', 'POST', 'upload.target.post', 'post/images', true, NOW(), NOW());
 
 INSERT IGNORE INTO common_codes (code_group, code, message_key, ref_1, use_yn, created_at, updated_at)

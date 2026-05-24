@@ -39,6 +39,10 @@ public class ImageStorageServiceImpl implements ImageStorageService {
     @Override
     public PresignedUrlResponseDto createPresignedUrl(UUID userId, PresignedUrlRequestDto request) {
 
+        if (!request.fileCode().isExtensionAllowed(request.extension())) {
+            throw new JiburoException(ErrorCode.INVALID_FILE_FORMAT);
+        }
+
         Long currentTotalSize = imageMetaRepository.sumTotalFileSize();
         if (currentTotalSize + request.fileSize() > MAX_CAPACITY_BYTES) {
             throw new IllegalStateException("스토리지 전체 무료 용량(10GB)을 초과할 수 없습니다.");
@@ -55,6 +59,7 @@ public class ImageStorageServiceImpl implements ImageStorageService {
         PutObjectRequest putObjectRequest = PutObjectRequest.builder()
                 .bucket(bucketName)
                 .key(objectKey)
+                .contentLength(request.fileSize())
                 .build();
 
         PutObjectPresignRequest presignRequest = PutObjectPresignRequest.builder()
