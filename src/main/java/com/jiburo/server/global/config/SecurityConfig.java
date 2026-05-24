@@ -8,6 +8,7 @@ import com.jiburo.server.domain.user.service.CustomOAuth2UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -51,9 +52,10 @@ public class SecurityConfig {
                 .httpBasic(AbstractHttpConfigurer::disable)
 
                 .authorizeHttpRequests(auth -> auth
+                        // 게시글: 조회(GET)는 비로그인 허용, 작성/수정/삭제는 인증 필요
+                        .requestMatchers(HttpMethod.GET, "/api/v1/posts/**").permitAll()
                         .requestMatchers(
                                 "/ws-jiburo/**",
-                                "/api/v1/posts/**",
                                 "/api/v1/common-codes/**",
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
