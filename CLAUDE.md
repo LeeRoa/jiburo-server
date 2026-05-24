@@ -37,6 +37,101 @@ docker compose -f compose-prod.yaml up --build -d
 ```
 프로덕션은 환경변수(`DB_PASSWORD`, `JWT_SECRET`, `*_CLIENT_ID/SECRET`, `R2_*`) 주입이 필수입니다.
 
+## 프로젝트 구조
+
+### 전체 트리
+```
+src/main/
+├── java/com/jiburo/server/
+│   ├── JiburoServerApplication.java         # @SpringBootApplication, @EnableJpaAuditing, @EnableSpringDataWebSupport(VIA_DTO)
+│   ├── domain/                              # 비즈니스 도메인 모듈 (chat / image / notification / post / user)
+│   └── global/                              # 횡단 관심사 (config / error / response / log / cache / util / domain / controller / repository / dto)
+└── resources/
+    ├── application.properties               # spring.profiles.include=oauth,jwt,db,r2
+    ├── application-{db,jwt,oauth,r2}.properties   # 프로파일별 분리 설정
+    ├── data.sql                             # common_codes 초기 시드 (spring.sql.init.mode=always)
+    ├── i18n/{error,validation,common,entity}/messages[_en].properties  # 다국어 번들
+    ├── assets/                              # 정적 자산
+    └── test-web/                            # WebSocket 수동 테스트 페이지
+```
+
+### 도메인 모듈 표준 레이어
+각 도메인은 다음의 레이어를 가지며, 큰 도메인은 일부 레이어만 사용합니다.
+```
+domain/{모듈명}/
+├── controller/    # @RestController (HTTP) 또는 @Controller (STOMP). ApiResponse 래핑.
+├── service/       # 인터페이스 + Impl 분리 패턴 (XxxService / XxxServiceImpl). 트랜잭션 경계.
+├── repository/    # Spring Data + QueryDSL Custom (XxxRepository + XxxRepositoryCustom + XxxRepositoryImpl)
+├── dao/           # 일부 도메인에서 repository 대신 사용 (user.UserRepository는 dao에 위치). post.dao는 현재 비어있음.
+├── domain/        # JPA 엔티티 (BaseTimeEntity 상속) + enums/ 하위 패키지
+├── dto/           # Request/Response/Search/Condition. Java record 선호.
+└── config/        # 도메인 전용 빈 (예: chat.config.StompHandler, image.config.R2Config)
+```
+
+### 도메인별 책임 한 줄 요약
+
+- **user** — 진입점 `AuthController` (`/api/v1/auth`). 핵심 엔티티 `User` (PK: UUID, JDBC `BINARY`). OAuth2 소셜 로그인 후 JWT 발급/재발급, 회원 프로필, 뱃지/점수 관리. `jwt/` 패키지에 `JwtFilter`, `JwtTokenProvider`, `OAuth2SuccessHandler`, `JwtAuthenticationEntryPoint`.
+- **post** — 진입점 `LostPostController` (`/api/v1/posts`). 핵심 엔티티 `LostPost`, `LostPostImage`. 분실/제보 게시글 CRUD + 지도 기반 조회. `detail` 필드는 카테고리에 따라 구조가 바뀌는 JSON 컬럼(`@JdbcTypeCode(SqlTypes.JSON)`). 반경 조회는 QueryDSL + MySQL Haversine 식.
+- **chat** — 진입점 두 개: REST `ChatRoomController` (`/api/v1/chat/rooms`)와 STOMP `ChatController` (`@MessageMapping("/chat/rooms/{roomId}")`). 핵심 엔티티 `ChatRoom`, `ChatMessage`, `ChatParticipant`. 게시글 단위 1:N 채팅방, 실시간 전송 + 읽음 처리. `lastChatAt`로 목록 정렬, `idx_chat_room_created` 인덱스로 메시지 페이징 최적화.
+- **image** — 진입점 `ImageController` (`/api/v1/images`). 핵심 엔티티 `ImageMeta`. Cloudflare R2 presigned PUT URL 발급 → 클라이언트 직접 업로드 → `/complete` 콜백으로 `ImageStatus` 전환. 전체 누적 10GB 가드.
+- **notification** — 진입점 `NotificationController` (`/api/v1/notifications`). 핵심 엔티티 `Notification`. 알림 목록 / 안 읽음 카운트. `typeCode` + `args`(콤마 구분 가변인자) + `targetId` 패턴 — 메시지 본문은 프론트가 다국어 키로 조립.
+
+### 주요 엔티티 관계
+```
+User (UUID PK)
+ ├── 1:N → LostPost (작성자: user_id)
+ │         └── 1:N → LostPostImage
+ ├── 1:N → LostPost (발견자: finder_id, nullable)
+ ├── 1:N → ChatRoom (방장: host_id)
+ ├── 1:N → ChatParticipant
+ ├── 1:N → ChatMessage (sender_id)
+ ├── 1:N → ImageMeta (업로더)
+ └── 1:N → Notification (receiver/sender)
+
+LostPost
+ ├── N:1 → User (작성자)
+ ├── 1:N → ChatRoom (이 게시글로 시작된 채팅방들)
+ └── 1:N → LostPostImage
+```
+- `User.id`는 `UUID`(JDBC BINARY) — 외부 노출은 일반적으로 OAuth provider 식별자 또는 닉네임으로 처리.
+- 그 외 엔티티 PK는 모두 `Long IDENTITY` — 외부 노출 시 반드시 `HashidsUtils.encode()`.
+
+### 글로벌 패키지 구성
+```
+global/
+├── config/        # SecurityConfig, WebSocketConfig, QueryDslConfig, RedisConfig,
+│                  # MessageSourceConfig, I18nConfig, WebConfig, AsyncConfig, OpenApiConfig, SwaggerConfig
+├── error/         # ErrorCode (enum) + JiburoException + GlobalExceptionHandler
+├── response/      # ApiResponse<T> — 모든 컨트롤러의 표준 응답 래퍼
+├── log/           # @AuditLog 어노테이션 + AuditLogAspect(AOP) + AuditLogEvent/Listener (비동기 DB 저장)
+├── cache/         # CommonCodeCache — common_codes 메모리 캐시 (PostConstruct 로드)
+├── util/          # HashidsUtils, MessageUtils(i18n 정적 헬퍼), Translatable
+├── domain/        # BaseTimeEntity (createdAt/updatedAt), CommonCode 엔티티 + enums/(CommonCodeType, LogActionType)
+├── controller/    # CommonCodeController (/api/v1/common-codes — 앱 시작 시 1회 호출용)
+├── repository/    # CommonCodeRepository
+└── dto/           # CommonCodeResponseDto
+```
+
+### 엔드포인트 한눈에
+
+permitAll (인증 불필요):
+- `/api/v1/auth/**` → `AuthController` (토큰 재발급)
+- `/api/v1/posts/**` → `LostPostController` (조회 중심, 작성/수정도 permitAll이지만 내부에서 `@AuthenticationPrincipal` 사용)
+- `/api/v1/common-codes/**` → `CommonCodeController` (앱 시작 시 1회 호출)
+- `/ws-jiburo` → STOMP 엔드포인트 (CONNECT 시 `StompHandler`가 JWT 검증)
+- `/swagger-ui.html`, `/v3/api-docs/**` → Springdoc Swagger UI
+- `/oauth2/authorization/**`, `/login/oauth2/code/**` → Spring Security OAuth2 콜백
+- `/h2-console/**`, `/favicon.ico`, `/error`
+
+인증 필요 (`@AuthenticationPrincipal CustomOAuth2User user`):
+- `/api/v1/chat/rooms/**` → `ChatRoomController`
+- `/api/v1/notifications/**` → `NotificationController`
+- `/api/v1/images/**` → `ImageController`
+
+STOMP 채널:
+- 발행 (클라 → 서버): `/pub/chat/rooms/{roomId}` (메시지 전송), `/pub/chat/rooms/{roomId}/read` (읽음 처리)
+- 구독 (서버 → 클라): `/sub/chat/rooms/{roomId}` (메시지 수신), `/sub/chat/rooms/{roomId}/read` (읽음 영수증)
+
 ## 아키텍처
 
 ### 패키지 구성
