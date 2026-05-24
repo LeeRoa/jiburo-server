@@ -26,6 +26,7 @@ public class ImageMeta extends BaseTimeEntity {
     @Comment("파일을 업로드한 플랫폼 사용자 계정")
     private User user;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "file_code", nullable = false, length = 50)
     @Comment("이미지 용도 공통 코드 (예: IMG_PROFILE, IMG_CHAT)")
     private UploadTargetType fileCode;
