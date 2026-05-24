@@ -110,9 +110,14 @@ jiburo-server/
 프로젝트에 기여하고자 하시면 다음 절차를 따를 수 있습니다:
 
 1.  이 리포지토리를 포크(Fork)합니다.
-2.  새로운 기능 또는 버그 수정을 위한 브랜치를 생성합니다 (`git checkout -b feature/your-feature-name` 또는 `bugfix/issue-description`).
-3.  변경 사항을 커밋합니다 (`git commit -m 'Feat: Add some feature'`).
-4.  원본 리포지토리로 푸시합니다 (`git push origin feature/your-feature-name`).
+2.  새로운 기능 또는 버그 수정을 위한 브랜치를 생성합니다. (브랜치 네이밍은 [Git 브랜치 컨벤션](./docs/git-branch-convention.md) 참조)
+3.  변경 사항을 커밋합니다. (커밋 메시지는 [Git 커밋 메시지 컨벤션](./docs/git-commit-convention.md) 참조)
+4.  원본 리포지토리로 푸시합니다 (`git push origin <branch-name>`).
 5.  풀 리퀘스트(Pull Request)를 제출합니다.
 
 코드 스타일에 맞게 작성하고, 관련 테스트를 포함하여 변경 사항을 검증해 주시기 바랍니다.
+
+## 📚 문서
+
+- [Git 브랜치 컨벤션](./docs/git-branch-convention.md) — 브랜치 네이밍 규칙
+- [Git 커밋 메시지 컨벤션](./docs/git-commit-convention.md) — 커밋 메시지 형식
