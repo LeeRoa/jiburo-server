@@ -2,7 +2,7 @@ package com.jiburo.server.domain.chat.domain;
 
 import com.jiburo.server.domain.post.domain.LostPost;
 import com.jiburo.server.domain.user.domain.User;
-import com.jiburo.server.global.consts.entity.BaseTimeEntity;
+import com.jiburo.server.global.domain.BaseTimeEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;

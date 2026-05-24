@@ -1,11 +1,11 @@
 package com.jiburo.server.domain.post.service;
 
 import com.jiburo.server.domain.post.domain.LostPost;
+import com.jiburo.server.domain.post.domain.enums.PostStatus;
 import com.jiburo.server.domain.post.dto.*;
 import com.jiburo.server.domain.post.repository.LostPostRepository;
 import com.jiburo.server.domain.user.dao.UserRepository;
 import com.jiburo.server.domain.user.domain.User;
-import com.jiburo.server.global.domain.CodeConst;
 import com.jiburo.server.global.error.JiburoException;
 import com.jiburo.server.global.error.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -72,10 +72,10 @@ public class LostPostServiceImpl implements LostPostService {
         LostPost post = findPostByIdOrThrow(postId);
         validateWriter(post, userId); // 작성자 확인
 
-        String newStatus = requestDto.statusCode();
+        PostStatus newStatus = requestDto.statusCode();
 
         // 1. [완료 처리 로직] 상태가 COMPLETE로 변경되는 경우
-        if (CodeConst.Status.COMPLETE.equals(newStatus)) {
+        if (PostStatus.COMPLETE.equals(newStatus)) {
             User finder = null;
 
             // 1-1. 찾아준 사람이 우리 앱 회원인가? (ID가 넘어왔는가?)

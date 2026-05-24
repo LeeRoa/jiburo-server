@@ -1,7 +1,7 @@
 package com.jiburo.server.domain.user.dto;
 
 import com.jiburo.server.domain.user.domain.User;
-import com.jiburo.server.global.domain.CodeConst;
+import com.jiburo.server.domain.user.domain.enums.RoleType;
 import com.jiburo.server.global.error.JiburoException;
 import lombok.Builder;
 
@@ -74,7 +74,7 @@ public record OAuthAttributes(
                 .nickname(nickname)
                 .email(email)
                 .profileImageUrl(profileImageUrl)
-                .roleCode(CodeConst.Role.USER)
+                .roleCode(RoleType.USER)
                 .build();
     }
 }

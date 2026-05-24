@@ -1,7 +1,7 @@
 package com.jiburo.server.domain.chat.domain;
 
 import com.jiburo.server.domain.user.domain.User;
-import com.jiburo.server.global.consts.entity.BaseTimeEntity;
+import com.jiburo.server.global.domain.BaseTimeEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -9,7 +9,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.Comment;
 
-import java.time.LocalDateTime;
 
 
 @Entity

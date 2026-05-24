@@ -1,7 +1,7 @@
 package com.jiburo.server.domain.notification.domain;
 
 import com.jiburo.server.domain.user.domain.User;
-import com.jiburo.server.global.consts.entity.BaseTimeEntity;
+import com.jiburo.server.global.domain.BaseTimeEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;

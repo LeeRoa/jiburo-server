@@ -2,9 +2,10 @@ package com.jiburo.server.domain.user.jwt;
 
 import com.jiburo.server.domain.user.dao.UserRepository;
 import com.jiburo.server.domain.user.domain.User;
+import com.jiburo.server.domain.user.domain.enums.RoleType;
 import com.jiburo.server.domain.user.dto.CustomOAuth2User;
 import com.jiburo.server.domain.user.dto.TokenResponseDto;
-import com.jiburo.server.global.domain.CodeConst;
+import com.jiburo.server.global.domain.enums.LogActionType;
 import com.jiburo.server.global.log.event.AuditLogEvent;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -92,7 +93,7 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
                 .nickname(name)
                 .email(email != null ? email : "")
                 .profileImageUrl(picture)
-                .roleCode("USER")
+                .roleCode(RoleType.USER)
                 .build();
 
         return userRepository.save(newUser);
@@ -102,7 +103,7 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         try {
             eventPublisher.publishEvent(AuditLogEvent.builder()
                     .userId(user.getId())
-                    .action(CodeConst.LogAction.AUTH_LOGIN)
+                    .action(LogActionType.AUTH_LOGIN)
                     .clientIp(request.getRemoteAddr())
                     .targetData("Login: " + user.getNickname())
                     .build());

@@ -1,12 +1,13 @@
 package com.jiburo.server.domain.post.dto;
 
+import com.jiburo.server.domain.post.domain.enums.PostStatus;
 import jakarta.validation.constraints.Pattern;
 
 import java.util.UUID;
 
 public record LostPostStatusUpdateRequestDto(
         @Pattern(regexp = "LOST|PROTECTING|COMPLETE", message = "유효하지 않은 상태 코드입니다.")
-        String statusCode,
+        PostStatus statusCode,
 
         // 해결사 ID (옵션 - 우리 앱 회원인 경우만 보냄)
         UUID finderId,

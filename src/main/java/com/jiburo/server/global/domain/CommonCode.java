@@ -1,6 +1,5 @@
 package com.jiburo.server.global.domain;
 
-import com.jiburo.server.global.consts.entity.BaseTimeEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;

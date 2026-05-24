@@ -2,6 +2,7 @@ package com.jiburo.server.domain.chat.dto;
 
 import com.jiburo.server.domain.chat.domain.ChatMessage;
 import com.jiburo.server.domain.chat.domain.ChatRoom;
+import com.jiburo.server.domain.post.domain.enums.PostStatus;
 import com.jiburo.server.global.util.HashidsUtils;
 import org.springframework.data.domain.Slice;
 
@@ -11,7 +12,7 @@ public record ChatRoomDetailDto(
         String roomId,
         String postId,
         String postTitle,
-        String postStatusCode,
+        PostStatus postStatusCode,
         List<ChatMessageResponseDto> messageHistory,
         boolean hasNext // 다음 페이지 존재 여부
 ) {

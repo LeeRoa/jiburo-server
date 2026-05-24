@@ -1,6 +1,7 @@
 package com.jiburo.server.domain.user.dto;
 
 import com.jiburo.server.domain.user.domain.User;
+import com.jiburo.server.domain.user.domain.enums.RoleType;
 import lombok.Getter;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.oauth2.core.user.DefaultOAuth2User;
@@ -14,7 +15,7 @@ public class CustomOAuth2User extends DefaultOAuth2User {
 
     private final UUID userId;
     private final String email;
-    private final String roleCode;
+    private final RoleType roleCode;
 
     // 1. 로그인 성공 시 (User 엔티티 받음)
     public CustomOAuth2User(Collection<? extends GrantedAuthority> authorities,

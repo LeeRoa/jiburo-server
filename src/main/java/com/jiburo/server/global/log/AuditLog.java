@@ -1,5 +1,6 @@
 package com.jiburo.server.global.log;
 
+import com.jiburo.server.global.domain.enums.LogActionType;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -25,8 +26,9 @@ public class AuditLog {
     @Column(nullable = false)
     private UUID userId; // 누가 (User 객체 대신 ID만 저장, 연관관계 X)
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private String action; // 무엇을 (예: POST_CREATE)
+    private LogActionType action; // 무엇을 (예: POST_CREATE)
 
     @Column(columnDefinition = "TEXT")
     private String targetData; // 상세 내용 (JSON 형태 저장 추천)
@@ -38,7 +40,7 @@ public class AuditLog {
     private LocalDateTime createdAt; // 언제
 
     @Builder
-    public AuditLog(UUID userId, String action, String targetData, String clientIp) {
+    public AuditLog(UUID userId, LogActionType action, String targetData, String clientIp) {
         this.userId = userId;
         this.action = action;
         this.targetData = targetData;

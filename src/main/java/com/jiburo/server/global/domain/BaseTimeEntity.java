@@ -1,4 +1,4 @@
-package com.jiburo.server.global.consts.entity;
+package com.jiburo.server.global.domain;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.EntityListeners;

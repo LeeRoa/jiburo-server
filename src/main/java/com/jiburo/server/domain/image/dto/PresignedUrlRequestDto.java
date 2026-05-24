@@ -1,11 +1,12 @@
 package com.jiburo.server.domain.image.dto;
 
 import com.jiburo.server.domain.image.domain.ImageMeta;
+import com.jiburo.server.domain.image.domain.ImageStatus;
+import com.jiburo.server.domain.image.domain.UploadTargetType;
 import com.jiburo.server.domain.user.domain.User;
-import com.jiburo.server.global.domain.CodeConst;
 
 public record PresignedUrlRequestDto(
-        String fileCode,
+        UploadTargetType fileCode,
         String originalFileName,
         String extension,
         Long fileSize
@@ -18,7 +19,7 @@ public record PresignedUrlRequestDto(
                 .originalFileName(this.originalFileName)
                 .extension(this.extension)
                 .fileSize(this.fileSize)
-                .statusCode(CodeConst.ImgStatus.PENDING)
+                .statusCode(ImageStatus.PENDING)
                 .build();
     }
 }

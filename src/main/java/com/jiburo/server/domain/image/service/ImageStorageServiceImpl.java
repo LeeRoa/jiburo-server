@@ -1,12 +1,12 @@
 package com.jiburo.server.domain.image.service;
 
 import com.jiburo.server.domain.image.domain.ImageMeta;
+import com.jiburo.server.domain.image.domain.ImageStatus;
 import com.jiburo.server.domain.image.dto.PresignedUrlRequestDto;
 import com.jiburo.server.domain.image.dto.PresignedUrlResponseDto;
 import com.jiburo.server.domain.image.repository.ImageMetaRepository;
 import com.jiburo.server.domain.user.dao.UserRepository;
 import com.jiburo.server.domain.user.domain.User;
-import com.jiburo.server.global.domain.CodeConst;
 import com.jiburo.server.global.error.ErrorCode;
 import com.jiburo.server.global.error.JiburoException;
 import lombok.RequiredArgsConstructor;
@@ -47,7 +47,7 @@ public class ImageStorageServiceImpl implements ImageStorageService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new JiburoException(ErrorCode.USER_NOT_FOUND));
 
-        String basePath = CodeConst.UploadTarget.getBasePath(request.fileCode());
+        String basePath = request.fileCode().getFolderPath();
 
         String fileKey = UUID.randomUUID() + "." + request.extension();
         String objectKey = basePath + "/" + userId + "/" + fileKey;
@@ -84,11 +84,11 @@ public class ImageStorageServiceImpl implements ImageStorageService {
         }
 
         // 3. 이미 완료된 파일인지 확인
-        if (CodeConst.ImgStatus.COMPLETED.equals(imageMeta.getStatusCode())) {
+        if (ImageStatus.COMPLETED.equals(imageMeta.getStatusCode())) {
             return;
         }
 
         // 4. 상태를 COMPLETED로 업데이트
-        imageMeta.updateStatus(CodeConst.ImgStatus.COMPLETED);
+        imageMeta.updateStatus(ImageStatus.COMPLETED);
     }
 }

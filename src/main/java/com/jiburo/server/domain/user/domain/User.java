@@ -1,6 +1,8 @@
 package com.jiburo.server.domain.user.domain;
 
-import com.jiburo.server.global.consts.entity.BaseTimeEntity;
+import com.jiburo.server.domain.user.domain.enums.BadgeType;
+import com.jiburo.server.domain.user.domain.enums.RoleType;
+import com.jiburo.server.global.domain.BaseTimeEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -38,19 +40,21 @@ public class User extends BaseTimeEntity {
     @Comment("프로필 이미지 URL")
     private String profileImageUrl;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     @Comment("현재 탐정 등급 코드 (BEGINNER, SENIOR...)")
-    private String badgeCode;
+    private BadgeType badgeCode;
 
     @Comment("누적 활동 점수")
     private int activityScore;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     @Comment("사용자 권한 코드 (USER, ADMIN)")
-    private String roleCode;
+    private RoleType roleCode;
 
     @Builder
-    public User(String oauthId, String nickname, String email, String profileImageUrl, String roleCode) {
+    public User(String oauthId, String nickname, String email, String profileImageUrl, RoleType roleCode) {
         this.oauthId = oauthId;
         this.nickname = nickname;
         this.email = email;
@@ -58,7 +62,7 @@ public class User extends BaseTimeEntity {
         this.roleCode = roleCode;
 
         // 초기 가입 시 기본값 설정 (DB 코드로 하드코딩 or 상수로 관리)
-        this.badgeCode = "BEGINNER";
+        this.badgeCode = BadgeType.BEGINNER;
         this.activityScore = 0;
     }
 
@@ -72,7 +76,7 @@ public class User extends BaseTimeEntity {
     }
 
     // 등급 변경 (문자열 코드로 받음)
-    public void updateBadge(String newBadgeCode) {
+    public void updateBadge(BadgeType newBadgeCode) {
         this.badgeCode = newBadgeCode;
     }
 

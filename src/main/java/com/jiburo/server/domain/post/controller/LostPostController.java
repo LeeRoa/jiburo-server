@@ -3,7 +3,7 @@ package com.jiburo.server.domain.post.controller;
 import com.jiburo.server.domain.post.dto.*;
 import com.jiburo.server.domain.post.service.LostPostService;
 import com.jiburo.server.domain.user.dto.CustomOAuth2User;
-import com.jiburo.server.global.domain.CodeConst;
+import com.jiburo.server.global.domain.enums.LogActionType;
 import com.jiburo.server.global.log.annotation.AuditLog;
 import com.jiburo.server.global.response.ApiResponse;
 import com.jiburo.server.global.util.HashidsUtils;
@@ -30,7 +30,7 @@ public class LostPostController {
     private final LostPostService lostPostService;
 
     // [등록]
-    @AuditLog(action = CodeConst.LogAction.POST_CREATE)
+    @AuditLog(action = LogActionType.POST_CREATE)
     @PostMapping
     public ApiResponse<String> createPost(
             @AuthenticationPrincipal CustomOAuth2User user,
@@ -58,7 +58,7 @@ public class LostPostController {
     }
 
     // [수정]
-    @AuditLog(action = CodeConst.LogAction.POST_UPDATE)
+    @AuditLog(action = LogActionType.POST_UPDATE)
     @PatchMapping("/{id}")
     public ApiResponse<Void> updatePost(
             @AuthenticationPrincipal CustomOAuth2User user,
@@ -71,7 +71,7 @@ public class LostPostController {
     }
 
     // [상태 변경]
-    @AuditLog(action = CodeConst.LogAction.POST_STATUS_CHANGE)
+    @AuditLog(action = LogActionType.POST_STATUS_CHANGE)
     @PatchMapping("/{id}/status")
     public ApiResponse<Void> updateStatus(
             @AuthenticationPrincipal CustomOAuth2User user,
@@ -84,7 +84,7 @@ public class LostPostController {
     }
 
     // [삭제]
-    @AuditLog(action = CodeConst.LogAction.POST_DELETE)
+    @AuditLog(action = LogActionType.POST_DELETE)
     @DeleteMapping("/{id}")
     public ApiResponse<Void> deletePost(
             @AuthenticationPrincipal CustomOAuth2User user,

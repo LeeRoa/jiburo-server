@@ -1,9 +1,11 @@
 package com.jiburo.server.domain.post.domain;
 
+import com.jiburo.server.domain.post.domain.enums.CategoryType;
+import com.jiburo.server.domain.post.domain.enums.PostStatus;
+import com.jiburo.server.domain.post.domain.enums.VisibilityType;
 import com.jiburo.server.domain.post.dto.detail.TargetDetailDto;
 import com.jiburo.server.domain.user.domain.User;
-import com.jiburo.server.global.consts.entity.BaseTimeEntity;
-import com.jiburo.server.global.domain.CodeConst;
+import com.jiburo.server.global.domain.BaseTimeEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -37,9 +39,10 @@ public class LostPost extends BaseTimeEntity {
     private User user;
 
     // --- 게시글 기본 정보 ---
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     @Comment("대분류 코드 (ANIMAL, PERSON, ITEM)")
-    private String categoryCode;
+    private CategoryType categoryCode;
 
     @Column(nullable = false, length = 100)
     @Comment("제목")
@@ -49,9 +52,10 @@ public class LostPost extends BaseTimeEntity {
     @Comment("상세 내용")
     private String content;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     @Comment("상태 코드 (LOST, COMPLETE)")
-    private String statusCode;
+    private PostStatus statusCode;
 
     // ---  상세 정보 (JSON) ---
     @JdbcTypeCode(SqlTypes.JSON)
@@ -86,9 +90,10 @@ public class LostPost extends BaseTimeEntity {
     @Comment("사례금 (단위: 원)")
     private int reward;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     @Comment("공개 권한 코드 (PUBLIC, PROTECTED, PRIVATE)")
-    private String visibilityCode;
+    private VisibilityType visibilityCode;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "finder_id") // Nullable (본인이 찾았거나 비회원이 찾았을 수 있음)
@@ -98,10 +103,10 @@ public class LostPost extends BaseTimeEntity {
     private String resultNote;
 
     @Builder
-    public LostPost(User user, String categoryCode, String title, String content, String statusCode,
+    public LostPost(User user, CategoryType categoryCode, String title, String content, PostStatus statusCode,
                     TargetDetailDto detail,
                     String imageUrl, Double latitude, Double longitude, String foundLocation,
-                    LocalDate lostDate, int reward, String visibilityCode) {
+                    LocalDate lostDate, int reward, VisibilityType visibilityCode) {
         this.user = user;
         this.categoryCode = categoryCode;
         this.title = title;
@@ -119,12 +124,12 @@ public class LostPost extends BaseTimeEntity {
 
     // --- 비즈니스 로직 ---
 
-    public void changeStatus(String newStatusCode) {
+    public void changeStatus(PostStatus newStatusCode) {
         this.statusCode = newStatusCode;
     }
 
     public void update(String title, String content,
-                       String categoryCode,
+                       CategoryType categoryCode,
                        TargetDetailDto detail,
                        Double latitude, Double longitude, String foundLocation,
                        LocalDate lostDate, int reward) {
@@ -183,7 +188,7 @@ public class LostPost extends BaseTimeEntity {
     }
 
     public void complete(User finder, String resultNote) {
-        this.statusCode = CodeConst.Status.COMPLETE;
+        this.statusCode = PostStatus.COMPLETE;
         this.finder = finder; // 회원이면 User 객체, 아니면 null
         this.resultNote = resultNote;
     }

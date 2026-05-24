@@ -1,5 +1,6 @@
 package com.jiburo.server.global.log.event;
 
+import com.jiburo.server.global.domain.enums.LogActionType;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -9,7 +10,7 @@ import java.util.UUID;
 @Builder
 public class AuditLogEvent {
     private UUID userId;
-    private String action;
+    private LogActionType action;
     private String targetData;
     private String clientIp;
 }

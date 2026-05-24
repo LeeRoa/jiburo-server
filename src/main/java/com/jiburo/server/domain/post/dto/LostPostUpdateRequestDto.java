@@ -1,8 +1,10 @@
 package com.jiburo.server.domain.post.dto;
 
+import com.jiburo.server.domain.post.domain.enums.AnimalType;
+import com.jiburo.server.domain.post.domain.enums.CategoryType;
+import com.jiburo.server.domain.post.domain.enums.PostStatus;
 import com.jiburo.server.domain.post.dto.detail.AnimalDetailDto;
 import com.jiburo.server.domain.post.dto.detail.TargetDetailDto;
-import com.jiburo.server.global.domain.CodeConst;
 import com.jiburo.server.global.error.JiburoException;
 
 import java.time.LocalDate;
@@ -14,12 +16,12 @@ public record LostPostUpdateRequestDto(
         String title,
         String content,
         String imageUrl,
-        String statusCode,
+        PostStatus statusCode,
 
-        String categoryCode, // 대분류 (ANIMAL, PERSON...)
+        CategoryType categoryCode, // 대분류 (ANIMAL, PERSON...)
 
         // --- 상세 정보 필드들 ---
-        String animalTypeCode,
+        AnimalType animalTypeCode,
         String breed,
         String genderCode,
         String color,
@@ -38,7 +40,7 @@ public record LostPostUpdateRequestDto(
         return switch (this.categoryCode) {
 
             // [CASE 1] 동물일 때
-            case CodeConst.PostCategory.ANIMAL -> AnimalDetailDto.builder()
+            case ANIMAL -> AnimalDetailDto.builder()
                     .animalType(this.animalTypeCode)
                     .breed(this.breed)
                     .gender(this.genderCode)
@@ -47,7 +49,7 @@ public record LostPostUpdateRequestDto(
                     .build();
 
             // TODO [CASE 2, 3] 물건, 사람 (구현 예정)
-            case CodeConst.PostCategory.ITEM, CodeConst.PostCategory.PERSON ->
+            case ITEM, PERSON ->
                     throw new JiburoException(FEATURE_NOT_READY);
 
             // 정의되지 않은 카테고리가 오면 에러 처리

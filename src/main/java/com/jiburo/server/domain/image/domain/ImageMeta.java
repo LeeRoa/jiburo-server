@@ -1,7 +1,7 @@
 package com.jiburo.server.domain.image.domain;
 
 import com.jiburo.server.domain.user.domain.User;
-import com.jiburo.server.global.consts.entity.BaseTimeEntity;
+import com.jiburo.server.global.domain.BaseTimeEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -28,7 +28,7 @@ public class ImageMeta extends BaseTimeEntity {
 
     @Column(name = "file_code", nullable = false, length = 50)
     @Comment("이미지 용도 공통 코드 (예: IMG_PROFILE, IMG_CHAT)")
-    private String fileCode;
+    private UploadTargetType fileCode;
 
     @Column(name = "file_key", nullable = false, length = 500)
     @Comment("R2 스토리지에 저장된 실제 경로 및 파일명 (예: IMG_PROFILE/1/uuid.png)")
@@ -46,16 +46,17 @@ public class ImageMeta extends BaseTimeEntity {
     @Comment("파일 용량 (Byte 단위, 10GB 한도 계산 및 통계용)")
     private Long fileSize;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "status_code", nullable = false, length = 50)
     @Comment("상태 공통 코드 (예: IMG_STS_PENDING, IMG_STS_COMPLETED)")
-    private String statusCode;
+    private ImageStatus statusCode;
 
     @Column(name = "use_yn", nullable = false)
     @Comment("사용 여부 (데이터 삭제 시 false 처리)")
     private boolean useYn;
 
     @Builder
-    public ImageMeta(User user, String fileCode, String fileKey, String originalFileName, String extension, Long fileSize, String statusCode) {
+    public ImageMeta(User user, UploadTargetType fileCode, String fileKey, String originalFileName, String extension, Long fileSize, ImageStatus statusCode) {
         this.user = user;
         this.fileCode = fileCode;
         this.fileKey = fileKey;
@@ -66,7 +67,7 @@ public class ImageMeta extends BaseTimeEntity {
         this.useYn = true;
     }
 
-    public void updateStatus(String statusCode) {
+    public void updateStatus(ImageStatus statusCode) {
         this.statusCode = statusCode;
     }
 }

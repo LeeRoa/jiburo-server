@@ -2,6 +2,7 @@ package com.jiburo.server.domain.chat.repository;
 
 import com.jiburo.server.domain.chat.domain.ChatMessage;
 import com.jiburo.server.domain.chat.domain.QChatMessage;
+import com.jiburo.server.domain.chat.domain.enums.ChatMsgType;
 import com.jiburo.server.domain.chat.dto.ChatMessageResponseDto;
 import com.jiburo.server.domain.chat.dto.ChatMessageSearchCondition;
 import com.querydsl.core.types.Order;
@@ -93,8 +94,8 @@ public class ChatMessageRepositoryImpl implements ChatMessageRepositoryCustom {
         return StringUtils.hasText(keyword) ? QChatMessage.chatMessage.content.contains(keyword) : null;
     }
 
-    private BooleanExpression messageTypeEq(String typeCode) {
-        return StringUtils.hasText(typeCode) ? QChatMessage.chatMessage.messageTypeCode.eq(typeCode) : null;
+    private BooleanExpression messageTypeEq(ChatMsgType typeCode) {
+        return typeCode != null ? QChatMessage.chatMessage.messageTypeCode.eq(typeCode) : null;
     }
 
     private BooleanExpression createdAtGoe(String fromDate) {

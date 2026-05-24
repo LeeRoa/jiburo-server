@@ -1,6 +1,7 @@
 package com.jiburo.server.domain.chat.dto;
 
 import com.jiburo.server.domain.chat.domain.ChatMessage;
+import com.jiburo.server.domain.chat.domain.enums.ChatMsgType;
 import com.jiburo.server.global.util.HashidsUtils;
 
 import java.time.LocalDateTime;
@@ -12,7 +13,7 @@ public record ChatMessageResponseDto(
         UUID senderId,
         String senderNickname,
         String content,
-        String messageTypeCode,
+        ChatMsgType messageTypeCode,
         LocalDateTime createdAt,
         int unreadCount
 ) {

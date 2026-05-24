@@ -1,6 +1,8 @@
 package com.jiburo.server.domain.post.dto;
 
 import com.jiburo.server.domain.post.domain.LostPost;
+import com.jiburo.server.domain.post.domain.enums.CategoryType;
+import com.jiburo.server.domain.post.domain.enums.PostStatus;
 import com.jiburo.server.domain.post.dto.detail.TargetDetailDto; // [중요] 상세 객체 임포트
 import com.jiburo.server.global.util.HashidsUtils;
 
@@ -14,10 +16,10 @@ public record LostPostResponseDto(
         String authorNickname, // 작성자
         String title,
         String content,
-        String statusCode,     // LOST, COMPLETE
+        PostStatus statusCode,     // LOST, COMPLETE
 
         // 기존 개별 필드 삭제 -> 카테고리 & 상세 객체로 통합
-        String categoryCode,   // ANIMAL, PERSON, ITEM
+        CategoryType categoryCode,   // ANIMAL, PERSON, ITEM
         TargetDetailDto detail, // 상세 정보 (JSON 데이터가 객체로 변환된 것)
 
         String imageUrl,

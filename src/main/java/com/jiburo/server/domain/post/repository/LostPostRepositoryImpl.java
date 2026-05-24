@@ -1,6 +1,8 @@
 package com.jiburo.server.domain.post.repository;
 
 import com.jiburo.server.domain.post.domain.LostPost;
+import com.jiburo.server.domain.post.domain.enums.CategoryType;
+import com.jiburo.server.domain.post.domain.enums.PostStatus;
 import com.jiburo.server.domain.post.dto.LostPostMapRequestDto;
 import com.jiburo.server.domain.post.dto.LostPostNearbyRequestDto;
 import com.jiburo.server.domain.post.dto.LostPostSearchCondition;
@@ -242,12 +244,12 @@ public class LostPostRepositoryImpl implements LostPostRepositoryCustom {
 
     // --- 기본 검색 조건 ---
 
-    private BooleanExpression eqCategoryCode(String categoryCode) {
-        return StringUtils.hasText(categoryCode) ? lostPost.categoryCode.eq(categoryCode) : null;
+    private BooleanExpression eqCategoryCode(CategoryType categoryCode) {
+        return categoryCode != null ? lostPost.categoryCode.eq(categoryCode) : null;
     }
 
-    private BooleanExpression eqStatusCode(String statusCode) {
-        return StringUtils.hasText(statusCode) ? lostPost.statusCode.eq(statusCode) : null;
+    private BooleanExpression eqStatusCode(PostStatus statusCode) { // String에서 PostStatus로 변경
+        return statusCode != null ? lostPost.statusCode.eq(statusCode) : null;
     }
 
     private BooleanExpression containsKeyword(String keyword) {
