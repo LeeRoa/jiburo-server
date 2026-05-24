@@ -3,6 +3,7 @@ package com.jiburo.server.domain.post.dto;
 import com.jiburo.server.domain.post.domain.LostPost;
 import com.jiburo.server.domain.post.domain.enums.AnimalType;
 import com.jiburo.server.domain.post.domain.enums.CategoryType;
+import com.jiburo.server.domain.post.domain.enums.GenderType;
 import com.jiburo.server.domain.post.domain.enums.PostStatus;
 import com.jiburo.server.domain.post.domain.enums.VisibilityType;
 import com.jiburo.server.domain.post.dto.detail.AnimalDetailDto;
@@ -26,7 +27,7 @@ public record LostPostCreateRequestDto(
         @NotNull CategoryType categoryCode, // ANIMAL, PERSON
         @NotBlank AnimalType animalTypeCode, // DOG, CAT
         String breed,
-        String genderCode, // MALE, FEMALE
+        GenderType genderCode, // MALE, FEMALE, UNKNOWN
         String color,
         Integer age,
 

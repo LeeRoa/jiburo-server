@@ -2,6 +2,7 @@ package com.jiburo.server.domain.post.dto;
 
 import com.jiburo.server.domain.post.domain.enums.AnimalType;
 import com.jiburo.server.domain.post.domain.enums.CategoryType;
+import com.jiburo.server.domain.post.domain.enums.GenderType;
 import com.jiburo.server.domain.post.domain.enums.PostStatus;
 import com.jiburo.server.domain.post.dto.detail.AnimalDetailDto;
 import com.jiburo.server.domain.post.dto.detail.TargetDetailDto;
@@ -23,7 +24,7 @@ public record LostPostUpdateRequestDto(
         // --- 상세 정보 필드들 ---
         AnimalType animalTypeCode,
         String breed,
-        String genderCode,
+        GenderType genderCode,
         String color,
         Integer age,
 
