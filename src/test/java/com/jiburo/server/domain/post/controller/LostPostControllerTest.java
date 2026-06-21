@@ -5,6 +5,7 @@ import com.jiburo.server.domain.post.domain.enums.CategoryType;
 import com.jiburo.server.domain.post.domain.enums.PostStatus;
 import com.jiburo.server.domain.post.dto.LostPostResponseDto;
 import com.jiburo.server.domain.post.service.LostPostService;
+import com.jiburo.server.domain.post.service.SearchHistoryService;
 import com.jiburo.server.domain.user.dto.CustomOAuth2User;
 import com.jiburo.server.domain.user.jwt.JwtAuthenticationEntryPoint;
 import com.jiburo.server.domain.user.jwt.JwtTokenProvider;
@@ -54,6 +55,7 @@ class LostPostControllerTest {
     @Autowired private ObjectMapper objectMapper;
 
     @MockitoBean private LostPostService lostPostService;
+    @MockitoBean private SearchHistoryService searchHistoryService;
     @MockitoBean private JpaMetamodelMappingContext jpaMetamodelMappingContext;
     @MockitoBean private JwtTokenProvider jwtTokenProvider;
     @MockitoBean private CustomOAuth2UserService customOAuth2UserService;

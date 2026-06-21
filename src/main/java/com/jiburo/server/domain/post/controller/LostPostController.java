@@ -2,6 +2,7 @@ package com.jiburo.server.domain.post.controller;
 
 import com.jiburo.server.domain.post.dto.*;
 import com.jiburo.server.domain.post.service.LostPostService;
+import com.jiburo.server.domain.post.service.SearchHistoryService;
 import com.jiburo.server.domain.user.dto.CustomOAuth2User;
 import com.jiburo.server.global.domain.enums.LogActionType;
 import com.jiburo.server.global.error.ErrorCode;
@@ -31,6 +32,7 @@ import java.util.UUID;
 public class LostPostController {
 
     private final LostPostService lostPostService;
+    private final SearchHistoryService searchHistoryService;
 
     // [등록]
     @AuditLog(action = LogActionType.POST_CREATE)
@@ -52,6 +54,9 @@ public class LostPostController {
             @AuthenticationPrincipal CustomOAuth2User user
     ) {
         UUID userId = user != null ? user.getUserId() : null;
+        if (userId != null && condition.keyword() != null && !condition.keyword().isBlank()) {
+            searchHistoryService.saveKeyword(userId, condition.keyword());
+        }
         return ApiResponse.success(lostPostService.search(condition, pageable, userId));
     }
 
@@ -133,7 +138,13 @@ public class LostPostController {
 
     // 마커 클릭 시 호출 (리스트용)
     @GetMapping("/nearby")
-    public ApiResponse<Slice<LostPostResponseDto>> getNearbyPosts(@ModelAttribute LostPostNearbyRequestDto request) {
+    public ApiResponse<Slice<LostPostResponseDto>> getNearbyPosts(
+            @ModelAttribute LostPostNearbyRequestDto request,
+            @AuthenticationPrincipal CustomOAuth2User user
+    ) {
+        if (user != null) {
+            searchHistoryService.saveLocation(user.getUserId(), request.centerLat(), request.centerLng(), request.radius(), request.placeName(), request.address());
+        }
         return ApiResponse.success(lostPostService.getPostsForList(request));
     }
 }
