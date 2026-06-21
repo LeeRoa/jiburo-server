@@ -13,27 +13,24 @@ import java.util.UUID;
 
 public record LostPostResponseDto(
         String id,
-        UUID authorId, // 작성자 ID
-        String authorNickname, // 작성자
+        UUID authorId,
+        String authorNickname,
         String title,
         String content,
-        PostStatus statusCode,     // LOST, COMPLETE
-
-        // 기존 개별 필드 삭제 -> 카테고리 & 상세 객체로 통합
-        CategoryType categoryCode,   // ANIMAL, PERSON, ITEM
-        TargetDetailDto detail, // 상세 정보 (JSON 데이터가 객체로 변환된 것)
-
+        PostStatus statusCode,
+        CategoryType categoryCode,
+        TargetDetailDto detail,
         String imageUrl,
-
         Double latitude,
         Double longitude,
         String foundLocation,
-
         LocalDate lostDate,
         int reward,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+        boolean isLiked,
+        long likeCount
 ) {
-    public static LostPostResponseDto from(LostPost entity) {
+    public static LostPostResponseDto from(LostPost entity, boolean isLiked, long likeCount) {
         return new LostPostResponseDto(
                 HashidsUtils.encode(entity.getId()),
                 entity.getUser().getId(),
@@ -41,17 +38,22 @@ public record LostPostResponseDto(
                 entity.getTitle(),
                 entity.getContent(),
                 entity.getStatusCode(),
-
                 entity.getCategoryCode(),
                 entity.getDetail(),
-
                 R2UrlProvider.buildUrl(entity.getImageUrl()),
                 entity.getLatitude(),
                 entity.getLongitude(),
                 entity.getFoundLocation(),
                 entity.getLostDate(),
                 entity.getReward(),
-                entity.getCreatedAt()
+                entity.getCreatedAt(),
+                isLiked,
+                likeCount
         );
+    }
+
+    // 지도/반경 마커 조회용 (좋아요 정보 불필요)
+    public static LostPostResponseDto from(LostPost entity) {
+        return from(entity, false, 0L);
     }
 }

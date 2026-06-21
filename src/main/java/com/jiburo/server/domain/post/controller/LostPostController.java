@@ -4,6 +4,8 @@ import com.jiburo.server.domain.post.dto.*;
 import com.jiburo.server.domain.post.service.LostPostService;
 import com.jiburo.server.domain.user.dto.CustomOAuth2User;
 import com.jiburo.server.global.domain.enums.LogActionType;
+import com.jiburo.server.global.error.ErrorCode;
+import com.jiburo.server.global.error.JiburoException;
 import com.jiburo.server.global.log.annotation.AuditLog;
 import com.jiburo.server.global.response.ApiResponse;
 import com.jiburo.server.global.util.HashidsUtils;
@@ -20,6 +22,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequiredArgsConstructor
@@ -45,16 +48,43 @@ public class LostPostController {
     @GetMapping("/search")
     public ApiResponse<Page<LostPostResponseDto>> getPosts(
             @ModelAttribute LostPostSearchCondition condition,
-            @ParameterObject @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable
+            @ParameterObject @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
+            @AuthenticationPrincipal CustomOAuth2User user
     ) {
-        return ApiResponse.success(lostPostService.search(condition, pageable));
+        UUID userId = user != null ? user.getUserId() : null;
+        return ApiResponse.success(lostPostService.search(condition, pageable, userId));
     }
 
     // [단건 조회]
     @GetMapping("/{id}")
-    public ApiResponse<LostPostResponseDto> getPost(@PathVariable String id) {
+    public ApiResponse<LostPostResponseDto> getPost(
+            @PathVariable String id,
+            @AuthenticationPrincipal CustomOAuth2User user
+    ) {
         Long realId = HashidsUtils.decode(id);
-        return ApiResponse.success(lostPostService.findById(realId));
+        UUID userId = user != null ? user.getUserId() : null;
+        return ApiResponse.success(lostPostService.findById(realId, userId));
+    }
+
+    // [좋아요 토글] - liked: true(좋아요), false(취소)
+    @PostMapping("/{id}/like")
+    public ApiResponse<Boolean> toggleLike(
+            @AuthenticationPrincipal CustomOAuth2User user,
+            @PathVariable String id
+    ) {
+        if (user == null) throw new JiburoException(ErrorCode.UNAUTHORIZED);
+        Long realId = HashidsUtils.decode(id);
+        return ApiResponse.success(lostPostService.toggleLike(user.getUserId(), realId));
+    }
+
+    // [관심 게시글 목록]
+    @GetMapping("/liked")
+    public ApiResponse<Page<LostPostResponseDto>> getLikedPosts(
+            @AuthenticationPrincipal CustomOAuth2User user,
+            @ParameterObject @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable
+    ) {
+        if (user == null) throw new JiburoException(ErrorCode.UNAUTHORIZED);
+        return ApiResponse.success(lostPostService.getLikedPosts(user.getUserId(), pageable));
     }
 
     // [수정]

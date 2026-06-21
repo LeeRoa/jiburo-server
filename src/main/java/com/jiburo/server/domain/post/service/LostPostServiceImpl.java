@@ -1,9 +1,11 @@
 package com.jiburo.server.domain.post.service;
 
 import com.jiburo.server.domain.post.domain.LostPost;
+import com.jiburo.server.domain.post.domain.PostLike;
 import com.jiburo.server.domain.post.domain.enums.PostStatus;
 import com.jiburo.server.domain.post.dto.*;
 import com.jiburo.server.domain.post.repository.LostPostRepository;
+import com.jiburo.server.domain.post.repository.PostLikeRepository;
 import com.jiburo.server.domain.user.dao.UserRepository;
 import com.jiburo.server.domain.user.domain.User;
 import com.jiburo.server.global.error.JiburoException;
@@ -16,7 +18,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -24,6 +29,7 @@ import java.util.UUID;
 public class LostPostServiceImpl implements LostPostService {
 
     private final LostPostRepository lostPostRepository;
+    private final PostLikeRepository postLikeRepository;
     private final UserRepository userRepository;
 
     @Override
@@ -40,9 +46,11 @@ public class LostPostServiceImpl implements LostPostService {
     }
 
     @Override
-    public LostPostResponseDto findById(Long id) {
+    public LostPostResponseDto findById(Long id, UUID userId) {
         LostPost post = findPostByIdOrThrow(id);
-        return LostPostResponseDto.from(post);
+        long likeCount = postLikeRepository.countByLostPost_Id(post.getId());
+        boolean isLiked = userId != null && postLikeRepository.existsByUser_IdAndLostPost_Id(userId, post.getId());
+        return LostPostResponseDto.from(post, isLiked, likeCount);
     }
 
     @Override
@@ -111,9 +119,23 @@ public class LostPostServiceImpl implements LostPostService {
     }
 
     @Override
-    public Page<LostPostResponseDto> search(LostPostSearchCondition condition, Pageable pageable) {
-        return lostPostRepository.search(condition, pageable)
-                .map(LostPostResponseDto::from);
+    public Page<LostPostResponseDto> search(LostPostSearchCondition condition, Pageable pageable, UUID userId) {
+        Page<LostPost> posts = lostPostRepository.search(condition, pageable);
+        if (posts.isEmpty()) {
+            return posts.map(p -> LostPostResponseDto.from(p, false, 0L));
+        }
+
+        List<Long> postIds = posts.stream().map(LostPost::getId).toList();
+        Map<Long, Long> likeCountMap = buildLikeCountMap(postIds);
+        Set<Long> likedPostIds = userId != null
+                ? postLikeRepository.findLikedPostIdsByUser_IdAndPostIds(userId, postIds)
+                : Set.of();
+
+        return posts.map(post -> LostPostResponseDto.from(
+                post,
+                likedPostIds.contains(post.getId()),
+                likeCountMap.getOrDefault(post.getId(), 0L)
+        ));
     }
 
     // 지도 렌더링용 (마커 뿌리기)
@@ -129,6 +151,48 @@ public class LostPostServiceImpl implements LostPostService {
     public Slice<LostPostResponseDto> getPostsForList(LostPostNearbyRequestDto request) {
         Slice<LostPost> postSlice = lostPostRepository.searchByRadius(request);
         return postSlice.map(LostPostResponseDto::from);
+    }
+
+    @Override
+    @Transactional
+    public boolean toggleLike(UUID userId, Long postId) {
+        LostPost post = findPostByIdOrThrow(postId);
+        return postLikeRepository.findByUser_IdAndLostPost_Id(userId, postId)
+                .map(like -> {
+                    postLikeRepository.delete(like);
+                    return false;
+                })
+                .orElseGet(() -> {
+                    User user = userRepository.findById(userId)
+                            .orElseThrow(() -> new JiburoException(ErrorCode.USER_NOT_FOUND));
+                    postLikeRepository.save(PostLike.builder().user(user).lostPost(post).build());
+                    return true;
+                });
+    }
+
+    @Override
+    public Page<LostPostResponseDto> getLikedPosts(UUID userId, Pageable pageable) {
+        Page<PostLike> likes = postLikeRepository.findByUser_IdWithPost(userId, pageable);
+        if (likes.isEmpty()) {
+            return Page.empty(pageable);
+        }
+
+        List<Long> postIds = likes.stream().map(pl -> pl.getLostPost().getId()).toList();
+        Map<Long, Long> likeCountMap = buildLikeCountMap(postIds);
+
+        return likes.map(pl -> LostPostResponseDto.from(
+                pl.getLostPost(),
+                true,
+                likeCountMap.getOrDefault(pl.getLostPost().getId(), 0L)
+        ));
+    }
+
+    private Map<Long, Long> buildLikeCountMap(List<Long> postIds) {
+        return postLikeRepository.countGroupByLostPostIdIn(postIds).stream()
+                .collect(Collectors.toMap(
+                        row -> (Long) row[0],
+                        row -> (Long) row[1]
+                ));
     }
 
     private LostPost findPostByIdOrThrow(Long id) {
