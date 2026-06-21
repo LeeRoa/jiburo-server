@@ -33,6 +33,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -200,5 +201,69 @@ class SearchHistoryControllerTest {
                 .andExpect(jsonPath("$.success").value(true));
 
         then(searchHistoryService).should().deleteLocation(eq(userId), eq(key));
+    }
+
+    // ───────── GET /search/history/enabled ─────────
+
+    @Test
+    void 검색기록_설정_조회_비로그인_UNAUTHORIZED_반환() throws Exception {
+        mockMvc.perform(get("/api/v1/posts/search/history/enabled"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.errorCode").value("UNAUTHORIZED"));
+    }
+
+    @Test
+    void 검색기록_설정_조회_활성_상태_true_반환() throws Exception {
+        // given
+        given(searchHistoryService.isHistoryEnabled(userId)).willReturn(true);
+
+        // when & then
+        mockMvc.perform(get("/api/v1/posts/search/history/enabled").with(withUser()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data").value(true));
+    }
+
+    @Test
+    void 검색기록_설정_조회_비활성_상태_false_반환() throws Exception {
+        // given
+        given(searchHistoryService.isHistoryEnabled(userId)).willReturn(false);
+
+        // when & then
+        mockMvc.perform(get("/api/v1/posts/search/history/enabled").with(withUser()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data").value(false));
+    }
+
+    // ───────── POST /search/history/toggle ─────────
+
+    @Test
+    void 검색기록_토글_비로그인_UNAUTHORIZED_반환() throws Exception {
+        mockMvc.perform(post("/api/v1/posts/search/history/toggle"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.errorCode").value("UNAUTHORIZED"));
+    }
+
+    @Test
+    void 검색기록_토글_활성에서_비활성으로_false_반환() throws Exception {
+        // given: 토글 결과 비활성(false) 반환
+        given(searchHistoryService.toggleHistoryEnabled(userId)).willReturn(false);
+
+        // when & then
+        mockMvc.perform(post("/api/v1/posts/search/history/toggle").with(withUser()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data").value(false));
+    }
+
+    @Test
+    void 검색기록_토글_비활성에서_활성으로_true_반환() throws Exception {
+        // given: 토글 결과 활성(true) 반환
+        given(searchHistoryService.toggleHistoryEnabled(userId)).willReturn(true);
+
+        // when & then
+        mockMvc.perform(post("/api/v1/posts/search/history/toggle").with(withUser()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data").value(true));
     }
 }

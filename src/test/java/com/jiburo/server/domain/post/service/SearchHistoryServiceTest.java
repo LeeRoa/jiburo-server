@@ -11,6 +11,7 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.data.redis.core.HashOperations;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.data.redis.core.ZSetOperations;
 
 import java.util.Collections;
@@ -42,14 +43,20 @@ class SearchHistoryServiceTest {
     @Mock
     private HashOperations hashOps;
 
+    @Mock
+    private ValueOperations<String, Object> valueOps;
+
     private UUID userId;
 
     @BeforeEach
     void setUp() {
         userId = UUID.randomUUID();
-        // opsForZSet/opsForHash 는 generic 반환 타입이라 given() 대신 doReturn() 사용
+        // generic 반환 타입 메서드는 given() 대신 doReturn() 사용
         doReturn(zSetOps).when(redisTemplate).opsForZSet();
         doReturn(hashOps).when(redisTemplate).opsForHash();
+        doReturn(valueOps).when(redisTemplate).opsForValue();
+        // 기본값: 검색 기록 활성 상태 (키 없음 = null → true)
+        given(valueOps.get(anyString())).willReturn(null);
     }
 
     // ───────────────────────────────────────────────────
@@ -345,5 +352,94 @@ class SearchHistoryServiceTest {
         then(redisTemplate).should().delete("search:location:" + userId);
         then(redisTemplate).should().delete("search:location-place:" + userId);
         then(redisTemplate).should().delete("search:location-address:" + userId);
+    }
+
+    // ───────────────────────────────────────────────────
+    // isHistoryEnabled
+    // ───────────────────────────────────────────────────
+
+    @Test
+    void isHistoryEnabled_Redis에_값_없으면_기본값_활성_반환() {
+        // given: 값 없음(null) = 기본 활성
+        given(valueOps.get(anyString())).willReturn(null);
+
+        // when & then
+        assertThat(searchHistoryService.isHistoryEnabled(userId)).isTrue();
+    }
+
+    @Test
+    void isHistoryEnabled_false_저장되면_비활성_반환() {
+        // given
+        given(valueOps.get("search:history:enabled:" + userId)).willReturn("false");
+
+        // when & then
+        assertThat(searchHistoryService.isHistoryEnabled(userId)).isFalse();
+    }
+
+    @Test
+    void isHistoryEnabled_true_저장되면_활성_반환() {
+        // given
+        given(valueOps.get("search:history:enabled:" + userId)).willReturn("true");
+
+        // when & then
+        assertThat(searchHistoryService.isHistoryEnabled(userId)).isTrue();
+    }
+
+    // ───────────────────────────────────────────────────
+    // toggleHistoryEnabled
+    // ───────────────────────────────────────────────────
+
+    @Test
+    void toggleHistoryEnabled_활성_상태에서_토글하면_비활성_반환_후_false_저장() {
+        // given: 현재 활성 (null → true)
+        given(valueOps.get(anyString())).willReturn(null);
+
+        // when
+        boolean result = searchHistoryService.toggleHistoryEnabled(userId);
+
+        // then
+        assertThat(result).isFalse();
+        then(valueOps).should().set("search:history:enabled:" + userId, "false");
+    }
+
+    @Test
+    void toggleHistoryEnabled_비활성_상태에서_토글하면_활성_반환_후_true_저장() {
+        // given: 현재 비활성
+        given(valueOps.get(anyString())).willReturn("false");
+
+        // when
+        boolean result = searchHistoryService.toggleHistoryEnabled(userId);
+
+        // then
+        assertThat(result).isTrue();
+        then(valueOps).should().set("search:history:enabled:" + userId, "true");
+    }
+
+    // ───────────────────────────────────────────────────
+    // 비활성 시 저장 차단
+    // ───────────────────────────────────────────────────
+
+    @Test
+    void saveKeyword_검색기록_비활성_상태이면_저장_안함() {
+        // given: 비활성 상태
+        given(valueOps.get(anyString())).willReturn("false");
+
+        // when
+        searchHistoryService.saveKeyword(userId, "강아지");
+
+        // then
+        then(zSetOps).should(never()).add(anyString(), any(), anyDouble());
+    }
+
+    @Test
+    void saveLocation_검색기록_비활성_상태이면_저장_안함() {
+        // given: 비활성 상태
+        given(valueOps.get(anyString())).willReturn("false");
+
+        // when
+        searchHistoryService.saveLocation(userId, 37.5665, 126.9780, 3.0, "서울역", "서울 중구 세종대로 1");
+
+        // then
+        then(zSetOps).should(never()).add(anyString(), any(), anyDouble());
     }
 }
