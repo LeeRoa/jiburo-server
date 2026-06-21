@@ -39,3 +39,6 @@ out/
 # MariaDB data
 dev_mysql_data/
 mysql_data/
+
+# 로컬 환경변수 (절대 커밋 금지)
+.env
