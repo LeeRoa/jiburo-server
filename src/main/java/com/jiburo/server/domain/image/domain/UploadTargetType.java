@@ -24,7 +24,8 @@ public enum UploadTargetType implements CommonCodeType {
     }
 
     @Override
-    public String getGroupCode() {
-        return "UPLOAD_TARGET";
-    }
+    public String getGroupCode() { return "UPLOAD_TARGET"; }
+
+    @Override
+    public String getValue() { return this.folderPath; }
 }
