@@ -21,6 +21,7 @@ public class SearchHistoryServiceImpl implements SearchHistoryService {
     private static final String LOCATION_PREFIX = "search:location:";
     private static final String LOCATION_PLACE_PREFIX = "search:location-place:";
     private static final String LOCATION_ADDRESS_PREFIX = "search:location-address:";
+    private static final String HISTORY_ENABLED_PREFIX = "search:history:enabled:";
 
     private final RedisTemplate<String, Object> redisTemplate;
 
@@ -32,6 +33,7 @@ public class SearchHistoryServiceImpl implements SearchHistoryService {
     public void saveKeyword(UUID userId, String keyword) {
         if (keyword == null || keyword.isBlank()) return;
         try {
+            if (!isHistoryEnabled(userId)) return;
             String key = KEYWORD_PREFIX + userId;
             redisTemplate.opsForZSet().add(key, keyword, System.currentTimeMillis());
             trimZSet(key);
@@ -68,6 +70,7 @@ public class SearchHistoryServiceImpl implements SearchHistoryService {
     public void saveLocation(UUID userId, Double lat, Double lng, Double radius, String placeName, String address) {
         if (lat == null || lng == null) return;
         try {
+            if (!isHistoryEnabled(userId)) return;
             String coordKey = locationKey(lat, lng, radius);
             String zSetKey = LOCATION_PREFIX + userId;
             String placeKey = LOCATION_PLACE_PREFIX + userId;
@@ -122,6 +125,24 @@ public class SearchHistoryServiceImpl implements SearchHistoryService {
         redisTemplate.delete(LOCATION_PREFIX + userId);
         redisTemplate.delete(LOCATION_PLACE_PREFIX + userId);
         redisTemplate.delete(LOCATION_ADDRESS_PREFIX + userId);
+    }
+
+    // ───────────────────────────────────────────────────
+    // 검색 기록 활성/비활성 설정
+    // 기본값: 활성 (키 없음 = true)
+    // ───────────────────────────────────────────────────
+
+    @Override
+    public boolean isHistoryEnabled(UUID userId) {
+        Object value = redisTemplate.opsForValue().get(HISTORY_ENABLED_PREFIX + userId);
+        return !"false".equals(value != null ? value.toString() : null);
+    }
+
+    @Override
+    public boolean toggleHistoryEnabled(UUID userId) {
+        boolean newState = !isHistoryEnabled(userId);
+        redisTemplate.opsForValue().set(HISTORY_ENABLED_PREFIX + userId, String.valueOf(newState));
+        return newState;
     }
 
     // ───────────────────────────────────────────────────

@@ -16,4 +16,7 @@ public interface SearchHistoryService {
     List<LocationHistoryResponseDto> getLocations(UUID userId);
     void deleteLocation(UUID userId, String key);
     void deleteAllLocations(UUID userId);
+
+    boolean isHistoryEnabled(UUID userId);
+    boolean toggleHistoryEnabled(UUID userId);
 }

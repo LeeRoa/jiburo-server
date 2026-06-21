@@ -80,6 +80,25 @@ public class SearchHistoryController {
         return ApiResponse.success();
     }
 
+    // ───────────── 검색 기록 활성/비활성 설정 ─────────────
+
+    @GetMapping("/search/history/enabled")
+    public ApiResponse<Boolean> getHistoryEnabled(
+            @AuthenticationPrincipal CustomOAuth2User user
+    ) {
+        requireAuth(user);
+        return ApiResponse.success(searchHistoryService.isHistoryEnabled(user.getUserId()));
+    }
+
+    // 현재 상태를 반전시키고 새 상태를 반환
+    @PostMapping("/search/history/toggle")
+    public ApiResponse<Boolean> toggleHistoryEnabled(
+            @AuthenticationPrincipal CustomOAuth2User user
+    ) {
+        requireAuth(user);
+        return ApiResponse.success(searchHistoryService.toggleHistoryEnabled(user.getUserId()));
+    }
+
     private void requireAuth(CustomOAuth2User user) {
         if (user == null) throw new JiburoException(ErrorCode.UNAUTHORIZED);
     }
