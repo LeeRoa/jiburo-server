@@ -68,6 +68,23 @@ domain/{모듈명}/
 └── config/        # 도메인 전용 빈 (예: chat.config.StompHandler, image.config.R2Config)
 ```
 
+### 도메인별 스킬 가이드
+
+각 도메인 작업 시 아래의 스킬을 `/스킬명` 형식으로 먼저 호출하면 해당 도메인의 상세 가이드를 참조할 수 있습니다.
+
+| 도메인 | 스킬 | 주요 트리거 키워드 |
+|--------|------|-------------------|
+| **user / 인증·인가** | `/jiburo-user-auth` | `AuthController`, `JwtTokenProvider`, `JwtFilter`, `OAuth2SuccessHandler`, `SecurityConfig`, `CustomOAuth2User`, 로그인, 토큰, JWT, OAuth2, 소셜 로그인 |
+| **post / 게시글** | `/jiburo-post` | `LostPostController`, `LostPost`, `LostPostImage`, `LostPostDetailConverter`, Haversine, viewport, radius, `/api/v1/posts`, 분실, 제보, 게시글, 지도, 반경 |
+| **chat / 채팅** | `/jiburo-chat` | `ChatRoomController`, `ChatController`, `StompHandler`, `ChatRoom`, `ChatMessage`, `ChatParticipant`, `/ws-jiburo`, `/pub/chat`, `/sub/chat`, 채팅방, STOMP, WebSocket, 읽음 처리 |
+| **image / 이미지** | `/jiburo-image` | `ImageController`, `ImageStorageService`, `ImageMeta`, `ImageStatus`, `R2Config`, presigned, R2, 이미지 업로드, 파일 업로드 |
+| **notification / 알림** | `/jiburo-notification` | `NotificationController`, `Notification`, `/api/v1/notifications`, 알림, typeCode, 읽음 카운트 |
+| **global / 공통 규약** | `/jiburo-conventions` | `ApiResponse`, `JiburoException`, `ErrorCode`, `HashidsUtils`, `@AuditLog`, `CommonCodeCache`, `CommonCodeType`, `MessageUtils`, `GlobalExceptionHandler`, `BaseTimeEntity`, 새 에러 코드, 공통 코드, ID 노출, 응답 래핑, 감사 로그 |
+| **테스트 코드** | `/jiburo-testing` | `@Test`, `@WebMvcTest`, `@SpringBootTest`, `@DataJpaTest`, `MockMvc`, `Mockito`, `@MockBean`, `@WithMockUser`, `assertThat`, `JiburoException`, 테스트, 단위 테스트, 통합 테스트, 컨트롤러 테스트, 슬라이스 테스트 |
+| **커밋 & 브랜치** | `/jiburo-commit` | git commit, git branch, 커밋, 브랜치, PR, 머지, squash, 커밋 메시지, 브랜치 이름, 작업 시작, 작업 완료, push |
+
+> 스킬은 해당 도메인에 해당하는 작업을 시작하기 전에 호출하세요. 여러 도메인에 걸친 작업이라면 관련된 스킬을 모두 참조하세요.
+
 ### 도메인별 책임 한 줄 요약
 
 - **user** — 진입점 `AuthController` (`/api/v1/auth`). 핵심 엔티티 `User` (PK: UUID, JDBC `BINARY`). OAuth2 소셜 로그인 후 JWT 발급/재발급, 회원 프로필, 뱃지/점수 관리. `jwt/` 패키지에 `JwtFilter`, `JwtTokenProvider`, `OAuth2SuccessHandler`, `JwtAuthenticationEntryPoint`.
