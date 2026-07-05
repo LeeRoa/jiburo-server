@@ -50,7 +50,15 @@ public enum ErrorCode {
     // [6] Post (게시글 - 분실물/목격 제보) [추가된 부분]
     POST_NOT_FOUND(HttpStatus.NOT_FOUND, "error.post.not_found"), // 게시글 없음
     POST_ACCESS_DENIED(HttpStatus.FORBIDDEN, "error.post.access_denied"), // 작성자 불일치 (수정/삭제 권한 없음)
-    POST_CATEGORY_INVALID(HttpStatus.BAD_REQUEST, "error.post.category_invalid");
+    POST_CATEGORY_INVALID(HttpStatus.BAD_REQUEST, "error.post.category_invalid"),
+
+    // [7] Finder Session (파인더 탐색 세션)
+    FINDER_SESSION_NOT_FOUND(HttpStatus.NOT_FOUND, "error.finder.session_not_found"),
+    FINDER_SESSION_ACCESS_DENIED(HttpStatus.FORBIDDEN, "error.finder.session_access_denied"),
+    FINDER_SESSION_ALREADY_EXISTS(HttpStatus.CONFLICT, "error.finder.session_already_exists"),
+    FINDER_SESSION_ALREADY_SUBMITTED(HttpStatus.CONFLICT, "error.finder.session_already_submitted"),
+    FINDER_POST_ALREADY_COMPLETE(HttpStatus.BAD_REQUEST, "error.finder.post_already_complete"),
+    FINDER_CANNOT_FIND_OWN_POST(HttpStatus.BAD_REQUEST, "error.finder.cannot_find_own_post");
 
     private final HttpStatus status;
     private final String messageKey;

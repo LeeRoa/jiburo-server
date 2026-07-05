@@ -25,6 +25,10 @@ public enum LogActionType implements CommonCodeType {
     CHAT_ROOM_CREATE("CHAT_ROOM_CREATE", "log.chat.room.create"),
     CHAT_ROOM_EXIT("CHAT_ROOM_EXIT", "log.chat.room.exit"),
 
+    FINDER_SESSION_CREATE("FINDER_SESSION_CREATE", "log.finder.session.create"),
+    FINDER_SESSION_SUBMIT("FINDER_SESSION_SUBMIT", "log.finder.session.submit"),
+    FINDER_SESSION_CANCEL("FINDER_SESSION_CANCEL", "log.finder.session.cancel"),
+
     SPARE("SPARE", "log.spare");
 
     private final String code;

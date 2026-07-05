@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jiburo.server.domain.post.domain.enums.CategoryType;
 import com.jiburo.server.domain.post.domain.enums.PostStatus;
 import com.jiburo.server.domain.post.dto.LostPostResponseDto;
+import com.jiburo.server.domain.finder.service.FinderService;
 import com.jiburo.server.domain.post.service.LostPostService;
 import com.jiburo.server.domain.post.service.SearchHistoryService;
 import com.jiburo.server.domain.user.dto.CustomOAuth2User;
@@ -58,6 +59,7 @@ class LostPostControllerTest {
 
     @MockitoBean private LostPostService lostPostService;
     @MockitoBean private SearchHistoryService searchHistoryService;
+    @MockitoBean private FinderService finderService;
     @MockitoBean private JpaMetamodelMappingContext jpaMetamodelMappingContext;
     @MockitoBean private JwtTokenProvider jwtTokenProvider;
     @MockitoBean private CustomOAuth2UserService customOAuth2UserService;

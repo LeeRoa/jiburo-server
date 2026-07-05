@@ -12,7 +12,9 @@ public enum UploadTargetType implements CommonCodeType {
     CHAT("CHAT", "upload.target.chat", "chat/images", Set.of("jpg", "jpeg", "png", "webp", "gif")),
     CHAT_VIDEO("CHAT_VIDEO", "upload.target.chat.video", "chat/videos", Set.of("mp4", "mov", "webm")),
     POST("POST", "upload.target.post", "post/images", Set.of("jpg", "jpeg", "png", "webp", "gif")),
-    PROFILE("PROFILE", "upload.target.profile", "profile/images", Set.of("jpg", "jpeg", "png", "webp"));
+    PROFILE("PROFILE", "upload.target.profile", "profile/images", Set.of("jpg", "jpeg", "png", "webp")),
+    FINDER_IMAGE("FINDER_IMAGE", "upload.target.finder.image", "finder/images", Set.of("jpg", "jpeg", "png", "webp")),
+    FINDER_VIDEO("FINDER_VIDEO", "upload.target.finder.video", "finder/videos", Set.of("mp4", "mov", "webm"));
 
     private final String code;           // DB의 code 컬럼에 저장될 값 (예: CHAT)
     private final String descriptionKey; // 프론트엔드 다국어 처리용 키

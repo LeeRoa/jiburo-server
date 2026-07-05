@@ -1,5 +1,7 @@
 package com.jiburo.server.domain.post.controller;
 
+import com.jiburo.server.domain.finder.dto.FinderSessionResponseDto;
+import com.jiburo.server.domain.finder.service.FinderService;
 import com.jiburo.server.domain.post.dto.*;
 import com.jiburo.server.domain.post.service.LostPostService;
 import com.jiburo.server.domain.post.service.SearchHistoryService;
@@ -33,6 +35,7 @@ public class LostPostController {
 
     private final LostPostService lostPostService;
     private final SearchHistoryService searchHistoryService;
+    private final FinderService finderService;
 
     // [등록]
     @AuditLog(action = LogActionType.POST_CREATE)
@@ -134,6 +137,18 @@ public class LostPostController {
     @GetMapping("/map")
     public ApiResponse<List<LostPostResponseDto>> getMapPosts(@ModelAttribute LostPostMapRequestDto request) {
         return ApiResponse.success(lostPostService.getPostsForMap(request));
+    }
+
+    // 게시글 작성자용: 해당 게시글의 파인더 탐색 세션 목록
+    @GetMapping("/{id}/finder-sessions")
+    public ApiResponse<Slice<FinderSessionResponseDto>> getFinderSessions(
+            @AuthenticationPrincipal CustomOAuth2User user,
+            @PathVariable String id,
+            @ParameterObject @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable
+    ) {
+        if (user == null) throw new JiburoException(ErrorCode.UNAUTHORIZED);
+        Long postId = HashidsUtils.decode(id);
+        return ApiResponse.success(finderService.getSessionsByPost(user.getUserId(), postId, pageable));
     }
 
     // 마커 클릭 시 호출 (리스트용)
