@@ -59,4 +59,15 @@ public class CommonCodeController {
 
         return ApiResponse.success(result);
     }
+
+    /**
+     * 공통코드 캐시 수동 리로드 (DB에서 운영 설정값 수정 후 호출)
+     *
+     * POST /api/v1/common-codes/reload
+     */
+    @PostMapping("/reload")
+    public ApiResponse<Void> reload() {
+        commonCodeCache.reload();
+        return ApiResponse.success();
+    }
 }
