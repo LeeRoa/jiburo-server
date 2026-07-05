@@ -22,6 +22,8 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.SliceImpl;
 import org.springframework.data.jpa.mapping.JpaMetamodelMappingContext;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -204,5 +206,59 @@ class LostPostControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.content[0].isLiked").value(false));
+    }
+
+    // ───────── GET /nearby ─────────
+
+    @Test
+    void 반경_조회_sortType_DISTANCE_200_반환() throws Exception {
+        // given
+        LostPostResponseDto dto = mockDto(false, 0L);
+        given(lostPostService.getPostsForList(any()))
+                .willReturn(new SliceImpl<>(List.of(dto), PageRequest.of(0, 20), false));
+
+        // when & then
+        mockMvc.perform(get("/api/v1/posts/nearby")
+                        .param("centerLat", "37.5")
+                        .param("centerLng", "127.0")
+                        .param("radius", "3.0")
+                        .param("sortType", "DISTANCE"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.content[0].id").value(encodedId));
+    }
+
+    @Test
+    void 반경_조회_sortType_LATEST_200_반환() throws Exception {
+        // given
+        LostPostResponseDto dto = mockDto(false, 0L);
+        given(lostPostService.getPostsForList(any()))
+                .willReturn(new SliceImpl<>(List.of(dto), PageRequest.of(0, 20), false));
+
+        // when & then
+        mockMvc.perform(get("/api/v1/posts/nearby")
+                        .param("centerLat", "37.5")
+                        .param("centerLng", "127.0")
+                        .param("radius", "3.0")
+                        .param("sortType", "LATEST"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.content[0].id").value(encodedId));
+    }
+
+    @Test
+    void 반경_조회_sortType_생략시_200_반환() throws Exception {
+        // given: sortType 미전달 → DISTANCE 기본값으로 처리
+        LostPostResponseDto dto = mockDto(false, 0L);
+        given(lostPostService.getPostsForList(any()))
+                .willReturn(new SliceImpl<>(List.of(dto), PageRequest.of(0, 20), false));
+
+        // when & then
+        mockMvc.perform(get("/api/v1/posts/nearby")
+                        .param("centerLat", "37.5")
+                        .param("centerLng", "127.0")
+                        .param("radius", "3.0"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
     }
 }

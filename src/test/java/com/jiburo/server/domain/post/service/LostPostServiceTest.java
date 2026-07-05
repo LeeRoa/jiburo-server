@@ -8,6 +8,8 @@ import com.jiburo.server.domain.post.repository.LostPostRepository;
 import com.jiburo.server.domain.post.repository.PostLikeRepository;
 import com.jiburo.server.domain.user.dao.UserRepository;
 import com.jiburo.server.domain.user.domain.User;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.SliceImpl;
 import com.jiburo.server.domain.user.domain.enums.RoleType;
 import com.jiburo.server.global.error.ErrorCode;
 import com.jiburo.server.global.error.JiburoException;
@@ -262,5 +264,50 @@ class LostPostServiceTest {
                 .isInstanceOf(JiburoException.class)
                 .satisfies(ex -> assertThat(((JiburoException) ex).getErrorCode())
                         .isEqualTo(ErrorCode.POST_NOT_FOUND));
+    }
+
+    // ───────── getPostsForList (nearby) ─────────
+
+    @Test
+    void 반경_조회_거리순_정렬로_searchByRadius_호출() {
+        // given
+        LostPostNearbyRequestDto request = new LostPostNearbyRequestDto(
+                37.5, 127.0, 3.0, null, null, NearbySortType.DISTANCE, null, 0, 20
+        );
+        given(lostPostRepository.searchByRadius(request))
+                .willReturn(new SliceImpl<>(List.of(post), PageRequest.of(0, 20), false));
+
+        // when
+        lostPostService.getPostsForList(request);
+
+        // then
+        then(lostPostRepository).should().searchByRadius(request);
+    }
+
+    @Test
+    void 반경_조회_최신순_정렬로_searchByRadius_호출() {
+        // given
+        LostPostNearbyRequestDto request = new LostPostNearbyRequestDto(
+                37.5, 127.0, 3.0, null, null, NearbySortType.LATEST, null, 0, 20
+        );
+        given(lostPostRepository.searchByRadius(request))
+                .willReturn(new SliceImpl<>(List.of(post), PageRequest.of(0, 20), false));
+
+        // when
+        lostPostService.getPostsForList(request);
+
+        // then
+        then(lostPostRepository).should().searchByRadius(request);
+    }
+
+    @Test
+    void 반경_조회_sortType_null이면_DISTANCE_기본값() {
+        // given: sortType을 null로 전달
+        LostPostNearbyRequestDto request = new LostPostNearbyRequestDto(
+                37.5, 127.0, 3.0, null, null, null, null, 0, 20
+        );
+
+        // then: compact constructor에서 DISTANCE로 초기화
+        assertThat(request.sortType()).isEqualTo(NearbySortType.DISTANCE);
     }
 }
