@@ -2,6 +2,7 @@ package com.jiburo.server.domain.post.repository;
 
 import com.jiburo.server.domain.post.domain.LostPost;
 import com.jiburo.server.domain.post.domain.enums.CategoryType;
+import com.jiburo.server.domain.post.domain.enums.NearbySortType;
 import com.jiburo.server.domain.post.domain.enums.PostStatus;
 import com.jiburo.server.domain.post.dto.LostPostMapRequestDto;
 import com.jiburo.server.domain.post.dto.LostPostNearbyRequestDto;
@@ -122,7 +123,12 @@ public class LostPostRepositoryImpl implements LostPostRepositoryCustom {
         // 3. Haversine 거리 계산 표현식 생성
         NumberExpression<Double> distanceExpression = getDistanceExpression(request.centerLat(), request.centerLng());
 
-        // 4. 쿼리 실행 (요청 사이즈 + 1 조회)
+        // 4. 정렬 기준 결정
+        OrderSpecifier<?> orderSpecifier = (request.sortType() == NearbySortType.LATEST)
+                ? lostPost.createdAt.desc()
+                : distanceExpression.asc();
+
+        // 5. 쿼리 실행 (요청 사이즈 + 1 조회)
         List<LostPost> content = queryFactory
                 .selectFrom(lostPost)
                 .where(
@@ -130,9 +136,9 @@ public class LostPostRepositoryImpl implements LostPostRepositoryCustom {
                         longitudeBetween(minLng, maxLng),
                         distanceExpression.loe(request.radius())
                 )
-                .orderBy(distanceExpression.asc()) // 거리순 정렬
-                .offset(pageable.getOffset())      // 어디서부터 가져올지 (page * size)
-                .limit(pageable.getPageSize() + 1) // 요청보다 1개 더 가져옴 (hasNext 확인용)
+                .orderBy(orderSpecifier)
+                .offset(pageable.getOffset())
+                .limit(pageable.getPageSize() + 1)
                 .fetch();
 
         // 4. hasNext 판단 로직
