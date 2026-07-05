@@ -15,4 +15,6 @@ public interface ChatRoomService {
     ChatRoomDetailDto findRoomDetail(Long roomId, UUID userId, Pageable pageable);
 
     Slice<ChatMessageResponseDto> searchChatMessages(Long roomId, ChatMessageSearchCondition condition, UUID userId, Pageable pageable);
+
+    void exitChatRoom(Long roomId, UUID userId);
 }

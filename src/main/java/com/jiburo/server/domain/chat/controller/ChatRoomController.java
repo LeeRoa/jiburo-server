@@ -74,5 +74,16 @@ public class ChatRoomController {
         return ApiResponse.success(chatRoomService.searchChatMessages(HashidsUtils.decode(roomId), condition, user.getUserId(), pageable));
     }
 
-    // TODO 채팅방 삭제
+    /**
+     * [DELETE] 채팅방 나가기
+     * @param roomId Hashids String
+     */
+    @AuditLog(action = LogActionType.CHAT_ROOM_EXIT)
+    @DeleteMapping("/{roomId}")
+    public ApiResponse<Void> exitRoom(
+            @PathVariable String roomId,
+            @AuthenticationPrincipal CustomOAuth2User user) {
+        chatRoomService.exitChatRoom(HashidsUtils.decode(roomId), user.getUserId());
+        return ApiResponse.success();
+    }
 }

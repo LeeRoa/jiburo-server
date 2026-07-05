@@ -125,6 +125,14 @@ public class ChatRoomServiceImpl implements ChatRoomService {
     }
 
     @Override
+    @Transactional
+    public void exitChatRoom(Long roomId, UUID userId) {
+        ChatParticipant participant = chatParticipantRepository.findByChatRoomIdAndUserId(roomId, userId)
+                .orElseThrow(() -> new JiburoException(ErrorCode.NOT_CHAT_PARTICIPANT));
+        participant.exit();
+    }
+
+    @Override
     public Slice<ChatMessageResponseDto> searchChatMessages(Long roomId, ChatMessageSearchCondition condition, UUID userId, Pageable pageable) {
         // 1. 권한 체크 (참여자가 아니면 예외 발생)
         if (!chatParticipantRepository.existsByChatRoomIdAndUserId(roomId, userId)) {
