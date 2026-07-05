@@ -28,4 +28,7 @@ public enum UploadTargetType implements CommonCodeType {
 
     @Override
     public String getValue() { return this.folderPath; }
+
+    @Override
+    public String getRef2() { return String.join(",", this.allowedExtensions); }
 }

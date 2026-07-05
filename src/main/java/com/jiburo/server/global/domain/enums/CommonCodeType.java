@@ -17,10 +17,18 @@ public interface CommonCodeType {
     String getDescriptionKey();
 
     /**
-     * DB의 value 컬럼에 들어갈 추가 데이터 (폴더 경로, 설정값 등)
+     * DB의 ref_1 컬럼에 들어갈 추가 데이터 (폴더 경로, 설정값 등)
      * 기본적으로는 값이 없으므로 null을 반환하도록 default 처리
      */
     default String getValue() {
+        return null;
+    }
+
+    /**
+     * DB의 ref_2 컬럼에 들어갈 보조 데이터 (허용 확장자 등)
+     * 기본적으로는 값이 없으므로 null을 반환하도록 default 처리
+     */
+    default String getRef2() {
         return null;
     }
 }

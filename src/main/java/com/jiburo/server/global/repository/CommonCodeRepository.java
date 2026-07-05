@@ -14,11 +14,12 @@ public interface CommonCodeRepository extends JpaRepository<CommonCode, Long> {
 
     @Modifying
     @Query(value = """
-            INSERT INTO common_codes (code_group, code, message_key, ref_1, use_yn, created_at, updated_at)
-            VALUES (:codeGroup, :code, :messageKey, :ref1, true, NOW(), NOW())
+            INSERT INTO common_codes (code_group, code, message_key, ref_1, ref_2, use_yn, created_at, updated_at)
+            VALUES (:codeGroup, :code, :messageKey, :ref1, :ref2, true, NOW(), NOW())
             ON DUPLICATE KEY UPDATE
                 message_key = VALUES(message_key),
                 ref_1       = VALUES(ref_1),
+                ref_2       = VALUES(ref_2),
                 use_yn      = true,
                 updated_at  = NOW()
             """, nativeQuery = true)
@@ -26,6 +27,7 @@ public interface CommonCodeRepository extends JpaRepository<CommonCode, Long> {
             @Param("codeGroup") String codeGroup,
             @Param("code") String code,
             @Param("messageKey") String messageKey,
-            @Param("ref1") String ref1
+            @Param("ref1") String ref1,
+            @Param("ref2") String ref2
     );
 }
