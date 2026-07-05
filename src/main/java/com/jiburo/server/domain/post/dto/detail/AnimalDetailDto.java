@@ -7,10 +7,11 @@ import lombok.Builder;
 // type 필드는 JSON 변환 시 자동 포함되지만, 명시적으로 가지고 있어도 됨
 public record AnimalDetailDto(
         AnimalType animalType,  // DOG, CAT
-        String breed,       // 품종
-        GenderType gender,  // MALE, FEMALE, UNKNOWN
-        String color,       // 색상
-        Integer age         // 나이
+        String breed,           // 품종
+        GenderType gender,      // MALE, FEMALE, UNKNOWN
+        String color,           // 색상
+        Integer age,            // 나이
+        Double weight           // 몸무게 (kg)
 ) implements TargetDetailDto {
 
     @Builder

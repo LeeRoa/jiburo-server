@@ -12,7 +12,6 @@ import com.jiburo.server.domain.user.domain.User;
 import com.jiburo.server.global.error.JiburoException;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Size;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -25,14 +24,13 @@ public record LostPostCreateRequestDto(
         String content, // 내용은 선택
 
         @NotNull CategoryType categoryCode, // ANIMAL, PERSON
-        @NotBlank AnimalType animalTypeCode, // DOG, CAT
+        AnimalType animalTypeCode, // DOG, CAT
         String breed,
         GenderType genderCode, // MALE, FEMALE, UNKNOWN
         String color,
         Integer age,
+        Double weight,
 
-        @NotNull
-        @Size(min = 1, message = "최소 1장의 이미지는 필수입니다.")
         List<String> imageUrls,
 
         @NotNull Double latitude,
@@ -52,7 +50,7 @@ public record LostPostCreateRequestDto(
                 .content(this.content())
                 .statusCode(PostStatus.LOST)
                 .detail(this.toDetail()) // 상세정보 생성 로직 위임
-                .imageUrl(this.imageUrls().get(0)) // 첫 번째 이미지를 대표 이미지로
+                .imageUrl(this.imageUrls() != null && !this.imageUrls().isEmpty() ? this.imageUrls().get(0) : null)
                 .latitude(this.latitude())
                 .longitude(this.longitude())
                 .foundLocation(this.foundLocation())
@@ -73,6 +71,7 @@ public record LostPostCreateRequestDto(
                     .gender(this.genderCode)
                     .color(this.color)
                     .age(this.age)
+                    .weight(this.weight)
                     .build();
 
             // TODO [CASE 2, 3] 물건, 사람 (구현 예정)

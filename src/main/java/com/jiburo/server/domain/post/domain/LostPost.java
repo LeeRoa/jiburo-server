@@ -64,7 +64,7 @@ public class LostPost extends BaseTimeEntity {
     private TargetDetailDto detail;
 
     // --- 이미지 및 위치 정보 ---
-    @Column(nullable = false)
+    @Column
     @Comment("대표 이미지 URL")
     private String imageUrl;
 
@@ -155,8 +155,8 @@ public class LostPost extends BaseTimeEntity {
 
     public void updateImages(List<String> newImageUrls) {
         if (newImageUrls == null || newImageUrls.isEmpty()) {
-            // (정책에 따라 빈 리스트를 허용하지 않는다면 예외 처리, 허용한다면 clear)
             this.images.clear();
+            this.imageUrl = null;
             return;
         }
 

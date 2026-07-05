@@ -90,7 +90,7 @@ class LostPostServiceTest {
         // given
         LostPostCreateRequestDto request = new LostPostCreateRequestDto(
                 "제목", "내용", CategoryType.ANIMAL, AnimalType.DOG,
-                null, GenderType.MALE, null, null,
+                null, GenderType.MALE, null, null, null,
                 List.of("post/images/img1.jpg"), 37.5, 127.0, "서울", LocalDate.now(), 0, VisibilityType.PUBLIC
         );
         given(userRepository.findById(userId)).willReturn(Optional.of(user));
@@ -109,7 +109,7 @@ class LostPostServiceTest {
         // given
         LostPostCreateRequestDto request = new LostPostCreateRequestDto(
                 "제목", "내용", CategoryType.ANIMAL, AnimalType.DOG,
-                null, GenderType.MALE, null, null,
+                null, GenderType.MALE, null, null, null,
                 List.of("post/images/img1.jpg"), 37.5, 127.0, "서울", LocalDate.now(), 0, VisibilityType.PUBLIC
         );
         given(userRepository.findById(userId)).willReturn(Optional.empty());
@@ -128,7 +128,7 @@ class LostPostServiceTest {
         // given
         LostPostUpdateRequestDto request = new LostPostUpdateRequestDto(
                 "수정된 제목", "수정된 내용", null, null,
-                CategoryType.ANIMAL, AnimalType.DOG, null, GenderType.FEMALE, null, null,
+                CategoryType.ANIMAL, AnimalType.DOG, null, GenderType.FEMALE, null, null, null,
                 null, null, null, null, 5000
         );
         given(lostPostRepository.findById(1L)).willReturn(Optional.of(post));
@@ -146,7 +146,7 @@ class LostPostServiceTest {
         // given
         LostPostUpdateRequestDto request = new LostPostUpdateRequestDto(
                 "수정된 제목", null, null, null,
-                CategoryType.ANIMAL, AnimalType.DOG, null, null, null, null,
+                CategoryType.ANIMAL, AnimalType.DOG, null, null, null, null, null,
                 null, null, null, null, 0
         );
         given(lostPostRepository.findById(1L)).willReturn(Optional.of(post));

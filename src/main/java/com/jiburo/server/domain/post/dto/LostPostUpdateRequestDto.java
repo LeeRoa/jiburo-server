@@ -27,6 +27,7 @@ public record LostPostUpdateRequestDto(
         GenderType genderCode,
         String color,
         Integer age,
+        Double weight,
 
         // --- 위치 및 기타 정보 ---
         Double latitude,
@@ -47,6 +48,7 @@ public record LostPostUpdateRequestDto(
                     .gender(this.genderCode)
                     .color(this.color)
                     .age(this.age)
+                    .weight(this.weight)
                     .build();
 
             // TODO [CASE 2, 3] 물건, 사람 (구현 예정)
