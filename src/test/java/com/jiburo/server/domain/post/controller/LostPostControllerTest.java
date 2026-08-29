@@ -1,8 +1,12 @@
 package com.jiburo.server.domain.post.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.jiburo.server.domain.post.domain.enums.AnimalType;
 import com.jiburo.server.domain.post.domain.enums.CategoryType;
+import com.jiburo.server.domain.post.domain.enums.GenderType;
 import com.jiburo.server.domain.post.domain.enums.PostStatus;
+import com.jiburo.server.domain.post.domain.enums.VisibilityType;
+import com.jiburo.server.domain.post.dto.LostPostCreateRequestDto;
 import com.jiburo.server.domain.post.dto.LostPostResponseDto;
 import com.jiburo.server.domain.finder.service.FinderService;
 import com.jiburo.server.domain.post.service.LostPostService;
@@ -89,7 +93,7 @@ class LostPostControllerTest {
         return new LostPostResponseDto(
                 encodedId, userId, "작성자", "제목", "내용",
                 PostStatus.LOST, CategoryType.ANIMAL, null,
-                "http://test.com/img.jpg", 37.5, 127.0, "서울 강남구",
+                "http://test.com/img.jpg", List.of("http://test.com/img.jpg"), 37.5, 127.0, "서울 강남구",
                 LocalDate.of(2024, 1, 1), 10000, LocalDateTime.now(),
                 isLiked, likeCount
         );
@@ -260,6 +264,51 @@ class LostPostControllerTest {
                         .param("centerLat", "37.5")
                         .param("centerLng", "127.0")
                         .param("radius", "3.0"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+    }
+
+    // ───────── POST / (createPost) ─────────
+
+    private LostPostCreateRequestDto animalCreateRequest(AnimalType animalType, String animalTypeCustom) {
+        return new LostPostCreateRequestDto(
+                "제목", "내용", CategoryType.ANIMAL, "레이", animalType, animalTypeCustom,
+                null, GenderType.MALE, null, null, null, null,
+                List.of(), 37.5, 127.0, "서울", LocalDate.now(), 0, VisibilityType.PUBLIC
+        );
+    }
+
+    @Test
+    void 게시글_등록_실종동물_기타_선택시_직접입력_없으면_400() throws Exception {
+        mockMvc.perform(post("/api/v1/posts")
+                        .with(withUser())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(animalCreateRequest(AnimalType.ETC, null))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    void 게시글_등록_실종동물_기타_선택시_직접입력_있으면_200() throws Exception {
+        given(lostPostService.create(eq(userId), any())).willReturn(1L);
+
+        mockMvc.perform(post("/api/v1/posts")
+                        .with(withUser())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(animalCreateRequest(AnimalType.ETC, "이구아나"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data").value(encodedId));
+    }
+
+    @Test
+    void 게시글_등록_기타가_아니면_직접입력_없어도_200() throws Exception {
+        given(lostPostService.create(eq(userId), any())).willReturn(1L);
+
+        mockMvc.perform(post("/api/v1/posts")
+                        .with(withUser())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(animalCreateRequest(AnimalType.DOG, null))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
     }

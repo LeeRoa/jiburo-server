@@ -70,8 +70,8 @@ class LostPostServiceTest {
                 .content("내용")
                 .statusCode(PostStatus.LOST)
                 .detail(AnimalDetailDto.builder()
-                        .animalType(AnimalType.DOG)
-                        .gender(GenderType.MALE)
+                        .animalTypeCode(AnimalType.DOG)
+                        .genderCode(GenderType.MALE)
                         .build())
                 .imageUrl("post/images/test.jpg")
                 .latitude(37.5)
@@ -107,7 +107,7 @@ class LostPostServiceTest {
         then(lostPostRepository).should().save(captor.capture());
         AnimalDetailDto savedDetail = (AnimalDetailDto) captor.getValue().getDetail();
         assertThat(savedDetail.name()).isEqualTo("레이");
-        assertThat(savedDetail.animalType()).isEqualTo(AnimalType.ETC);
+        assertThat(savedDetail.animalTypeCode()).isEqualTo(AnimalType.ETC);
         assertThat(savedDetail.animalTypeCustom()).isEqualTo("이구아나");
         assertThat(savedDetail.isBiting()).isTrue();
     }
