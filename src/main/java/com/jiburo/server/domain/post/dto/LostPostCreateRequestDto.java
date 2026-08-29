@@ -24,12 +24,15 @@ public record LostPostCreateRequestDto(
         String content, // 내용은 선택
 
         @NotNull CategoryType categoryCode, // ANIMAL, PERSON
-        AnimalType animalTypeCode, // DOG, CAT
+        String name, // 반려동물 이름
+        AnimalType animalTypeCode, // DOG, CAT, ETC
+        String animalTypeCustom, // animalTypeCode가 ETC일 때 직접 입력한 종 (예: 이구아나)
         String breed,
         GenderType genderCode, // MALE, FEMALE, UNKNOWN
         String color,
         Integer age,
         Double weight,
+        Boolean isBiting, // 무는지 여부
 
         List<String> imageUrls,
 
@@ -66,12 +69,15 @@ public record LostPostCreateRequestDto(
 
             // [CASE 1] 동물일 때
             case ANIMAL -> AnimalDetailDto.builder()
+                    .name(this.name)
                     .animalType(this.animalTypeCode)
+                    .animalTypeCustom(this.animalTypeCustom)
                     .breed(this.breed)
                     .gender(this.genderCode)
                     .color(this.color)
                     .age(this.age)
                     .weight(this.weight)
+                    .isBiting(this.isBiting)
                     .build();
 
             // TODO [CASE 2, 3] 물건, 사람 (구현 예정)

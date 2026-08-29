@@ -22,12 +22,15 @@ public record LostPostUpdateRequestDto(
         CategoryType categoryCode, // 대분류 (ANIMAL, PERSON...)
 
         // --- 상세 정보 필드들 ---
+        String name, // 반려동물 이름
         AnimalType animalTypeCode,
+        String animalTypeCustom, // animalTypeCode가 ETC일 때 직접 입력한 종
         String breed,
         GenderType genderCode,
         String color,
         Integer age,
         Double weight,
+        Boolean isBiting, // 무는지 여부
 
         // --- 위치 및 기타 정보 ---
         Double latitude,
@@ -43,12 +46,15 @@ public record LostPostUpdateRequestDto(
 
             // [CASE 1] 동물일 때
             case ANIMAL -> AnimalDetailDto.builder()
+                    .name(this.name)
                     .animalType(this.animalTypeCode)
+                    .animalTypeCustom(this.animalTypeCustom)
                     .breed(this.breed)
                     .gender(this.genderCode)
                     .color(this.color)
                     .age(this.age)
                     .weight(this.weight)
+                    .isBiting(this.isBiting)
                     .build();
 
             // TODO [CASE 2, 3] 물건, 사람 (구현 예정)
