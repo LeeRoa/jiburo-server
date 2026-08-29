@@ -9,9 +9,11 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 
 import java.util.List;
+import java.util.UUID;
 
 public interface LostPostRepositoryCustom {
-    Page<LostPost> search(LostPostSearchCondition condition, Pageable pageable);
+    // writerId가 있으면 해당 작성자의 게시글로 한정 (마이페이지 '내 게시물')
+    Page<LostPost> search(LostPostSearchCondition condition, Pageable pageable, UUID writerId);
 
     // 뷰포트 검색 (사각형 범위)
     List<LostPost> searchByViewport(LostPostMapRequestDto request);

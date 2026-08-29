@@ -125,7 +125,12 @@ public class LostPostServiceImpl implements LostPostService {
 
     @Override
     public Page<LostPostResponseDto> search(LostPostSearchCondition condition, Pageable pageable, UUID userId) {
-        Page<LostPost> posts = lostPostRepository.search(condition, pageable);
+        boolean mineOnly = condition != null && Boolean.TRUE.equals(condition.mineOnly());
+        if (mineOnly && userId == null) {
+            throw new JiburoException(ErrorCode.UNAUTHORIZED);
+        }
+
+        Page<LostPost> posts = lostPostRepository.search(condition, pageable, mineOnly ? userId : null);
         if (posts.isEmpty()) {
             return posts.map(p -> LostPostResponseDto.from(p, false, 0L));
         }

@@ -16,5 +16,8 @@ public record LostPostSearchCondition(
         @Schema(description = "검색 종료 날짜 (lostDate 기준)") LocalDate dateTo,
 
         @Schema(description = "카테고리별 상세 필터 (자유 키-값, 예: animalTypeCode=DOG, breed=말티즈)")
-        Map<String, String> detailFilters // "animalTypeCode=DOG", "breed=말티즈", "clothing=패딩" 무엇이든 받을 수 있는 맵
+        Map<String, String> detailFilters, // "animalTypeCode=DOG", "breed=말티즈", "clothing=패딩" 무엇이든 받을 수 있는 맵
+
+        @Schema(description = "true면 로그인한 사용자가 작성한 게시글만 조회 (마이페이지 '내 게시물')")
+        Boolean mineOnly
 ) {}

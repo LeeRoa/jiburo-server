@@ -228,12 +228,12 @@ class PostLikeServiceTest {
         // given
         Page<LostPost> postPage = new PageImpl<>(List.of(post));
         Pageable pageable = Pageable.ofSize(10);
-        LostPostSearchCondition condition = new LostPostSearchCondition(null, null, null, null, null, null);
+        LostPostSearchCondition condition = new LostPostSearchCondition(null, null, null, null, null, null, null);
 
         List<Object[]> countResult = new ArrayList<>();
         countResult.add(new Object[]{1L, 7L});
 
-        given(lostPostRepository.search(any(LostPostSearchCondition.class), any())).willReturn(postPage);
+        given(lostPostRepository.search(any(LostPostSearchCondition.class), any(), any())).willReturn(postPage);
         given(postLikeRepository.countGroupByLostPostIdIn(any())).willReturn(countResult);
         given(postLikeRepository.findLikedPostIdsByUser_IdAndPostIds(userId, List.of(1L))).willReturn(Set.of(1L));
 
@@ -251,9 +251,9 @@ class PostLikeServiceTest {
         // given
         Page<LostPost> postPage = new PageImpl<>(List.of(post));
         Pageable pageable = Pageable.ofSize(10);
-        LostPostSearchCondition condition = new LostPostSearchCondition(null, null, null, null, null, null);
+        LostPostSearchCondition condition = new LostPostSearchCondition(null, null, null, null, null, null, null);
 
-        given(lostPostRepository.search(any(LostPostSearchCondition.class), any())).willReturn(postPage);
+        given(lostPostRepository.search(any(LostPostSearchCondition.class), any(), any())).willReturn(postPage);
         given(postLikeRepository.countGroupByLostPostIdIn(any())).willReturn(new ArrayList<>());
 
         // when

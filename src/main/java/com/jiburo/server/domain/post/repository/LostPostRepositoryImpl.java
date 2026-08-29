@@ -26,6 +26,7 @@ import java.time.LocalDate;
 import java.util.Map;
 import java.util.Set;
 import java.util.List;
+import java.util.UUID;
 
 import static com.jiburo.server.domain.post.domain.QLostPost.lostPost;
 import static com.jiburo.server.domain.user.domain.QUser.user;
@@ -59,9 +60,10 @@ public class LostPostRepositoryImpl implements LostPostRepositoryCustom {
      * - Count 쿼리 최적화 적용 (PageableExecutionUtils)
      */
     @Override
-    public Page<LostPost> search(LostPostSearchCondition condition, Pageable pageable) {
+    public Page<LostPost> search(LostPostSearchCondition condition, Pageable pageable, UUID writerId) {
         // 1) 검색 조건 생성
         BooleanBuilder predicates = getSearchPredicates(condition);
+        predicates.and(eqWriter(writerId));
 
         // 2) 컨텐츠 조회
         List<LostPost> content = queryFactory
@@ -256,6 +258,10 @@ public class LostPostRepositoryImpl implements LostPostRepositoryCustom {
 
     private BooleanExpression eqStatusCode(PostStatus statusCode) { // String에서 PostStatus로 변경
         return statusCode != null ? lostPost.statusCode.eq(statusCode) : null;
+    }
+
+    private BooleanExpression eqWriter(UUID writerId) {
+        return writerId != null ? lostPost.user.id.eq(writerId) : null;
     }
 
     private BooleanExpression containsKeyword(String keyword) {
