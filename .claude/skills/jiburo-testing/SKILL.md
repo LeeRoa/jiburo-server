@@ -20,7 +20,9 @@ description: Use when writing test code for jiburo-server — unit tests for ser
 - **H2** (`runtimeOnly`) — 인메모리 DB (Repository/통합 테스트용)
 
 `spring-security-test`:
-- `@WithMockUser`, `SecurityMockMvcRequestPostProcessors` — SecurityContext 주입
+- `SecurityMockMvcRequestPostProcessors` — SecurityContext 주입 (`@WithMockUser` 사용하지 않음)
+
+---
 
 ## 테스트 위치 규칙
 
@@ -30,16 +32,19 @@ src/test/java/com/jiburo/server/
 ├── domain/
 │   ├── post/
 │   │   ├── service/LostPostServiceTest.java
-│   │   ├── controller/LostPostControllerTest.java
-│   │   └── repository/LostPostRepositoryTest.java
+│   │   ├── service/PostLikeServiceTest.java      # 기능 단위로 파일 분리 가능
+│   │   └── controller/LostPostControllerTest.java
 │   ├── chat/
-│   │   └── service/ChatRoomServiceTest.java
-│   └── ...
+│   │   ├── service/ChatRoomServiceTest.java
+│   │   └── controller/ChatRoomControllerTest.java
+│   └── finder/
+│       └── service/FinderServiceTest.java
 └── global/
-    └── util/HashidsUtilsTest.java
+    └── error/GlobalExceptionHandlerTest.java
 ```
 
-**도메인 패키지 구조를 그대로 미러링**해서 만든다.
+- **도메인 패키지 구조를 그대로 미러링**해서 만든다.
+- 기능이 많은 서비스는 **기능 단위로 파일을 분리**할 수 있다. (예: `LostPostServiceTest` + `PostLikeServiceTest` 둘 다 `LostPostServiceImpl` 테스트)
 
 ---
 
@@ -49,42 +54,62 @@ src/test/java/com/jiburo/server/
 
 ```java
 @ExtendWith(MockitoExtension.class)
-class LostPostServiceTest {
+class FinderServiceTest {
 
     @InjectMocks
-    private LostPostServiceImpl lostPostService;
+    private FinderServiceImpl finderService;   // 구체 클래스 (인터페이스 X)
+
+    @Mock
+    private FinderSessionRepository finderSessionRepository;
 
     @Mock
     private LostPostRepository lostPostRepository;
 
     @Mock
-    private CommonCodeCache commonCodeCache;
+    private UserRepository userRepository;
 
-    @Test
-    void 게시글_조회_성공() {
-        // given
-        LostPost post = LostPost.builder()...build();
-        given(lostPostRepository.findById(1L)).willReturn(Optional.of(post));
+    private UUID userId;
+    private User user;
+    private LostPost post;
 
-        // when
-        LostPostResponseDto result = lostPostService.getPost(1L);
+    @BeforeEach
+    void setUp() {
+        new HashidsUtils("test-salt", 8);   // HashidsUtils 초기화 필수
 
-        // then
-        assertThat(result.id()).isEqualTo(HashidsUtils.encode(1L));
+        userId = UUID.randomUUID();
+        user = User.builder()
+                .oauthId("google_test")
+                .nickname("테스터")
+                .email("test@test.com")
+                .roleCode(RoleType.USER)
+                .build();
+        ReflectionTestUtils.setField(user, "id", userId);  // @GeneratedValue ID 세팅
     }
 
     @Test
-    void 게시글_없으면_POST_NOT_FOUND_예외() {
+    void 세션_생성_성공() {
+        // given
+        given(lostPostRepository.findById(1L)).willReturn(Optional.of(post));
+        given(finderSessionRepository.save(any())).willReturn(activeSession);
+
+        // when
+        String result = finderService.createSession(userId, dto);
+
+        // then
+        assertThat(result).isEqualTo(HashidsUtils.encode(10L));
+        then(finderSessionRepository).should().save(any());
+    }
+
+    @Test
+    void 게시글_없으면_POST_NOT_FOUND() {
         // given
         given(lostPostRepository.findById(999L)).willReturn(Optional.empty());
 
         // when & then
-        assertThatThrownBy(() -> lostPostService.getPost(999L))
+        assertThatThrownBy(() -> finderService.createSession(userId, dto))
             .isInstanceOf(JiburoException.class)
-            .satisfies(ex -> {
-                assertThat(((JiburoException) ex).getErrorCode())
-                    .isEqualTo(ErrorCode.POST_NOT_FOUND);
-            });
+            .satisfies(ex -> assertThat(((JiburoException) ex).getErrorCode())
+                .isEqualTo(ErrorCode.POST_NOT_FOUND));
     }
 }
 ```
@@ -97,79 +122,142 @@ class LostPostServiceTest {
 | void 메서드 예외 | `willThrow(new JiburoException(...)).given(mock).method(arg)` |
 | 호출 검증 | `then(mock).should().method(arg)` |
 | 호출 안 됨 검증 | `then(mock).should(never()).method(any())` |
-| JiburoException 단언 | `assertThatThrownBy(...).isInstanceOf(JiburoException.class)` |
+| JiburoException 단언 | `assertThatThrownBy(...).isInstanceOf(JiburoException.class).satisfies(...)` |
+| generic 타입 스터빙 | `doReturn(value).when(mock).method()` — `given()`은 타입 에러 발생 |
+
+### ID 세팅 패턴
+
+```java
+// @GeneratedValue 엔티티의 ID는 직접 생성자로 세팅 불가 → ReflectionTestUtils 사용
+ReflectionTestUtils.setField(entity, "id", 1L);
+```
+
+### JPA save() 후 ID 세팅이 필요한 경우
+
+JPA는 `save()` 후 인자 엔티티에 ID를 세팅하지만 Mockito는 그렇지 않음.
+반환값 ID가 필요한 서비스 로직(`session.getId()` 같은)은 `doAnswer`로 시뮬레이션:
+
+```java
+doAnswer(invocation -> {
+    FinderSession s = invocation.getArgument(0);
+    ReflectionTestUtils.setField(s, "id", 10L);
+    return s;
+}).when(finderSessionRepository).save(any(FinderSession.class));
+```
+
+### @Value 필드 주입
+
+서비스의 `@Value` 필드는 `ReflectionTestUtils.setField`로 주입:
+
+```java
+ReflectionTestUtils.setField(imageStorageService, "bucketName", "test-bucket");
+ReflectionTestUtils.setField(imageStorageService, "expirationMinutes", 15L);
+```
+
+### Redis 의존 서비스 특수 패턴
+
+`RedisTemplate`의 generic 메서드는 `given()` 대신 `doReturn()` 사용.
+Lenient 설정 필요:
+
+```java
+@SuppressWarnings({"unchecked", "rawtypes"})
+@ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
+class SearchHistoryServiceTest {
+
+    @Mock
+    private RedisTemplate<String, Object> redisTemplate;
+
+    @Mock
+    private ZSetOperations<String, Object> zSetOps;
+
+    @BeforeEach
+    void setUp() {
+        doReturn(zSetOps).when(redisTemplate).opsForZSet();   // doReturn 사용
+    }
+}
+```
 
 ---
 
 ## 2. 컨트롤러 슬라이스 테스트 (`@WebMvcTest`)
 
-웹 레이어만 로드. 서비스는 `@MockBean`으로 교체.
+웹 레이어만 로드. 서비스는 `@MockitoBean`으로 교체.
 
-### 기본 설정
+### 기본 설정 (모든 컨트롤러 테스트에 공통)
 
 ```java
-@WebMvcTest(LostPostController.class)
-@Import(SecurityConfig.class)   // SecurityConfig가 필요한 경우
-class LostPostControllerTest {
+@WebMvcTest(
+    controllers = FinderController.class,
+    excludeAutoConfiguration = {OAuth2ClientAutoConfiguration.class}  // 필수
+)
+@Import({SecurityConfig.class, JwtAuthenticationEntryPoint.class})    // 필수
+class FinderControllerTest {
 
-    @Autowired
-    private MockMvc mockMvc;
+    @Autowired private MockMvc mockMvc;
+    @Autowired private ObjectMapper objectMapper;
 
-    @Autowired
-    private ObjectMapper objectMapper;
+    // 테스트 대상 서비스
+    @MockitoBean private FinderService finderService;
 
-    @MockBean
-    private LostPostService lostPostService;
-
-    @MockBean
-    private HashidsUtils hashidsUtils;   // static 유틸이지만 @MockBean 대신 테스트용 salt 설정
+    // 아래 5개는 SecurityConfig 로드 시 항상 필요한 인프라 빈
+    @MockitoBean private JpaMetamodelMappingContext jpaMetamodelMappingContext;
+    @MockitoBean private JwtTokenProvider jwtTokenProvider;
+    @MockitoBean private CustomOAuth2UserService customOAuth2UserService;
+    @MockitoBean private OAuth2SuccessHandler oAuth2SuccessHandler;
+    @MockitoBean private ClientRegistrationRepository clientRegistrationRepository;
 }
 ```
 
-> ⚠️ `@WebMvcTest`는 `@Component`, `@Service`, `@Repository`를 로드하지 않는다. 컨트롤러가 의존하는 모든 Bean은 `@MockBean`으로 선언해야 한다.
+> ⚠️ Spring Boot 3.4+에서는 `@MockBean` 대신 `@MockitoBean` 사용.
+
+### BeforeEach 설정 (공통 패턴)
+
+```java
+private UUID userId;
+private CustomOAuth2User principal;
+private String encodedId;
+
+@BeforeEach
+void setUp() {
+    new HashidsUtils("test-salt", 8);   // 컨트롤러에서 decode()가 필요하므로 필수
+    userId = UUID.randomUUID();
+    principal = new CustomOAuth2User(userId, List.of(new SimpleGrantedAuthority("ROLE_USER")));
+    encodedId = HashidsUtils.encode(1L);
+}
+```
 
 ### 인증 — `CustomOAuth2User` 주입
 
-`@AuthenticationPrincipal CustomOAuth2User`가 필요한 엔드포인트는 아래 헬퍼를 사용:
+**`@WithMockUser` 사용하지 않는다.** `PreAuthenticatedAuthenticationToken` + `withUser()` 헬퍼를 사용:
 
 ```java
-// 테스트 헬퍼 (공통 추출 권장)
-public static SecurityMockMvcRequestPostProcessors.OidcLoginRequestPostProcessor mockUser(UUID userId) {
-    return SecurityMockMvcRequestPostProcessors.oidcLogin()
-        .idToken(token -> token.subject(userId.toString()))
-        .userInfoToken(claims -> claims.claim("sub", userId.toString()));
-}
-
-// 또는 CustomOAuth2User를 직접 생성하는 경우
-public static RequestPostProcessor withUser(UUID userId) {
-    CustomOAuth2User principal = new CustomOAuth2User(...);
-    return SecurityMockMvcRequestPostProcessors.user(principal);
+private RequestPostProcessor withUser() {
+    return SecurityMockMvcRequestPostProcessors.authentication(
+        new PreAuthenticatedAuthenticationToken(principal, null, principal.getAuthorities())
+    );
 }
 ```
 
-간단히 `@WithMockUser`로 대체 가능한 경우:
+사용:
 ```java
-@Test
-@WithMockUser   // 인증 여부만 필요할 때 (userId 불필요)
-void 인증된_사용자_접근_허용() throws Exception { ... }
+mockMvc.perform(get("/api/v1/finder/sessions").with(withUser()))
 ```
 
 ### GET 요청 예시
 
 ```java
 @Test
-void 게시글_단건_조회_200() throws Exception {
+void 세션_목록_인증_200_반환() throws Exception {
     // given
-    String encodedId = HashidsUtils.encode(1L);
-    LostPostResponseDto dto = new LostPostResponseDto(...);
-    given(lostPostService.getPost(1L)).willReturn(dto);
+    given(finderService.getMySessions(eq(userId), any(Pageable.class)))
+        .willReturn(new SliceImpl<>(List.of(mockDto()), PageRequest.of(0, 10), false));
 
     // when & then
-    mockMvc.perform(get("/api/v1/posts/{id}", encodedId)
-            .contentType(MediaType.APPLICATION_JSON))
+    mockMvc.perform(get("/api/v1/finder/sessions").with(withUser()))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.success").value(true))
-        .andExpect(jsonPath("$.data.id").value(encodedId));
+        .andExpect(jsonPath("$.data.content[0].statusCode").value("ACTIVE"));
 }
 ```
 
@@ -177,29 +265,43 @@ void 게시글_단건_조회_200() throws Exception {
 
 ```java
 @Test
-@WithMockUser
-void 게시글_등록_201() throws Exception {
+void 세션_생성_인증_200_반환() throws Exception {
     // given
-    LostPostCreateRequestDto request = new LostPostCreateRequestDto(...);
-    given(lostPostService.createPost(any(), any())).willReturn(HashidsUtils.encode(1L));
+    FinderSessionCreateRequestDto request = new FinderSessionCreateRequestDto(encodedId, 37.5, 127.0);
+    given(finderService.createSession(eq(userId), any())).willReturn(encodedId);
 
     // when & then
-    mockMvc.perform(post("/api/v1/posts")
+    mockMvc.perform(post("/api/v1/finder/sessions")
+            .with(withUser())
             .contentType(MediaType.APPLICATION_JSON)
             .content(objectMapper.writeValueAsString(request)))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.success").value(true));
+        .andExpect(jsonPath("$.success").value(true))
+        .andExpect(jsonPath("$.data").value(encodedId));
 }
 ```
 
-### 에러 응답 단언 패턴
+### 비로그인 / 에러 응답 단언 패턴
 
 ```java
-// JiburoException → ApiResponse.fail 변환 검증
-mockMvc.perform(get("/api/v1/posts/{id}", "INVALID_HASH"))
+// 인증 필요 엔드포인트 비로그인 → 401
+mockMvc.perform(get("/api/v1/finder/sessions"))
+    .andExpect(status().isUnauthorized())
+    .andExpect(jsonPath("$.success").value(false))
+    .andExpect(jsonPath("$.errorCode").value("UNAUTHORIZED"));
+
+// 잘못된 Hashids → 400
+mockMvc.perform(get("/api/v1/finder/sessions/{id}", "INVALID_HASH").with(withUser()))
     .andExpect(status().isBadRequest())
     .andExpect(jsonPath("$.success").value(false))
     .andExpect(jsonPath("$.errorCode").value("INVALID_IDENTIFIER"));
+
+// JiburoException 발생 → 서비스에서 throw, HTTP 상태와 errorCode 검증
+willThrow(new JiburoException(ErrorCode.FINDER_SESSION_NOT_FOUND))
+    .given(finderService).getSession(any(), any());
+mockMvc.perform(get("/api/v1/finder/sessions/{id}", encodedId).with(withUser()))
+    .andExpect(status().isNotFound())
+    .andExpect(jsonPath("$.errorCode").value("FINDER_SESSION_NOT_FOUND"));
 ```
 
 ### `ApiResponse` JSON 경로 요약
@@ -207,22 +309,55 @@ mockMvc.perform(get("/api/v1/posts/{id}", "INVALID_HASH"))
 | 필드 | jsonPath |
 |---|---|
 | 성공 여부 | `$.success` |
-| HTTP 상태 코드 | `$.status` |
 | 에러 코드 문자열 | `$.errorCode` |
-| 에러 메시지 | `$.message` |
 | 응답 데이터 | `$.data` |
 | 응답 데이터 하위 필드 | `$.data.fieldName` |
-| 배열 첫 번째 요소 | `$.data[0].fieldName` |
+| Slice/Page 배열 첫 번째 요소 | `$.data.content[0].fieldName` |
+| 단순 배열 첫 번째 요소 | `$.data[0]` |
 
 ---
 
-## 3. 리포지토리 슬라이스 테스트 (`@DataJpaTest`)
+## 3. GlobalExceptionHandler 테스트 (standaloneSetup)
+
+Security 없이 `MockMvcBuilders.standaloneSetup()` 사용:
+
+```java
+class GlobalExceptionHandlerTest {
+
+    private MockMvc mockMvc;
+
+    @BeforeEach
+    void setUp() {
+        LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
+        validator.afterPropertiesSet();
+
+        mockMvc = MockMvcBuilders
+            .standaloneSetup(new TestController())      // 내부 더미 컨트롤러
+            .setControllerAdvice(new GlobalExceptionHandler())
+            .setValidator(validator)
+            .build();
+    }
+
+    @RestController
+    @RequestMapping("/test")
+    static class TestController {
+        @GetMapping("/error/{code}")
+        public void trigger(@PathVariable String code) {
+            throw new JiburoException(ErrorCode.valueOf(code));
+        }
+    }
+}
+```
+
+---
+
+## 4. 리포지토리 슬라이스 테스트 (`@DataJpaTest`)
 
 JPA 레이어만 로드. H2 인메모리 DB 자동 교체.
 
 ```java
 @DataJpaTest
-@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.ANY)  // H2로 교체
+@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.ANY)
 class LostPostRepositoryTest {
 
     @Autowired
@@ -230,119 +365,25 @@ class LostPostRepositoryTest {
 
     @Autowired
     private TestEntityManager em;
-
-    @Test
-    void 작성자로_게시글_조회() {
-        // given
-        User user = em.persist(User.builder()...build());
-        LostPost post = em.persist(LostPost.builder().user(user)...build());
-        em.flush();
-        em.clear();
-
-        // when
-        List<LostPost> result = lostPostRepository.findByUserId(user.getId());
-
-        // then
-        assertThat(result).hasSize(1);
-        assertThat(result.get(0).getId()).isEqualTo(post.getId());
-    }
 }
 ```
 
-> ⚠️ `@DataJpaTest`는 Haversine 식(`acos`, `radians` 등)을 H2에서 지원하지 않는다.  
-> `searchByRadius` / `searchByViewport` QueryDSL 메서드는 **TestContainers(MariaDB)** 또는 서비스 단위 테스트로 커버한다.
-
-### QueryDSL 테스트 시 추가 설정
-
-```java
-@DataJpaTest
-@Import(QueryDslConfig.class)   // JPAQueryFactory 빈 등록
-class LostPostRepositoryImplTest {
-
-    @Autowired
-    private EntityManager em;
-
-    private LostPostRepositoryImpl repositoryImpl;
-
-    @BeforeEach
-    void setUp() {
-        repositoryImpl = new LostPostRepositoryImpl(new JPAQueryFactory(em));
-    }
-}
-```
+> ⚠️ `@DataJpaTest`는 Haversine 식(`acos`, `radians` 등)을 H2에서 지원하지 않는다.
+> `searchByRadius` / `searchByViewport` QueryDSL 메서드는 서비스 단위 테스트나 MariaDB 통합 테스트로 커버한다.
 
 ---
 
-## 4. 통합 테스트 (`@SpringBootTest`)
+## 5. 통합 테스트 (`@SpringBootTest`)
 
 전체 컨텍스트 로드. 속도가 느리므로 꼭 필요한 경우에만.
 
 ```java
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureMockMvc
-class LostPostIntegrationTest {
-
-    @Autowired
-    private MockMvc mockMvc;
-
-    // 실제 DB가 필요 → compose-dev.yaml 기동 상태에서 실행하거나
-    // @ActiveProfiles("test")로 H2 프로파일 별도 구성
+class IntegrationTest {
+    // 실제 DB가 필요 → docker compose -f compose-dev.yaml up -d 먼저 실행
 }
 ```
-
-> 실제 MariaDB가 필요한 통합 테스트는 `docker compose -f compose-dev.yaml up -d` 후 실행.
-
----
-
-## 5. 프로젝트 특화 모킹 패턴
-
-### CommonCodeCache 모킹
-
-```java
-@MockBean
-private CommonCodeCache commonCodeCache;
-
-// 특정 코드 있을 때
-given(commonCodeCache.get("CATEGORY", "ANIMAL"))
-    .willReturn(Optional.of(new CommonCode(...)));
-
-// 없을 때 (캐시 미스 → JiburoException 유발)
-given(commonCodeCache.get(anyString(), anyString()))
-    .willReturn(Optional.empty());
-```
-
-### HashidsUtils — static 메서드
-
-`HashidsUtils`는 static 메서드(`encode`/`decode`)를 사용하므로 **목 필요 없음**.  
-테스트 환경에서 실제 salt 값이 없으면 `@TestPropertySource`로 주입:
-
-```java
-@TestPropertySource(properties = "app.hashids.salt=test-salt")
-```
-
-또는 `application-test.properties`에 등록:
-```properties
-app.hashids.salt=test-salt
-```
-
-### JwtTokenProvider / 필터 우회 (`@WebMvcTest`)
-
-`@WebMvcTest`에서는 `JwtFilter`가 기본 비활성화.  
-Security 설정까지 로드하려면 `@Import(SecurityConfig.class)` + `@MockBean JwtTokenProvider`:
-
-```java
-@WebMvcTest(LostPostController.class)
-@Import(SecurityConfig.class)
-class LostPostControllerTest {
-    @MockBean JwtTokenProvider jwtTokenProvider;
-    @MockBean CustomOAuth2UserService customOAuth2UserService;
-    ...
-}
-```
-
-### AuditLog AOP (`@AuditLog`)
-
-`@WebMvcTest`는 AOP를 로드하지 않아 `@AuditLog`가 동작하지 않는다. 어노테이션 동작 자체를 테스트하려면 `@SpringBootTest`로 전환.
 
 ---
 
@@ -350,25 +391,32 @@ class LostPostControllerTest {
 
 ```
 메서드명: 한글 상황 설명_기대 결과
-예) 게시글_없으면_POST_NOT_FOUND_예외
-    유효하지_않은_해시_ID면_400반환
-    작성자_아닌_사용자가_삭제하면_POST_ACCESS_DENIED
+예) 세션_생성_성공
+    게시글_없으면_POST_NOT_FOUND
+    자신의_게시글에_세션_생성하면_FINDER_CANNOT_FIND_OWN_POST
+    비로그인_UNAUTHORIZED_반환
+    유효하지_않은_해시_ID면_400_반환
 ```
 
 - 영문 카멜케이스보다 **한글 스네이크케이스** 권장 (가독성)
 - given/when/then 주석은 **한글**로
+- 섹션 구분은 `// ───────── 메서드명 ─────────` 형식
 
 ---
 
 ## 7. 자주 하는 실수
 
-- ❌ `@WebMvcTest`에서 서비스를 `@Autowired`로 주입 시도 → ✅ `@MockBean` 사용
-- ❌ `@DataJpaTest`에서 Haversine 식 포함 메서드 테스트 → ✅ H2 미지원, 서비스 단위 테스트나 MariaDB 통합 테스트로 커버
-- ❌ `@SpringBootTest`를 기본으로 남용 → ✅ 슬라이스 테스트(`@WebMvcTest`, `@DataJpaTest`)로 범위 최소화
-- ❌ 컨트롤러 테스트에서 `HashidsUtils.decode`가 실패해 `INVALID_IDENTIFIER` 발생 → ✅ `@TestPropertySource(properties = "app.hashids.salt=...")`로 salt 주입
-- ❌ `CustomOAuth2User`가 필요한 엔드포인트에 `@WithMockUser`만 사용 → ✅ userId가 필요하면 `SecurityMockMvcRequestPostProcessors.user(principal)` 사용
-- ❌ `JiburoException` 발생 여부만 보고 `ErrorCode` 무시 → ✅ `getErrorCode()` 단언까지 함께 확인
-- ❌ 통합 테스트를 로컬 MariaDB 없이 실행 → ✅ `compose-dev.yaml up` 먼저 실행
+- ❌ `@MockBean` 사용 → ✅ Spring Boot 3.4+는 `@MockitoBean` 사용
+- ❌ `@WithMockUser` 사용 → ✅ `PreAuthenticatedAuthenticationToken` + `withUser()` 헬퍼 사용
+- ❌ `@TestPropertySource(properties = "app.hashids.salt=...")` → ✅ `new HashidsUtils("test-salt", 8)` 직접 호출
+- ❌ `@WebMvcTest`에서 `excludeAutoConfiguration` 미설정 → ✅ `OAuth2ClientAutoConfiguration.class` 제외 필수
+- ❌ Security 인프라 빈 `@MockitoBean` 누락 → ✅ `JpaMetamodelMappingContext`, `JwtTokenProvider`, `CustomOAuth2UserService`, `OAuth2SuccessHandler`, `ClientRegistrationRepository` 5개 필수
+- ❌ `@WebMvcTest`에서 서비스를 `@Autowired`로 주입 → ✅ `@MockitoBean` 사용
+- ❌ `@InjectMocks`에 인터페이스 지정 → ✅ 구체 클래스(`XxxServiceImpl`) 지정
+- ❌ `JiburoException` 발생 여부만 보고 `ErrorCode` 무시 → ✅ `.satisfies(ex -> assertThat(((JiburoException)ex).getErrorCode()).isEqualTo(...))` 까지 단언
+- ❌ `@DataJpaTest`에서 Haversine 포함 메서드 테스트 → ✅ H2 미지원, 서비스 단위 테스트로 커버
+- ❌ Redis generic 메서드에 `given()` 사용 → ✅ `doReturn().when()` 사용 + `@MockitoSettings(strictness = Strictness.LENIENT)`
+- ❌ JPA save 후 ID가 필요한 로직에서 mock이 null 반환 → ✅ `doAnswer`로 ID 세팅 시뮬레이션
 
 ---
 
