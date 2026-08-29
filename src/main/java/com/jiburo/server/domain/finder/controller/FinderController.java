@@ -23,10 +23,11 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/finder/sessions")
 @Tag(name = "FinderSession", description = "파인더 탐색 세션 API")
-public class FinderController {
+public class FinderController implements FinderControllerDocs {
 
     private final FinderService finderService;
 
+    @Override
     @AuditLog(action = LogActionType.FINDER_SESSION_CREATE)
     @PostMapping
     public ApiResponse<String> createSession(
@@ -36,6 +37,7 @@ public class FinderController {
         return ApiResponse.success(finderService.createSession(user.getUserId(), requestDto));
     }
 
+    @Override
     @GetMapping
     public ApiResponse<Slice<FinderSessionListResponseDto>> getMySessions(
             @AuthenticationPrincipal CustomOAuth2User user,
@@ -44,6 +46,7 @@ public class FinderController {
         return ApiResponse.success(finderService.getMySessions(user.getUserId(), pageable));
     }
 
+    @Override
     @GetMapping("/{sessionId}")
     public ApiResponse<FinderSessionResponseDto> getSession(
             @AuthenticationPrincipal CustomOAuth2User user,
@@ -53,6 +56,7 @@ public class FinderController {
         return ApiResponse.success(finderService.getSession(user.getUserId(), realId));
     }
 
+    @Override
     @PostMapping("/{sessionId}/media")
     public ApiResponse<List<FinderMediaResponseDto>> addMedia(
             @AuthenticationPrincipal CustomOAuth2User user,
@@ -63,6 +67,7 @@ public class FinderController {
         return ApiResponse.success(finderService.addMedia(user.getUserId(), realId, requestDto));
     }
 
+    @Override
     @DeleteMapping("/{sessionId}/media/{mediaId}")
     public ApiResponse<Void> deleteMedia(
             @AuthenticationPrincipal CustomOAuth2User user,
@@ -75,6 +80,7 @@ public class FinderController {
         return ApiResponse.success();
     }
 
+    @Override
     @AuditLog(action = LogActionType.FINDER_SESSION_SUBMIT)
     @PostMapping("/{sessionId}/submit")
     public ApiResponse<Void> submitSession(
@@ -87,6 +93,7 @@ public class FinderController {
         return ApiResponse.success();
     }
 
+    @Override
     @PostMapping("/{sessionId}/route")
     public ApiResponse<Void> recordRoute(
             @AuthenticationPrincipal CustomOAuth2User user,
@@ -98,6 +105,7 @@ public class FinderController {
         return ApiResponse.success();
     }
 
+    @Override
     @GetMapping("/{sessionId}/route")
     public ApiResponse<List<FinderRoutePointResponseDto>> getRoute(
             @AuthenticationPrincipal CustomOAuth2User user,
@@ -107,6 +115,7 @@ public class FinderController {
         return ApiResponse.success(finderService.getRoute(user.getUserId(), realId));
     }
 
+    @Override
     @AuditLog(action = LogActionType.FINDER_SESSION_CANCEL)
     @DeleteMapping("/{sessionId}")
     public ApiResponse<Void> cancelSession(

@@ -2,6 +2,7 @@ package com.jiburo.server.domain.notification.dto;
 
 import com.jiburo.server.domain.notification.domain.Notification;
 import com.jiburo.server.global.util.HashidsUtils;
+import io.swagger.v3.oas.annotations.media.Schema;
 import org.hibernate.annotations.Comment;
 
 import java.time.LocalDateTime;
@@ -13,21 +14,27 @@ import java.util.List;
  */
 public record NotificationResponseDto(
         @Comment("알림 ID")
+        @Schema(description = "알림 ID")
         String id,
 
         @Comment("알림 유형 (번역 키)")
+        @Schema(description = "알림 유형 (번역 키)")
         String typeCode,
 
         @Comment("메시지 치환 인자 리스트")
+        @Schema(description = "메시지 치환 인자 리스트")
         List<String> args,
 
         @Comment("이동 대상 ID")
+        @Schema(description = "이동 대상 ID")
         Long targetId,
 
         @Comment("읽음 여부")
+        @Schema(description = "읽음 여부")
         boolean isRead,
 
         @Comment("알림 생성 시간")
+        @Schema(description = "알림 생성 시간")
         LocalDateTime createdAt
 ) {
     public static NotificationResponseDto from(Notification notification) {

@@ -15,22 +15,11 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/common-codes")
 @Tag(name = "Common-Code", description = "공통 코드 관련 API")
-public class CommonCodeController {
+public class CommonCodeController implements CommonCodeControllerDocs {
 
     private final CommonCodeCache commonCodeCache;
 
-    /**
-     * 전체 공통코드 조회 (Flutter 앱 시작 시 1회 호출 → 로컬 캐싱)
-     *
-     * GET /api/v1/common-codes
-     *
-     * 응답 예시:
-     * {
-     *   "ANIMAL": [{ "code": "DOG" }, { "code": "CAT" }],
-     *   "STATUS": [{ "code": "LOST" }, { "code": "COMPLETE" }],
-     *   "BADGE":  [{ "code": "BEGINNER", "ref1": "0" }, ...]
-     * }
-     */
+    @Override
     @GetMapping
     public ApiResponse<Map<String, List<CommonCodeResponseDto>>> getAllCodes() {
         Map<String, List<CommonCodeResponseDto>> result = commonCodeCache.getAll()
@@ -45,11 +34,7 @@ public class CommonCodeController {
         return ApiResponse.success(result);
     }
 
-    /**
-     * 특정 그룹의 코드 목록 조회 (드롭다운 등 개별 용도)
-     *
-     * GET /api/v1/common-codes/{group}
-     */
+    @Override
     @GetMapping("/{group}")
     public ApiResponse<List<CommonCodeResponseDto>> getCodesByGroup(@PathVariable String group) {
         List<CommonCodeResponseDto> result = commonCodeCache.getGroup(group.toUpperCase())
@@ -60,11 +45,7 @@ public class CommonCodeController {
         return ApiResponse.success(result);
     }
 
-    /**
-     * 공통코드 캐시 수동 리로드 (DB에서 운영 설정값 수정 후 호출)
-     *
-     * POST /api/v1/common-codes/reload
-     */
+    @Override
     @PostMapping("/reload")
     public ApiResponse<Void> reload() {
         commonCodeCache.reload();

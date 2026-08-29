@@ -4,17 +4,18 @@ import com.jiburo.server.domain.chat.domain.ChatMessage;
 import com.jiburo.server.domain.chat.domain.ChatRoom;
 import com.jiburo.server.domain.post.domain.enums.PostStatus;
 import com.jiburo.server.global.util.HashidsUtils;
+import io.swagger.v3.oas.annotations.media.Schema;
 import org.springframework.data.domain.Slice;
 
 import java.util.List;
 
 public record ChatRoomDetailDto(
-        String roomId,
-        String postId,
-        String postTitle,
-        PostStatus postStatusCode,
-        List<ChatMessageResponseDto> messageHistory,
-        boolean hasNext // 다음 페이지 존재 여부
+        @Schema(description = "채팅방 ID (인코딩된 문자열)") String roomId,
+        @Schema(description = "채팅방과 연결된 게시글 ID (인코딩된 문자열)") String postId,
+        @Schema(description = "게시글 제목") String postTitle,
+        @Schema(description = "게시글 상태 코드") PostStatus postStatusCode,
+        @Schema(description = "메시지 내역") List<ChatMessageResponseDto> messageHistory,
+        @Schema(description = "다음 페이지 존재 여부") boolean hasNext
 ) {
     public static ChatRoomDetailDto from(ChatRoom room, Slice<ChatMessage> messages, Long partnerLastReadId) {
         return new ChatRoomDetailDto(

@@ -19,10 +19,11 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
 @Tag(name = "Auth", description = "사용자(유저) 관련 API")
-public class AuthController {
+public class AuthController implements AuthControllerDocs {
 
     private final AuthService authService;
 
+    @Override
     @PostMapping("/reissue")
     @AuditLog(action = LogActionType.AUTH_REISSUE)
     public ApiResponse<TokenResponseDto> reissue(@RequestBody TokenRequestDto requestDto) {
@@ -30,7 +31,7 @@ public class AuthController {
         return ApiResponse.success(tokenDto);
     }
 
-    // 안드로이드 앱이 Kakao SDK로 직접 로그인 후 발급받은 accessToken을 검증해 자체 JWT를 발급
+    @Override
     @PostMapping("/login/kakao")
     public ApiResponse<TokenResponseDto> kakaoLogin(@Valid @RequestBody KakaoLoginRequestDto requestDto) {
         TokenResponseDto tokenDto = authService.kakaoLogin(requestDto);

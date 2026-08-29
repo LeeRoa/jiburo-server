@@ -19,11 +19,12 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/notifications")
 @Tag(name = "Notification", description = "알람 관련 API")
-public class NotificationController {
+public class NotificationController implements NotificationControllerDocs {
 
     private final NotificationService notificationService;
 
     // [내 알림 목록 조회]
+    @Override
     @GetMapping
     public ApiResponse<Slice<NotificationResponseDto>> getNotifications(
             @AuthenticationPrincipal CustomOAuth2User user,
@@ -33,6 +34,7 @@ public class NotificationController {
     }
 
     // [안 읽은 알림 개수 조회]
+    @Override
     @GetMapping("/unread-count")
     public ApiResponse<Long> getUnreadCount(@AuthenticationPrincipal CustomOAuth2User user) {
         return ApiResponse.success(notificationService.getUnreadCount(user.getUserId()));

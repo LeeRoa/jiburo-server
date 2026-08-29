@@ -18,9 +18,10 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/images")
 @RequiredArgsConstructor
 @Tag(name = "Image", description = "이미지 스토리지 작업 관련 API")
-public class ImageController {
+public class ImageController implements ImageControllerDocs {
     private final ImageStorageService imageStorageService;
 
+    @Override
     @PostMapping("/presigned-url")
     public ApiResponse<PresignedUrlResponseDto> getPresignedUrl(
             @AuthenticationPrincipal CustomOAuth2User user,
@@ -28,6 +29,7 @@ public class ImageController {
         return ApiResponse.success(imageStorageService.createPresignedUrl(user.getUserId(), request));
     }
 
+    @Override
     @PostMapping("/complete")
     public ApiResponse<Void> completeUpload(
             @AuthenticationPrincipal CustomOAuth2User user,

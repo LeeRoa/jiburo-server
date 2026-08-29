@@ -23,7 +23,7 @@ import java.util.List;
 @RequestMapping("/api/v1/chat/rooms")
 @RequiredArgsConstructor
 @Tag(name = "Chat", description = "채팅 관련 API")
-public class ChatRoomController {
+public class ChatRoomController implements ChatRoomControllerDocs {
 
     private final ChatRoomService chatRoomService;
 
@@ -31,6 +31,7 @@ public class ChatRoomController {
      * [POST] 채팅방 생성
      * @param requestDto postId (Hashids String) 포함
      */
+    @Override
     @AuditLog(action = LogActionType.CHAT_ROOM_CREATE)
     @PostMapping
     public ApiResponse<ChatRoomListDto> createRoom(
@@ -43,6 +44,7 @@ public class ChatRoomController {
     /**
      * [GET] 내 채팅방 목록 조회
      */
+    @Override
     @GetMapping
     public ApiResponse<List<ChatRoomListDto>> getMyRooms(
             @AuthenticationPrincipal CustomOAuth2User user) {
@@ -54,6 +56,7 @@ public class ChatRoomController {
      * [GET] 채팅 메시지 내역 조회
      * @param roomId Hashids String
      */
+    @Override
     @GetMapping("/{roomId}/messages")
     public ApiResponse<ChatRoomDetailDto> getRoomMessages(
             @PathVariable String roomId,
@@ -65,6 +68,7 @@ public class ChatRoomController {
     /**
      * [GET] 채팅 메시지 키워드 검색
      */
+    @Override
     @GetMapping("/{roomId}/messages/search")
     public ApiResponse<Slice<ChatMessageResponseDto>> searchMessages(
             @PathVariable String roomId,
@@ -78,6 +82,7 @@ public class ChatRoomController {
      * [DELETE] 채팅방 나가기
      * @param roomId Hashids String
      */
+    @Override
     @AuditLog(action = LogActionType.CHAT_ROOM_EXIT)
     @DeleteMapping("/{roomId}")
     public ApiResponse<Void> exitRoom(

@@ -17,12 +17,13 @@ import java.util.List;
 @RequestMapping("/api/v1/posts")
 @RequiredArgsConstructor
 @Tag(name = "SearchHistory", description = "검색 기록 API")
-public class SearchHistoryController {
+public class SearchHistoryController implements SearchHistoryControllerDocs {
 
     private final SearchHistoryService searchHistoryService;
 
     // ───────────── 키워드 검색 기록 ─────────────
 
+    @Override
     @GetMapping("/search/history")
     public ApiResponse<List<String>> getKeywordHistory(
             @AuthenticationPrincipal CustomOAuth2User user
@@ -31,6 +32,7 @@ public class SearchHistoryController {
         return ApiResponse.success(searchHistoryService.getKeywords(user.getUserId()));
     }
 
+    @Override
     @DeleteMapping("/search/history")
     public ApiResponse<Void> deleteAllKeywordHistory(
             @AuthenticationPrincipal CustomOAuth2User user
@@ -40,6 +42,7 @@ public class SearchHistoryController {
         return ApiResponse.success();
     }
 
+    @Override
     @DeleteMapping("/search/history/{keyword}")
     public ApiResponse<Void> deleteKeywordHistory(
             @AuthenticationPrincipal CustomOAuth2User user,
@@ -52,6 +55,7 @@ public class SearchHistoryController {
 
     // ───────────── 위치 검색 기록 ─────────────
 
+    @Override
     @GetMapping("/location-history")
     public ApiResponse<List<LocationHistoryResponseDto>> getLocationHistory(
             @AuthenticationPrincipal CustomOAuth2User user
@@ -60,6 +64,7 @@ public class SearchHistoryController {
         return ApiResponse.success(searchHistoryService.getLocations(user.getUserId()));
     }
 
+    @Override
     @DeleteMapping("/location-history")
     public ApiResponse<Void> deleteAllLocationHistory(
             @AuthenticationPrincipal CustomOAuth2User user
@@ -70,6 +75,7 @@ public class SearchHistoryController {
     }
 
     // key 형식: "{lat4dp}_{lng4dp}_{radius1dp}" (예: 37.5665_126.9780_3.0)
+    @Override
     @DeleteMapping("/location-history/{key}")
     public ApiResponse<Void> deleteLocationHistory(
             @AuthenticationPrincipal CustomOAuth2User user,
@@ -82,6 +88,7 @@ public class SearchHistoryController {
 
     // ───────────── 검색 기록 활성/비활성 설정 ─────────────
 
+    @Override
     @GetMapping("/search/history/enabled")
     public ApiResponse<Boolean> getHistoryEnabled(
             @AuthenticationPrincipal CustomOAuth2User user
@@ -91,6 +98,7 @@ public class SearchHistoryController {
     }
 
     // 현재 상태를 반전시키고 새 상태를 반환
+    @Override
     @PostMapping("/search/history/toggle")
     public ApiResponse<Boolean> toggleHistoryEnabled(
             @AuthenticationPrincipal CustomOAuth2User user

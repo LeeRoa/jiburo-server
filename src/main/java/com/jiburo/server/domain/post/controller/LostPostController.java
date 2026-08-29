@@ -31,13 +31,14 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/posts")
 @Tag(name = "LostPost", description = "분실 게시글 관련 API")
-public class LostPostController {
+public class LostPostController implements LostPostControllerDocs {
 
     private final LostPostService lostPostService;
     private final SearchHistoryService searchHistoryService;
     private final FinderService finderService;
 
     // [등록]
+    @Override
     @AuditLog(action = LogActionType.POST_CREATE)
     @PostMapping
     public ApiResponse<String> createPost(
@@ -50,6 +51,7 @@ public class LostPostController {
     }
 
     // [전체 조회]
+    @Override
     @GetMapping("/search")
     public ApiResponse<Page<LostPostResponseDto>> getPosts(
             @ModelAttribute LostPostSearchCondition condition,
@@ -64,6 +66,7 @@ public class LostPostController {
     }
 
     // [단건 조회]
+    @Override
     @GetMapping("/{id}")
     public ApiResponse<LostPostResponseDto> getPost(
             @PathVariable String id,
@@ -75,6 +78,7 @@ public class LostPostController {
     }
 
     // [좋아요 토글] - liked: true(좋아요), false(취소)
+    @Override
     @PostMapping("/{id}/like")
     public ApiResponse<Boolean> toggleLike(
             @AuthenticationPrincipal CustomOAuth2User user,
@@ -86,6 +90,7 @@ public class LostPostController {
     }
 
     // [관심 게시글 목록]
+    @Override
     @GetMapping("/liked")
     public ApiResponse<Page<LostPostResponseDto>> getLikedPosts(
             @AuthenticationPrincipal CustomOAuth2User user,
@@ -96,6 +101,7 @@ public class LostPostController {
     }
 
     // [수정]
+    @Override
     @AuditLog(action = LogActionType.POST_UPDATE)
     @PatchMapping("/{id}")
     public ApiResponse<Void> updatePost(
@@ -109,6 +115,7 @@ public class LostPostController {
     }
 
     // [상태 변경]
+    @Override
     @AuditLog(action = LogActionType.POST_STATUS_CHANGE)
     @PatchMapping("/{id}/status")
     public ApiResponse<Void> updateStatus(
@@ -122,6 +129,7 @@ public class LostPostController {
     }
 
     // [삭제]
+    @Override
     @AuditLog(action = LogActionType.POST_DELETE)
     @DeleteMapping("/{id}")
     public ApiResponse<Void> deletePost(
@@ -134,12 +142,14 @@ public class LostPostController {
     }
 
     // 지도 이동 시 호출 (마커용)
+    @Override
     @GetMapping("/map")
     public ApiResponse<List<LostPostResponseDto>> getMapPosts(@ModelAttribute LostPostMapRequestDto request) {
         return ApiResponse.success(lostPostService.getPostsForMap(request));
     }
 
     // 게시글 작성자용: 해당 게시글의 파인더 탐색 세션 목록
+    @Override
     @GetMapping("/{id}/finder-sessions")
     public ApiResponse<Slice<FinderSessionResponseDto>> getFinderSessions(
             @AuthenticationPrincipal CustomOAuth2User user,
@@ -152,6 +162,7 @@ public class LostPostController {
     }
 
     // 마커 클릭 시 호출 (리스트용)
+    @Override
     @GetMapping("/nearby")
     public ApiResponse<Slice<LostPostResponseDto>> getNearbyPosts(
             @ModelAttribute LostPostNearbyRequestDto request,

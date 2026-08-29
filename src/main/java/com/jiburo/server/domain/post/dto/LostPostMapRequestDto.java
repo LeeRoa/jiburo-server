@@ -1,9 +1,13 @@
 package com.jiburo.server.domain.post.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 public record LostPostMapRequestDto(
-        Double minLat, Double maxLat,
-        Double minLng, Double maxLng,
-        Integer limit
+        @Schema(description = "뷰포트 최소 위도") Double minLat,
+        @Schema(description = "뷰포트 최대 위도") Double maxLat,
+        @Schema(description = "뷰포트 최소 경도") Double minLng,
+        @Schema(description = "뷰포트 최대 경도") Double maxLng,
+        @Schema(description = "최대 조회 개수 (기본 100)") Integer limit
 ) {
     public LostPostMapRequestDto {
         if (limit == null) limit = 100; // 지도에는 좀 더 많이 (기본 100개)
