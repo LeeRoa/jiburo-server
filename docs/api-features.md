@@ -7,6 +7,7 @@
 ## 목차
 
 - [Auth — 인증/인가](#auth--인증인가)
+- [User — 마이페이지](#user--마이페이지)
 - [Post — 분실 게시글](#post--분실-게시글)
 - [Chat — 채팅](#chat--채팅)
 - [Notification — 알림](#notification--알림)
@@ -31,6 +32,39 @@
 
 ---
 
+## User — 마이페이지
+
+### REST API (`/api/v1/users/me`) — 전부 인증 필요
+
+| 기능 | 메서드 | 경로 |
+|---|---|---|
+| 내 프로필 조회 | `GET` | `/api/v1/users/me` |
+| 내 프로필 수정 (닉네임/이미지) | `PATCH` | `/api/v1/users/me` |
+| 알림·위치 설정 조회 | `GET` | `/api/v1/users/me/settings` |
+| 알림·위치 설정 변경 | `PATCH` | `/api/v1/users/me/settings` |
+| 내 게시물 목록 | `GET` | `/api/v1/users/me/posts` |
+| 내 활동(탐색 세션) 목록 | `GET` | `/api/v1/users/me/activities` |
+| 회원 탈퇴 | `DELETE` | `/api/v1/users/me` |
+
+> - `PATCH` 요청의 필드는 모두 optional — `null`이면 기존 값을 유지합니다.
+> - 닉네임 중복 시 `DUPLICATE_NICKNAME`(409). 본인의 현재 닉네임을 그대로 보내면 중복 검사를 건너뜁니다.
+> - `내 게시물`은 `/api/v1/posts/search`와 동일한 검색 조건(`statusCode`, `keyword` 등)을 지원하며, 작성자는 항상 로그인 사용자로 강제됩니다.
+> - `내 활동`은 파인더 탐색 세션 이력(`/api/v1/finder/sessions`와 동일한 응답)입니다.
+
+### 회원 탈퇴 정책 (soft delete)
+
+```
+DELETE /api/v1/users/me
+  ├─ isDeleted = true, deletedAt = now
+  ├─ oauthId → "withdrawn_{uuid}" (같은 소셜 계정으로 재가입 가능)
+  ├─ nickname → "탈퇴한 사용자", email/profileImageUrl → null
+  └─ 작성한 게시글 / 채팅 기록은 그대로 유지 (FK 무결성 보존)
+```
+
+탈퇴한 사용자는 `/api/v1/users/me` 계열 API에서 `USER_NOT_FOUND`(404)를 받습니다.
+
+---
+
 ## Post — 분실 게시글
 
 ### REST API (`/api/v1/posts`)
@@ -38,7 +72,7 @@
 | 기능 | 메서드 | 경로 | 인증 |
 |---|---|---|---|
 | 게시글 등록 | `POST` | `/api/v1/posts` | 필요 |
-| 게시글 검색/목록 (페이징) | `GET` | `/api/v1/posts/search` | 선택 |
+| 게시글 검색/목록 (페이징) | `GET` | `/api/v1/posts/search` | 선택 (`mineOnly=true`면 필요) |
 | 게시글 단건 조회 | `GET` | `/api/v1/posts/{id}` | 선택 |
 | 게시글 수정 | `PATCH` | `/api/v1/posts/{id}` | 필요 |
 | 게시글 상태 변경 | `PATCH` | `/api/v1/posts/{id}/status` | 필요 |
@@ -181,6 +215,7 @@
 | 도메인 | 엔드포인트 수 | 인증 필요 |
 |---|---|---|
 | Auth | 4 (OAuth2 3 + REST 1) | 일부 |
+| User (마이페이지) | 7 | 전체 |
 | Post | 10 | 일부 |
 | Chat (REST) | 4 | 전체 |
 | Chat (STOMP) | 4채널 | 전체 (STOMP CONNECT 시 JWT) |
@@ -188,4 +223,4 @@
 | Image | 2 | 전체 |
 | Common Code | 2 | 불필요 |
 | Search History | 6 | 전체 |
-| **합계** | **30 REST + 4 STOMP채널** | |
+| **합계** | **37 REST + 4 STOMP채널** | |
