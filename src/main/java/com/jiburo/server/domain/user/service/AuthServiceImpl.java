@@ -43,7 +43,7 @@ public class AuthServiceImpl implements AuthService {
     private final UserRepository userRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final HttpServletRequest request;
-    private final RestClient.Builder restClientBuilder;
+    private final RestClient kakaoRestClient;
 
     @Override
     @Transactional
@@ -105,7 +105,7 @@ public class AuthServiceImpl implements AuthService {
     @SuppressWarnings("unchecked")
     private Map<String, Object> fetchKakaoUserInfo(String kakaoAccessToken) {
         try {
-            return restClientBuilder.build()
+            return kakaoRestClient
                     .get()
                     .uri(KAKAO_USER_INFO_URI)
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + kakaoAccessToken)
