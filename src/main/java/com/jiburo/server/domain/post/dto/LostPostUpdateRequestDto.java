@@ -7,38 +7,40 @@ import com.jiburo.server.domain.post.domain.enums.PostStatus;
 import com.jiburo.server.domain.post.dto.detail.AnimalDetailDto;
 import com.jiburo.server.domain.post.dto.detail.TargetDetailDto;
 import com.jiburo.server.global.error.JiburoException;
+import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.LocalDate;
+import java.util.List;
 
 import static com.jiburo.server.global.error.ErrorCode.FEATURE_NOT_READY;
 import static com.jiburo.server.global.error.ErrorCode.POST_CATEGORY_INVALID;
 
 public record LostPostUpdateRequestDto(
-        String title,
-        String content,
-        String imageUrl,
-        PostStatus statusCode,
+        @Schema(description = "게시글 제목") String title,
+        @Schema(description = "실종정보에 대한 상세 설명") String content,
+        @Schema(description = "게시글 이미지 URL 목록 (0번째가 대표 이미지). null이면 이미지 유지, 빈 리스트면 전체 삭제") List<String> imageUrls, // null이면 이미지 유지, 빈 리스트면 전체 삭제 (LostPostCreateRequestDto와 동일한 규칙)
+        @Schema(description = "게시글 상태") PostStatus statusCode,
 
-        CategoryType categoryCode, // 대분류 (ANIMAL, PERSON...)
+        @Schema(description = "대분류 코드") CategoryType categoryCode, // 대분류 (ANIMAL, PERSON...)
 
         // --- 상세 정보 필드들 ---
-        String name, // 반려동물 이름
-        AnimalType animalTypeCode,
-        String animalTypeCustom, // animalTypeCode가 ETC일 때 직접 입력한 종
-        String breed,
-        GenderType genderCode,
-        String color,
-        Integer age,
-        Double weight,
-        Boolean isBiting, // 무는지 여부
+        @Schema(description = "반려동물 이름", example = "레이") String name, // 반려동물 이름
+        @Schema(description = "실종동물 종류. 강아지/고양이가 아니면 ETC + animalTypeCustom") AnimalType animalTypeCode,
+        @Schema(description = "animalTypeCode가 ETC일 때 사용자가 직접 입력한 동물 종류", example = "이구아나") String animalTypeCustom, // animalTypeCode가 ETC일 때 직접 입력한 종
+        @Schema(description = "품종/종 구분", example = "리트리버") String breed,
+        @Schema(description = "성별") GenderType genderCode,
+        @Schema(description = "털색") String color,
+        @Schema(description = "나이") Integer age,
+        @Schema(description = "몸무게 (kg)") Double weight,
+        @Schema(description = "무는지 여부 (제보자 안전 안내용)") Boolean isBiting, // 무는지 여부
 
         // --- 위치 및 기타 정보 ---
-        Double latitude,
-        Double longitude,
-        String foundLocation,
+        @Schema(description = "실종/발견 위치 위도") Double latitude,
+        @Schema(description = "실종/발견 위치 경도") Double longitude,
+        @Schema(description = "실종/발견 장소 주소 텍스트") String foundLocation,
 
-        LocalDate lostDate,
-        int reward
+        @Schema(description = "실종/발견 날짜") LocalDate lostDate,
+        @Schema(description = "사례금 (원 단위)") int reward
 ) {
 
     public TargetDetailDto toDetail() {
@@ -47,10 +49,10 @@ public record LostPostUpdateRequestDto(
             // [CASE 1] 동물일 때
             case ANIMAL -> AnimalDetailDto.builder()
                     .name(this.name)
-                    .animalType(this.animalTypeCode)
+                    .animalTypeCode(this.animalTypeCode)
                     .animalTypeCustom(this.animalTypeCustom)
                     .breed(this.breed)
-                    .gender(this.genderCode)
+                    .genderCode(this.genderCode)
                     .color(this.color)
                     .age(this.age)
                     .weight(this.weight)

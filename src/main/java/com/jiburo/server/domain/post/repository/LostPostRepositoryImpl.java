@@ -48,7 +48,7 @@ public class LostPostRepositoryImpl implements LostPostRepositoryCustom {
 
     // [보안/유효성] 검색을 허용할 JSON Key 목록 (화이트리스트)
     private static final Set<String> ALLOWED_JSON_KEYS = Set.of(
-            "name", "animalType", "breed", "gender", "color", "age", "isBiting", // 동물 관련 (name은 사람 확장 시 공용)
+            "name", "animalTypeCode", "breed", "genderCode", "color", "age", "isBiting", // 동물 관련 (name은 사람 확장 시 공용)
             "clothing", "height",                             // 사람 관련 (확장 대비)
             "brand", "model"                                  // 물건 관련 (확장 대비)
     );

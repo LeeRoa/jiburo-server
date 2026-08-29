@@ -59,18 +59,23 @@ public class LostPostServiceImpl implements LostPostService {
         LostPost post = findPostByIdOrThrow(postId);
         validateWriter(post, userId);
 
-        // 엔티티 업데이트 호출
+        // 엔티티 업데이트 호출 (categoryCode가 없으면 상세정보도 변경하지 않음)
         post.update(
                 requestDto.title(),
                 requestDto.content(),
                 requestDto.categoryCode(),
-                requestDto.toDetail(),
+                requestDto.categoryCode() != null ? requestDto.toDetail() : null,
                 requestDto.latitude(),
                 requestDto.longitude(),
                 requestDto.foundLocation(),
                 requestDto.lostDate(),
                 requestDto.reward()
         );
+
+        // imageUrls가 null이면 이미지 유지, 명시적으로 보내면(빈 배열 포함) 갱신
+        if (requestDto.imageUrls() != null) {
+            post.updateImages(requestDto.imageUrls());
+        }
     }
 
     // TODO 분실 대상을 찾았을 경우 찾은 대상에게 뱃지를 줘야함.

@@ -11,6 +11,7 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.BatchSize;
 import org.hibernate.annotations.Comment;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
@@ -69,6 +70,8 @@ public class LostPost extends BaseTimeEntity {
     private String imageUrl;
 
     @OneToMany(mappedBy = "lostPost", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("order ASC")
+    @BatchSize(size = 50) // 목록/지도 조회 시 이미지 컬렉션 N+1 방지 (IN 절 배치 조회)
     private List<LostPostImage> images = new ArrayList<>();
 
     @Column(nullable = false)
