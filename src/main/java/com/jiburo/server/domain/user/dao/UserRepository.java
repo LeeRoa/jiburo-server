@@ -10,4 +10,8 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     // 소셜 로그인 ID로 유저를 찾는 메서드
     Optional<User> findByOauthId(String oauthId);
+
+    Optional<User> findByIdAndIsDeletedFalse(UUID id);
+
+    boolean existsByNicknameAndIsDeletedFalse(String nickname);
 }
