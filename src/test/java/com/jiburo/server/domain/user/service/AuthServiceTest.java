@@ -46,16 +46,14 @@ class AuthServiceTest {
     @Mock private UserRepository userRepository;
     @Mock private ApplicationEventPublisher eventPublisher;
     @Mock private HttpServletRequest request;
-    @Mock private RestClient.Builder restClientBuilder;
+    @Mock private RestClient kakaoRestClient;
 
-    private RestClient restClient;
     private RestClient.RequestHeadersUriSpec requestHeadersUriSpec;
     private RestClient.RequestHeadersSpec requestHeadersSpec;
     private RestClient.ResponseSpec responseSpec;
 
     @BeforeEach
     void setUpRestClientChain() {
-        restClient = mock(RestClient.class);
         requestHeadersUriSpec = mock(RestClient.RequestHeadersUriSpec.class);
         requestHeadersSpec = mock(RestClient.RequestHeadersSpec.class);
         responseSpec = mock(RestClient.ResponseSpec.class);
@@ -106,8 +104,7 @@ class AuthServiceTest {
     // ───────── kakaoLogin ─────────
 
     private void stubKakaoUserInfo(Map<String, Object> kakaoResponse) {
-        given(restClientBuilder.build()).willReturn(restClient);
-        given(restClient.get()).willReturn(requestHeadersUriSpec);
+        given(kakaoRestClient.get()).willReturn(requestHeadersUriSpec);
         given(requestHeadersUriSpec.uri(anyString())).willReturn(requestHeadersSpec);
         given(requestHeadersSpec.header(anyString(), any(String[].class))).willReturn(requestHeadersSpec);
         given(requestHeadersSpec.retrieve()).willReturn(responseSpec);
@@ -115,8 +112,7 @@ class AuthServiceTest {
     }
 
     private void stubKakaoUserInfoFailure(RuntimeException exception) {
-        given(restClientBuilder.build()).willReturn(restClient);
-        given(restClient.get()).willReturn(requestHeadersUriSpec);
+        given(kakaoRestClient.get()).willReturn(requestHeadersUriSpec);
         given(requestHeadersUriSpec.uri(anyString())).willReturn(requestHeadersSpec);
         given(requestHeadersSpec.header(anyString(), any(String[].class))).willReturn(requestHeadersSpec);
         given(requestHeadersSpec.retrieve()).willReturn(responseSpec);
