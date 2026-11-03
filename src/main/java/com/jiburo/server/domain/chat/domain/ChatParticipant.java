@@ -67,6 +67,13 @@ public class ChatParticipant extends BaseTimeEntity {
     }
 
     /**
+     * 나갔던 방에 다시 들어올 때 (같은 게시글로 같은 상대에게 채팅을 다시 시작한 경우)
+     */
+    public void rejoin() {
+        this.isExited = false;
+    }
+
+    /**
      * 읽음 시점 최신화 (과거 메시지 ID가 들어오면 무시하도록 방어 로직 추가)
      */
     public void updateLastRead(Long messageId) {

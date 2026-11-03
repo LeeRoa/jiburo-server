@@ -35,8 +35,9 @@ public class ChatMessageServiceImpl implements ChatMessageService {
         ChatRoom room = chatRoomRepository.findById(roomId)
                 .orElseThrow(() -> new JiburoException(ErrorCode.CHAT_ROOM_NOT_FOUND));
 
-        // 2. 보낸 사람이 이 방의 참여자가 맞는지 권한 체크
+        // 2. 보낸 사람이 이 방의 (나가지 않은) 참여자가 맞는지 권한 체크
         ChatParticipant participant = chatParticipantRepository.findByChatRoomIdAndUserId(roomId, senderId)
+                .filter(p -> !p.isExited())
                 .orElseThrow(() -> new JiburoException(ErrorCode.NOT_CHAT_PARTICIPANT));
 
         // 3. 메시지 엔티티 생성 및 저장 (DTO의 toEntity 활용)
@@ -57,6 +58,7 @@ public class ChatMessageServiceImpl implements ChatMessageService {
     public ChatReadDto.Response processReadReceipt(UUID userId, Long chatRoomId, Long messageId) {
 
         ChatParticipant participant = chatParticipantRepository.findByChatRoomIdAndUserId(chatRoomId, userId)
+                .filter(p -> !p.isExited())
                 .orElseThrow(() -> new JiburoException(ErrorCode.NOT_CHAT_PARTICIPANT));
 
         // DB 업데이트 (더티 체킹)

@@ -65,7 +65,13 @@ public class ChatRoomServiceImpl implements ChatRoomService {
 
         // 기존 방 존재 여부 확인
         return chatRoomRepository.findExistedRoom(postId, hostId, guest.getId())
-                .map(room -> ChatRoomListDto.from(room, guest.getNickname(), 0L))
+                .map(room -> {
+                    // 요청자가 예전에 나갔던 방이면 재입장 처리 (안 하면 목록/구독에서 영구히 제외됨)
+                    chatParticipantRepository.findByChatRoomIdAndUserId(room.getId(), hostId)
+                            .filter(ChatParticipant::isExited)
+                            .ifPresent(ChatParticipant::rejoin);
+                    return ChatRoomListDto.from(room, guest.getNickname(), 0L);
+                })
                 .orElseGet(() -> {
                     // 새 방 생성 및 참여자 등록
                     ChatRoom newRoom = chatRoomRepository.save(dto.toEntity(post, host));
@@ -96,6 +102,7 @@ public class ChatRoomServiceImpl implements ChatRoomService {
         // 2. 내 정보와 상대방 정보 추출 (한 번의 순회로 최적화 가능하지만, 2명이라 가독성 위주로 작성)
         ChatParticipant myPart = participants.stream()
                 .filter(p -> p.getUser().getId().equals(userId))
+                .filter(p -> !p.isExited())
                 .findFirst()
                 .orElseThrow(() -> new JiburoException(ErrorCode.NOT_CHAT_PARTICIPANT));
 
@@ -135,7 +142,7 @@ public class ChatRoomServiceImpl implements ChatRoomService {
     @Override
     public Slice<ChatMessageResponseDto> searchChatMessages(Long roomId, ChatMessageSearchCondition condition, UUID userId, Pageable pageable) {
         // 1. 권한 체크 (참여자가 아니면 예외 발생)
-        if (!chatParticipantRepository.existsByChatRoomIdAndUserId(roomId, userId)) {
+        if (!chatParticipantRepository.existsByChatRoomIdAndUserIdAndIsExitedFalse(roomId, userId)) {
             throw new JiburoException(ErrorCode.NOT_CHAT_PARTICIPANT);
         }
 
