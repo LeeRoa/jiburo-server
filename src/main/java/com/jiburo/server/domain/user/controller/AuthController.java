@@ -31,7 +31,6 @@ public class AuthController implements AuthControllerDocs {
 
     @Override
     @PostMapping("/reissue")
-    @AuditLog(action = LogActionType.AUTH_REISSUE)
     public ApiResponse<TokenResponseDto> reissue(@Valid @RequestBody TokenRequestDto requestDto) {
         TokenResponseDto tokenDto = authService.reissue(requestDto);
         return ApiResponse.success(tokenDto);

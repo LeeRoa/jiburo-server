@@ -79,6 +79,11 @@ public class AuthTokenService {
         }
     }
 
+    // 유효한 토큰의 sub(userId) — 감사 로그 등에서 사용
+    public UUID getUserId(String token) {
+        return jwtTokenProvider.getUserId(token);
+    }
+
     public boolean isBlacklisted(String accessToken) {
         return authTokenRedisRepository.isBlacklisted(accessToken);
     }

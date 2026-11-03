@@ -72,7 +72,9 @@ class AuthServiceTest {
     void 토큰_재발급은_RefreshToken만으로_AuthTokenService에_위임() {
         // given: accessToken 필드는 무시되고 refreshToken만 사용된다
         TokenRequestDto requestDto = new TokenRequestDto("ignored.access.token", "valid.refresh.token");
+        UUID userId = UUID.randomUUID();
         given(authTokenService.reissue("valid.refresh.token")).willReturn(tokens("new.access", "new.refresh"));
+        given(authTokenService.getUserId("new.access")).willReturn(userId);
 
         // when
         TokenResponseDto result = authService.reissue(requestDto);
@@ -80,6 +82,11 @@ class AuthServiceTest {
         // then
         assertThat(result.accessToken()).isEqualTo("new.access");
         assertThat(result.refreshToken()).isEqualTo("new.refresh");
+        // 재발급 감사 로그는 userId를 채워서 발행되어야 함 (audit_logs.user_id NOT NULL)
+        verify(eventPublisher).publishEvent(org.mockito.ArgumentMatchers.<Object>argThat(event ->
+                event instanceof com.jiburo.server.global.log.event.AuditLogEvent e
+                        && userId.equals(e.getUserId())
+                        && e.getAction() == com.jiburo.server.global.domain.enums.LogActionType.AUTH_REISSUE));
     }
 
     @Test

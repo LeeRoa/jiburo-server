@@ -45,7 +45,11 @@ public class AuthServiceImpl implements AuthService {
     public TokenResponseDto reissue(TokenRequestDto requestDto) {
         // Refresh Token만으로 사용자를 식별하고, Redis 저장값과 비교 후 새 토큰 쌍으로 교체한다.
         // (이전 버전처럼 만료된 Access Token의 클레임을 신뢰하지 않음)
-        return authTokenService.reissue(requestDto.refreshToken());
+        TokenResponseDto tokenDto = authTokenService.reissue(requestDto.refreshToken());
+
+        // 재발급 요청은 인증 전 시점이라 @AuditLog AOP가 userId를 알 수 없음 -> 새 토큰에서 꺼내 직접 발행
+        publishAuthLog(authTokenService.getUserId(tokenDto.accessToken()), LogActionType.AUTH_REISSUE, "Token Reissue");
+        return tokenDto;
     }
 
     @Override
@@ -104,12 +108,16 @@ public class AuthServiceImpl implements AuthService {
     }
 
     private void publishLoginLog(User user) {
+        publishAuthLog(user.getId(), LogActionType.AUTH_LOGIN, "Login(Kakao App): " + user.getNickname());
+    }
+
+    private void publishAuthLog(UUID userId, LogActionType action, String targetData) {
         try {
             eventPublisher.publishEvent(AuditLogEvent.builder()
-                    .userId(user.getId())
-                    .action(LogActionType.AUTH_LOGIN)
+                    .userId(userId)
+                    .action(action)
                     .clientIp(request.getRemoteAddr())
-                    .targetData("Login(Kakao App): " + user.getNickname())
+                    .targetData(targetData)
                     .build());
         } catch (Exception e) {
             log.error("로그 발행 실패", e);
