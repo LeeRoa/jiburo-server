@@ -48,6 +48,7 @@ class ChatRoomControllerTest {
     @MockitoBean private ChatRoomService chatRoomService;
     @MockitoBean private JpaMetamodelMappingContext jpaMetamodelMappingContext;
     @MockitoBean private JwtTokenProvider jwtTokenProvider;
+    @MockitoBean private com.jiburo.server.domain.user.service.AuthTokenService authTokenService;
     @MockitoBean private CustomOAuth2UserService customOAuth2UserService;
     @MockitoBean private OAuth2SuccessHandler oAuth2SuccessHandler;
     @MockitoBean private ClientRegistrationRepository clientRegistrationRepository;

@@ -18,6 +18,7 @@ public enum LogActionType implements CommonCodeType {
 
     AUTH_LOGIN("AUTH_LOGIN", "log.auth.login"),
     AUTH_REISSUE("AUTH_REISSUE", "log.auth.reissue"),
+    AUTH_LOGOUT("AUTH_LOGOUT", "log.auth.logout"),
 
     REPORT_CREATE("REPORT_CREATE", "log.report.create"),
     BADGE_UPGRADE("BADGE_UPGRADE", "log.badge.upgrade"),

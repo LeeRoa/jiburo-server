@@ -2,12 +2,10 @@ package com.jiburo.server.domain.user.service;
 
 import com.jiburo.server.domain.user.dao.UserRepository;
 import com.jiburo.server.domain.user.domain.User;
-import com.jiburo.server.domain.user.dto.CustomOAuth2User;
 import com.jiburo.server.domain.user.dto.KakaoLoginRequestDto;
 import com.jiburo.server.domain.user.dto.OAuthAttributes;
 import com.jiburo.server.domain.user.dto.TokenRequestDto;
 import com.jiburo.server.domain.user.dto.TokenResponseDto;
-import com.jiburo.server.domain.user.jwt.JwtTokenProvider;
 import com.jiburo.server.global.domain.enums.LogActionType;
 import com.jiburo.server.global.error.ErrorCode;
 import com.jiburo.server.global.error.JiburoException;
@@ -19,16 +17,13 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpHeaders;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
-import java.util.Collections;
 import java.util.Map;
+import java.util.UUID;
 
 @Slf4j
 @Service
@@ -39,39 +34,18 @@ public class AuthServiceImpl implements AuthService {
     private static final String KAKAO_REGISTRATION_ID = "kakao";
     private static final String KAKAO_USER_NAME_ATTRIBUTE = "id";
 
-    private final JwtTokenProvider jwtTokenProvider;
+    private final AuthTokenService authTokenService;
     private final UserRepository userRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final HttpServletRequest request;
     private final RestClient kakaoRestClient;
 
     @Override
-    @Transactional
+    @Transactional(readOnly = true)
     public TokenResponseDto reissue(TokenRequestDto requestDto) {
-        // 1. Refresh Token 검증
-        // (만료되었거나 조작된 토큰이면 여기서 false가 반환됨 -> 예외 발생)
-        if (!jwtTokenProvider.validateToken(requestDto.refreshToken())) {
-            throw new JiburoException(ErrorCode.INVALID_TOKEN);
-        }
-
-        // 2. Access Token에서 Authentication(유저 정보) 가져오기
-        // *중요*: Access Token이 만료되었어도, jwtTokenProvider.getAuthentication() 내부에서
-        // claims를 강제로 꺼내오도록 구현했기 때문에 정상적으로 동작합니다.
-        Authentication authentication = jwtTokenProvider.getAuthentication(requestDto.accessToken());
-
-        // 3. (선택사항) Redis나 DB에 저장된 Refresh Token이 있다면 여기서 비교
-        // String savedToken = redisRepository.findById(authentication.getName());
-        // if (!savedToken.equals(requestDto.refreshToken())) throw new BusinessException(...);
-
-        // 4. 새로운 토큰 생성
-        TokenResponseDto responseDto = jwtTokenProvider.generateTokenDto(authentication);
-
-        return TokenResponseDto.builder()
-                .grantType(responseDto.grantType())
-                .accessToken(responseDto.accessToken())
-                .refreshToken(responseDto.refreshToken())
-                .accessTokenExpiresIn(responseDto.accessTokenExpiresIn())
-                .build();
+        // Refresh Token만으로 사용자를 식별하고, Redis 저장값과 비교 후 새 토큰 쌍으로 교체한다.
+        // (이전 버전처럼 만료된 Access Token의 클레임을 신뢰하지 않음)
+        return authTokenService.reissue(requestDto.refreshToken());
     }
 
     @Override
@@ -84,22 +58,18 @@ public class AuthServiceImpl implements AuthService {
         // 2. 최초 로그인이면 신규 가입, 아니면 프로필 갱신
         User user = findOrCreateUser(attributes);
 
-        // 3. 웹 OAuth2 로그인과 동일한 형태의 Authentication 구성 (JWT sub = UUID)
-        CustomOAuth2User principal = new CustomOAuth2User(
-                user.getId(),
-                Collections.singleton(new SimpleGrantedAuthority(user.getRoleKey()))
-        );
-        Authentication authentication = new UsernamePasswordAuthenticationToken(
-                principal, null, principal.getAuthorities()
-        );
+        // 3. 토큰 발급 (Refresh Token은 Redis에 저장됨)
+        TokenResponseDto tokenDto = authTokenService.issueTokens(user);
 
-        // 4. 토큰 발급
-        TokenResponseDto tokenDto = jwtTokenProvider.generateTokenDto(authentication);
-
-        // 5. 로그인 감사 로그 발행 (@AuditLog AOP가 잡을 수 없는 로그인 시점이라 직접 발행)
+        // 4. 로그인 감사 로그 발행 (@AuditLog AOP가 잡을 수 없는 로그인 시점이라 직접 발행)
         publishLoginLog(user);
 
         return tokenDto;
+    }
+
+    @Override
+    public void logout(UUID userId, String accessToken) {
+        authTokenService.logout(userId, accessToken);
     }
 
     @SuppressWarnings("unchecked")

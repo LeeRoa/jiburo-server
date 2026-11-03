@@ -1,5 +1,6 @@
 package com.jiburo.server.domain.user.jwt;
 
+import com.jiburo.server.domain.user.service.AuthTokenService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -22,19 +23,27 @@ public class JwtFilter extends OncePerRequestFilter {
     public static final String BEARER_PREFIX = "Bearer ";
 
     private final JwtTokenProvider jwtTokenProvider;
+    private final AuthTokenService authTokenService;
 
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull FilterChain filterChain) throws ServletException, IOException {
 
-        // 1. Request Header에서 토큰 추출
         String jwt = resolveToken(request);
 
-        // 2. 토큰 유효성 검사 (유효하면 Authentication 객체를 가져와서 SecurityContext에 저장)
-        // 토큰이 없거나 유효하지 않아도, 일단 필터 체인은 계속 진행 (인증이 필요 없는 URL도 있기 때문에 에러 처리는 뒤의 Security 단계에서 함)
-        if (StringUtils.hasText(jwt) && jwtTokenProvider.validateToken(jwt)) {
-            Authentication authentication = jwtTokenProvider.getAuthentication(jwt);
-            SecurityContextHolder.getContext().setAuthentication(authentication);
-            log.debug("Security Context에 '{}' 인증 정보를 저장했습니다, uri: {}", authentication.getName(), request.getRequestURI());
+        // 유효한 Access Token(typ=access)이고 로그아웃(블랙리스트)되지 않았을 때만 인증 정보를 채운다.
+        // 실패해도 예외를 던지지 않고 체인을 계속 진행 -> 인증이 필요한 URL이면 EntryPoint가 401 응답.
+        if (StringUtils.hasText(jwt)) {
+            try {
+                if (jwtTokenProvider.validateAccessToken(jwt) && !authTokenService.isBlacklisted(jwt)) {
+                    Authentication authentication = jwtTokenProvider.getAuthentication(jwt);
+                    SecurityContextHolder.getContext().setAuthentication(authentication);
+                    log.debug("Security Context에 '{}' 인증 정보를 저장했습니다, uri: {}", authentication.getName(), request.getRequestURI());
+                }
+            } catch (RuntimeException e) {
+                // 잘못된 sub, Redis 장애 등 -> 인증 없이 진행 (fail-closed)
+                log.warn("JWT 인증 처리 실패: {}", e.getMessage());
+                SecurityContextHolder.clearContext();
+            }
         }
 
         filterChain.doFilter(request, response);
@@ -46,11 +55,11 @@ public class JwtFilter extends OncePerRequestFilter {
         return path.startsWith("/h2-console");
     }
 
-    // Request Header에서 토큰 정보 꺼내오기
-    private String resolveToken(HttpServletRequest request) {
+    // Request Header에서 Bearer 토큰 추출 (없으면 null)
+    public static String resolveToken(HttpServletRequest request) {
         String bearerToken = request.getHeader(AUTHORIZATION_HEADER);
         if (StringUtils.hasText(bearerToken) && bearerToken.startsWith(BEARER_PREFIX)) {
-            return bearerToken.substring(7); // "Bearer " 이후의 문자열만 반환
+            return bearerToken.substring(BEARER_PREFIX.length());
         }
         return null;
     }

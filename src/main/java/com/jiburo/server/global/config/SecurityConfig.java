@@ -4,6 +4,7 @@ import com.jiburo.server.domain.user.jwt.JwtAuthenticationEntryPoint;
 import com.jiburo.server.domain.user.jwt.JwtFilter;
 import com.jiburo.server.domain.user.jwt.JwtTokenProvider;
 import com.jiburo.server.domain.user.jwt.OAuth2SuccessHandler;
+import com.jiburo.server.domain.user.service.AuthTokenService;
 import com.jiburo.server.domain.user.service.CustomOAuth2UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -33,6 +34,7 @@ public class SecurityConfig {
     private final OAuth2SuccessHandler oAuth2SuccessHandler;
     private final JwtTokenProvider jwtTokenProvider;
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
+    private final AuthTokenService authTokenService;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -77,7 +79,7 @@ public class SecurityConfig {
 
                 // [2] JWT Filter를 "UsernamePasswordAuthenticationFilter" 앞에 끼워넣기
                 // Username..Filter는 폼 로그인을 담당하는데, 우리는 그 전에 토큰 검사를 먼저 해야 함
-                .addFilterBefore(new JwtFilter(jwtTokenProvider), UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(new JwtFilter(jwtTokenProvider, authTokenService), UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }

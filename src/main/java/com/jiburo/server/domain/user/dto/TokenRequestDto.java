@@ -1,10 +1,16 @@
 package com.jiburo.server.domain.user.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotBlank;
 
 public record TokenRequestDto(
-        @Schema(description = "만료된 Access Token (만료 상태여도 클레임 추출용으로 사용됨)") String accessToken,
-        @Schema(description = "Refresh Token") String refreshToken
+        @Deprecated
+        @Schema(description = "(사용 안 함) 이전 버전 호환용 필드. 서버는 Refresh Token만으로 사용자를 식별합니다.", deprecated = true)
+        String accessToken,
+
+        @Schema(description = "Refresh Token")
+        @NotBlank
+        String refreshToken
 ) {
     @Override
     @SuppressWarnings("all")
