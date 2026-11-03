@@ -68,6 +68,7 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/ws-jiburo/**",
                                 "/api/v1/common-codes/**",
+                                "/api/v1/settings/public",  // 클라이언트 공개 운영 설정
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",

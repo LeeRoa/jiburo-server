@@ -32,6 +32,8 @@ public enum LogActionType implements CommonCodeType {
 
     // 관리자 작업 (관리자 API는 모두 ADMIN_ 접두사로 기록)
     ADMIN_COMMON_CODE_RELOAD("ADMIN_COMMON_CODE_RELOAD", "log.admin.common_code.reload"),
+    ADMIN_SETTING_UPDATE("ADMIN_SETTING_UPDATE", "log.admin.setting.update"),
+    ADMIN_SETTING_RESET("ADMIN_SETTING_RESET", "log.admin.setting.reset"),
 
     SPARE("SPARE", "log.spare");
 

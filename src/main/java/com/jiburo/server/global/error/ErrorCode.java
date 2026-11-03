@@ -17,6 +17,8 @@ public enum ErrorCode {
     INVALID_IDENTIFIER(HttpStatus.BAD_REQUEST, "error.global.invalid_identifier"),
     RESOURCE_NOT_FOUND(HttpStatus.NOT_FOUND, "error.global.not_found"),
     UNSUPPORTED_MEDIA_TYPE(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "error.global.unsupported_media_type"),
+    SETTING_NOT_FOUND(HttpStatus.NOT_FOUND, "error.setting.not_found"),
+    INVALID_SETTING_VALUE(HttpStatus.BAD_REQUEST, "error.setting.invalid_value"),
 
     // [2] Auth & User (인증 및 사용자)
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "error.auth.unauthorized"),
