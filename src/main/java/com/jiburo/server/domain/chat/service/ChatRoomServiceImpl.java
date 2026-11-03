@@ -118,7 +118,12 @@ public class ChatRoomServiceImpl implements ChatRoomService {
 
         // 4. 읽음 커서 갱신 및 상대방에게 실시간 알림 발송
         if (messages.hasContent()) {
-            Long latestMessageId = messages.getContent().get(0).getId(); // 최신 메시지 ID (DESC 정렬 기준)
+            // 이번에 조회한 메시지 중 가장 최신(ID 최대) 메시지까지 읽음 처리.
+            // 정렬 방향(기본 createdAt ASC / 클라이언트 지정 DESC)과 무관하게 동작해야 하므로 get(0) 대신 max 사용
+            Long latestMessageId = messages.getContent().stream()
+                    .mapToLong(ChatMessage::getId)
+                    .max()
+                    .getAsLong();
 
             // 내 커서 업데이트
             myPart.updateLastRead(latestMessageId);

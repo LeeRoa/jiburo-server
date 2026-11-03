@@ -49,11 +49,12 @@ public class ChatRoomRepositoryImpl implements ChatRoomRepositoryCustom {
                 .select(
                         chatRoom,
                         otherPart.user.nickname,
-                        // 서브쿼리: 내 마지막 읽은 시점 이후의 메시지 개수
+                        // 서브쿼리: 내 마지막 읽은 시점 이후, 상대방이 보낸 메시지 개수 (내 메시지는 제외)
                         JPAExpressions.select(message.count())
                                 .from(message)
                                 .where(message.chatRoom.id.eq(chatRoom.id)
-                                        .and(message.id.gt(myPart.lastReadMessageId)))
+                                        .and(message.id.gt(myPart.lastReadMessageId))
+                                        .and(message.sender.id.ne(userId)))
                 )
                 .from(chatRoom)
                 .join(chatRoom.participants, myPart)
