@@ -138,7 +138,7 @@ permitAll (인증 불필요):
 - `/ws-jiburo` → STOMP 엔드포인트 (CONNECT 시 `StompHandler`가 JWT 검증)
 - `/swagger-ui.html`, `/v3/api-docs/**` → Springdoc Swagger UI
 - `/oauth2/authorization/**`, `/login/oauth2/code/**` → Spring Security OAuth2 콜백
-- `/h2-console/**`, `/favicon.ico`, `/error`
+- `/favicon.ico`, `/error`
 
 인증 필요 (`@AuthenticationPrincipal CustomOAuth2User user`):
 - `/api/v1/chat/rooms/**` → `ChatRoomController`
