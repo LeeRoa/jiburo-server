@@ -13,4 +13,7 @@ public interface AuthService {
     TokenResponseDto kakaoLogin(KakaoLoginRequestDto requestDto);
 
     void logout(UUID userId, String accessToken);
+
+    // 웹 OAuth 로그인 1회용 code -> 토큰 교환
+    TokenResponseDto exchangeLoginCode(String code);
 }

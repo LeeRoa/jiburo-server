@@ -135,6 +135,39 @@ class AuthTokenServiceTest {
     }
 
     @Test
+    void 로그인_code는_추측_불가한_값이고_토큰은_Redis에만_저장된다() {
+        TokenResponseDto tokens = authTokenService.issueTokens(user);
+
+        String code = authTokenService.createLoginCode(tokens);
+
+        assertThat(code).hasSizeGreaterThanOrEqualTo(43) // 32바이트 base64url
+                .doesNotContain(tokens.accessToken())
+                .doesNotContain(tokens.refreshToken());
+        verify(redisRepository).saveLoginCode(eq(code), org.mockito.ArgumentMatchers.contains(tokens.accessToken()), anyLong());
+    }
+
+    @Test
+    void 로그인_code를_토큰으로_교환한다() throws Exception {
+        TokenResponseDto tokens = authTokenService.issueTokens(user);
+        String json = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(tokens);
+        given(redisRepository.consumeLoginCode("the-code")).willReturn(Optional.of(json));
+
+        TokenResponseDto result = authTokenService.exchangeLoginCode("the-code");
+
+        assertThat(result.accessToken()).isEqualTo(tokens.accessToken());
+        assertThat(result.refreshToken()).isEqualTo(tokens.refreshToken());
+    }
+
+    @Test
+    void 만료되었거나_이미_사용된_code는_INVALID_AUTH_CODE() {
+        given(redisRepository.consumeLoginCode("used-code")).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> authTokenService.exchangeLoginCode("used-code"))
+                .isInstanceOf(JiburoException.class)
+                .satisfies(ex -> assertThat(((JiburoException) ex).getErrorCode()).isEqualTo(ErrorCode.INVALID_AUTH_CODE));
+    }
+
+    @Test
     void 로그아웃시_AT가_없으면_블랙리스트_등록은_생략() {
         authTokenService.logout(userId, null);
 

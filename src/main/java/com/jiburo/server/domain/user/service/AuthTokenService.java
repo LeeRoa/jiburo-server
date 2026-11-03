@@ -1,5 +1,7 @@
 package com.jiburo.server.domain.user.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jiburo.server.domain.user.dao.AuthTokenRedisRepository;
 import com.jiburo.server.domain.user.dao.UserRepository;
 import com.jiburo.server.domain.user.domain.User;
@@ -14,6 +16,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.stereotype.Service;
 
+import java.security.SecureRandom;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.UUID;
 
@@ -27,9 +31,14 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class AuthTokenService {
 
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+    private static final int LOGIN_CODE_BYTES = 32;               // 256bit — 추측 불가
+    private static final long LOGIN_CODE_TTL_MILLIS = 60_000L;    // 1분: redirect 직후 바로 교환하는 용도
+
     private final JwtTokenProvider jwtTokenProvider;
     private final AuthTokenRedisRepository authTokenRedisRepository;
     private final UserRepository userRepository;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public TokenResponseDto issueTokens(User user) {
         CustomOAuth2User principal = new CustomOAuth2User(
@@ -76,6 +85,33 @@ public class AuthTokenService {
             authTokenRedisRepository.blacklistAccessToken(
                     accessToken, jwtTokenProvider.getRemainingValidityMillis(accessToken)
             );
+        }
+    }
+
+    /**
+     * 웹 OAuth 로그인 후 redirect URL에 실을 1회용 code 발급.
+     * 토큰 자체는 Redis에만 두고(TTL 짧음), 프론트가 code를 POST로 보내 교환한다.
+     */
+    public String createLoginCode(TokenResponseDto tokenDto) {
+        byte[] bytes = new byte[LOGIN_CODE_BYTES];
+        SECURE_RANDOM.nextBytes(bytes);
+        String code = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+        try {
+            authTokenRedisRepository.saveLoginCode(code, objectMapper.writeValueAsString(tokenDto), LOGIN_CODE_TTL_MILLIS);
+        } catch (JsonProcessingException e) {
+            throw new JiburoException(ErrorCode.INTERNAL_SERVER_ERROR);
+        }
+        return code;
+    }
+
+    // 1회용 code -> 토큰. 한 번 교환하면 즉시 삭제되고, 만료/재사용/위조 code는 INVALID_AUTH_CODE
+    public TokenResponseDto exchangeLoginCode(String code) {
+        String tokenJson = authTokenRedisRepository.consumeLoginCode(code)
+                .orElseThrow(() -> new JiburoException(ErrorCode.INVALID_AUTH_CODE));
+        try {
+            return objectMapper.readValue(tokenJson, TokenResponseDto.class);
+        } catch (JsonProcessingException e) {
+            throw new JiburoException(ErrorCode.INVALID_AUTH_CODE);
         }
     }
 

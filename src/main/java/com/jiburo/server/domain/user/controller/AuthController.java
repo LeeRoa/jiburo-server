@@ -2,6 +2,7 @@ package com.jiburo.server.domain.user.controller;
 
 import com.jiburo.server.domain.user.dto.CustomOAuth2User;
 import com.jiburo.server.domain.user.dto.KakaoLoginRequestDto;
+import com.jiburo.server.domain.user.dto.LoginCodeExchangeRequestDto;
 import com.jiburo.server.domain.user.dto.TokenRequestDto;
 import com.jiburo.server.domain.user.dto.TokenResponseDto;
 import com.jiburo.server.domain.user.jwt.JwtFilter;
@@ -41,6 +42,12 @@ public class AuthController implements AuthControllerDocs {
     public ApiResponse<TokenResponseDto> kakaoLogin(@Valid @RequestBody KakaoLoginRequestDto requestDto) {
         TokenResponseDto tokenDto = authService.kakaoLogin(requestDto);
         return ApiResponse.success(tokenDto);
+    }
+
+    @Override
+    @PostMapping("/token")
+    public ApiResponse<TokenResponseDto> exchangeLoginCode(@Valid @RequestBody LoginCodeExchangeRequestDto requestDto) {
+        return ApiResponse.success(authService.exchangeLoginCode(requestDto.code()));
     }
 
     @Override

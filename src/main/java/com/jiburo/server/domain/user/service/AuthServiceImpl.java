@@ -72,6 +72,11 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
+    public TokenResponseDto exchangeLoginCode(String code) {
+        return authTokenService.exchangeLoginCode(code);
+    }
+
+    @Override
     public void logout(UUID userId, String accessToken) {
         authTokenService.logout(userId, accessToken);
     }

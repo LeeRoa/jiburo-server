@@ -29,6 +29,7 @@ public enum ErrorCode {
     INVALID_TOKEN(HttpStatus.UNAUTHORIZED, "error.token.invalid"),
     EXPIRED_TOKEN(HttpStatus.UNAUTHORIZED, "error.token.expired"),
     INVALID_REFRESH_TOKEN(HttpStatus.UNAUTHORIZED, "error.token.refresh_invalid"),
+    INVALID_AUTH_CODE(HttpStatus.UNAUTHORIZED, "error.auth.invalid_code"),
 
     // [3] Animal & Map (유기동물 및 지도)
     ANIMAL_NOT_FOUND(HttpStatus.NOT_FOUND, "error.animal.not_found"),

@@ -54,10 +54,11 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         publishLoginLog(request, dbUser);
 
         // 4. 리다이렉트
-        // TODO 토큰이 URL 쿼리에 남는 문제 -> 1회용 code 교환 방식으로 전환 필요
+        // 토큰을 URL에 직접 싣으면 브라우저 기록/서버·프록시 로그/Referer에 남으므로
+        // 짧게 유효한 1회용 code만 전달하고, 프론트가 POST /api/v1/auth/token 으로 토큰을 교환한다.
+        String loginCode = authTokenService.createLoginCode(tokenDto);
         String targetUrl = UriComponentsBuilder.fromUriString(redirectUri)
-                .queryParam("accessToken", tokenDto.accessToken())
-                .queryParam("refreshToken", tokenDto.refreshToken())
+                .queryParam("code", loginCode)
                 .build().toUriString();
 
         getRedirectStrategy().sendRedirect(request, response, targetUrl);
