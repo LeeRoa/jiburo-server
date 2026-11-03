@@ -152,6 +152,38 @@ class LostPostServiceTest {
     }
 
     @Test
+    void 게시글_수정_시_reward를_보내지_않으면_기존_사례금_유지() {
+        // given: 제목만 수정 (reward = null)
+        LostPostUpdateRequestDto request = new LostPostUpdateRequestDto(
+                "제목만 수정", null, null, null,
+                null, null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null
+        );
+        given(lostPostRepository.findByIdAndDeletedFalse(1L)).willReturn(Optional.of(post));
+
+        // when
+        lostPostService.update(userId, 1L, request);
+
+        // then: 기존에는 primitive int라 0으로 덮어써졌음
+        assertThat(post.getTitle()).isEqualTo("제목만 수정");
+        assertThat(post.getReward()).isEqualTo(10000);
+    }
+
+    @Test
+    void 게시글_수정_시_reward를_0으로_보내면_0으로_변경() {
+        LostPostUpdateRequestDto request = new LostPostUpdateRequestDto(
+                null, null, null, null,
+                null, null, null, null, null, null, null, null, null, null,
+                null, null, null, null, 0
+        );
+        given(lostPostRepository.findByIdAndDeletedFalse(1L)).willReturn(Optional.of(post));
+
+        lostPostService.update(userId, 1L, request);
+
+        assertThat(post.getReward()).isZero();
+    }
+
+    @Test
     void 게시글_수정_시_작성자_아니면_POST_ACCESS_DENIED() {
         // given
         LostPostUpdateRequestDto request = new LostPostUpdateRequestDto(

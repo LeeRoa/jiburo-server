@@ -8,6 +8,7 @@ import com.jiburo.server.domain.post.dto.detail.AnimalDetailDto;
 import com.jiburo.server.domain.post.dto.detail.TargetDetailDto;
 import com.jiburo.server.global.error.JiburoException;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.PositiveOrZero;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -40,7 +41,7 @@ public record LostPostUpdateRequestDto(
         @Schema(description = "실종/발견 장소 주소 텍스트") String foundLocation,
 
         @Schema(description = "실종/발견 날짜") LocalDate lostDate,
-        @Schema(description = "사례금 (원 단위)") int reward
+        @Schema(description = "사례금 (원 단위). 보내지 않으면(null) 기존 값 유지, 0을 보내면 0으로 변경") @PositiveOrZero Integer reward
 ) {
 
     public TargetDetailDto toDetail() {

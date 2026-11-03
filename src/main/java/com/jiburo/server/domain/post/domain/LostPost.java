@@ -148,7 +148,7 @@ public class LostPost extends BaseTimeEntity {
                        CategoryType categoryCode,
                        TargetDetailDto detail,
                        Double latitude, Double longitude, String foundLocation,
-                       LocalDate lostDate, int reward) {
+                       LocalDate lostDate, Integer reward) {
 
         // Null 체크 후 업데이트
         if (title != null) this.title = title;
@@ -163,8 +163,8 @@ public class LostPost extends BaseTimeEntity {
         if (foundLocation != null) this.foundLocation = foundLocation;
         if (lostDate != null) this.lostDate = lostDate;
 
-        // primitive type인 int는 0이 올 수 있으므로 주의 (여기선 그냥 덮어쓰기)
-        this.reward = reward;
+        // null이면 기존 값 유지 (다른 필드와 동일한 PATCH 규칙). 0을 보내면 0으로 변경
+        if (reward != null) this.reward = reward;
     }
 
     // LostPost.java

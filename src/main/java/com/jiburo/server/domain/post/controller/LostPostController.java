@@ -107,7 +107,7 @@ public class LostPostController implements LostPostControllerDocs {
     public ApiResponse<Void> updatePost(
             @AuthenticationPrincipal CustomOAuth2User user,
             @PathVariable String id,
-            @RequestBody LostPostUpdateRequestDto requestDto
+            @Valid @RequestBody LostPostUpdateRequestDto requestDto
     ) {
         Long realId = HashidsUtils.decode(id);
         lostPostService.update(user.getUserId(), realId, requestDto);
