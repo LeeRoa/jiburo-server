@@ -160,6 +160,10 @@ public class LostPostServiceImpl implements LostPostService {
     // 리스트 렌더링용 (클릭 시 상세)
     @Override
     public Slice<LostPostResponseDto> getPostsForList(LostPostNearbyRequestDto request, UUID viewerId) {
+        // 중심 좌표가 없으면 박스 계산에서 NPE(500)가 나므로 400으로 거부
+        if (request.centerLat() == null || request.centerLng() == null || request.radius() <= 0) {
+            throw new JiburoException(ErrorCode.INVALID_INPUT_VALUE);
+        }
         Slice<LostPost> postSlice = lostPostRepository.searchByRadius(request, viewerId);
         return postSlice.map(LostPostResponseDto::from);
     }
