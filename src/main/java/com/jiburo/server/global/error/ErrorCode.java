@@ -40,6 +40,7 @@ public enum ErrorCode {
     FILE_UPLOAD_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "error.file.upload_failed"),
     INVALID_FILE_FORMAT(HttpStatus.BAD_REQUEST, "error.file.invalid_format"),
     INVALID_FILE_CODE(HttpStatus.BAD_REQUEST, "error.file.invalid_code"),
+    STORAGE_CAPACITY_EXCEEDED(HttpStatus.INSUFFICIENT_STORAGE, "error.file.storage_capacity_exceeded"),
 
     // [5] Chat & Community
     CHAT_ROOM_NOT_FOUND(HttpStatus.NOT_FOUND, "error.chat.room_not_found"),

@@ -104,7 +104,7 @@ class ImageStorageServiceTest {
     }
 
     @Test
-    void 용량_초과_시_IllegalStateException() {
+    void 용량_초과_시_STORAGE_CAPACITY_EXCEEDED() {
         // given
         long nearlyFull = 10L * 1024 * 1024 * 1024 - 100; // 10GB - 100bytes
         PresignedUrlRequestDto request =
@@ -114,7 +114,9 @@ class ImageStorageServiceTest {
 
         // when & then
         assertThatThrownBy(() -> imageStorageService.createPresignedUrl(userId, request))
-                .isInstanceOf(IllegalStateException.class);
+                .isInstanceOf(JiburoException.class)
+                .satisfies(ex -> assertThat(((JiburoException) ex).getErrorCode())
+                        .isEqualTo(ErrorCode.STORAGE_CAPACITY_EXCEEDED));
     }
 
     @Test

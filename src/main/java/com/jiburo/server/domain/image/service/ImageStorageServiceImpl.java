@@ -45,7 +45,7 @@ public class ImageStorageServiceImpl implements ImageStorageService {
 
         Long currentTotalSize = imageMetaRepository.sumTotalFileSize();
         if (currentTotalSize + request.fileSize() > MAX_CAPACITY_BYTES) {
-            throw new IllegalStateException("스토리지 전체 무료 용량(10GB)을 초과할 수 없습니다.");
+            throw new JiburoException(ErrorCode.STORAGE_CAPACITY_EXCEEDED);
         }
 
         User user = userRepository.findById(userId)

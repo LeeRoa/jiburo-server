@@ -37,11 +37,18 @@ public class HashidsUtils {
      * 클라이언트로부터 받은 문자열 주소를 DB 조회용 ID로 바꿀 때 사용.
      */
     public static Long decode(String hash) {
+        // 빈 값도 잘못된 식별자로 처리 (null을 돌려주면 findById(null)에서 500이 남)
         if (hash == null || hash.isBlank()) {
-            return null;
+            throw new JiburoException(ErrorCode.INVALID_IDENTIFIER);
         }
 
-        long[] decoded = hashids.decode(hash);
+        long[] decoded;
+        try {
+            decoded = hashids.decode(hash);
+        } catch (IllegalArgumentException e) {
+            // alphabet에 없는 문자가 섞인 경우
+            throw new JiburoException(ErrorCode.INVALID_IDENTIFIER);
+        }
 
         // 복호화에 실패했거나 (잘못된 문자열), 결과가 없는 경우
         if (decoded.length == 0) {

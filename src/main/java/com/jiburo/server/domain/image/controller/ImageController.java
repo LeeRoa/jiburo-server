@@ -7,6 +7,7 @@ import com.jiburo.server.domain.image.service.ImageStorageService;
 import com.jiburo.server.domain.user.dto.CustomOAuth2User;
 import com.jiburo.server.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -25,7 +26,7 @@ public class ImageController implements ImageControllerDocs {
     @PostMapping("/presigned-url")
     public ApiResponse<PresignedUrlResponseDto> getPresignedUrl(
             @AuthenticationPrincipal CustomOAuth2User user,
-            @RequestBody PresignedUrlRequestDto request) {
+            @Valid @RequestBody PresignedUrlRequestDto request) {
         return ApiResponse.success(imageStorageService.createPresignedUrl(user.getUserId(), request));
     }
 
@@ -33,7 +34,7 @@ public class ImageController implements ImageControllerDocs {
     @PostMapping("/complete")
     public ApiResponse<Void> completeUpload(
             @AuthenticationPrincipal CustomOAuth2User user,
-            @RequestBody ImageUploadCompleteRequestDto request) {
+            @Valid @RequestBody ImageUploadCompleteRequestDto request) {
         imageStorageService.completeUpload(user.getUserId(), request.fileKey());
         return ApiResponse.success();
     }
