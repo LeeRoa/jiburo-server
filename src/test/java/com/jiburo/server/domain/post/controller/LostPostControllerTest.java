@@ -102,6 +102,29 @@ class LostPostControllerTest {
         );
     }
 
+    // ───────── CORS ─────────
+
+    @Test
+    void 허용된_origin의_PATCH_preflight는_통과한다() throws Exception {
+        // 기존에는 허용 메서드에 PATCH가 없어 웹에서 게시글 수정/상태 변경이 preflight 단계에서 막혔음
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .options("/api/v1/posts/{id}/status", encodedId)
+                        .header("Origin", "https://jiburo.on-do.kro.kr")
+                        .header("Access-Control-Request-Method", "PATCH"))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                        .header().string("Access-Control-Allow-Origin", "https://jiburo.on-do.kro.kr"));
+    }
+
+    @Test
+    void 허용되지_않은_origin의_요청은_거부된다() throws Exception {
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .options("/api/v1/posts/{id}/status", encodedId)
+                        .header("Origin", "https://evil.example.com")
+                        .header("Access-Control-Request-Method", "PATCH"))
+                .andExpect(status().isForbidden());
+    }
+
     // ───────── PATCH /{id}/status ─────────
 
     @Test

@@ -7,6 +7,7 @@ import com.jiburo.server.domain.user.jwt.OAuth2SuccessHandler;
 import com.jiburo.server.domain.user.service.AuthTokenService;
 import com.jiburo.server.domain.user.service.CustomOAuth2UserService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -84,12 +85,21 @@ public class SecurityConfig {
         return http.build();
     }
 
+    /**
+     * CORS 허용 origin 목록 (app.cors.allowed-origins, 콤마 구분, 와일드카드 패턴 지원)
+     * - 운영: CORS_ALLOWED_ORIGINS 환경변수로 주입
+     * - 기본값: 운영 웹 도메인 + 로컬 프론트 개발 서버
+     * 모바일 앱(네이티브 HTTP 클라이언트)은 Origin 헤더를 보내지 않아 CORS 영향을 받지 않는다.
+     */
+    @Value("${app.cors.allowed-origins}")
+    private List<String> allowedOrigins;
+
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        configuration.setAllowedOriginPatterns(List.of("*"));
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        configuration.setAllowedOriginPatterns(allowedOrigins.stream().map(String::trim).filter(s -> !s.isEmpty()).toList());
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
 
