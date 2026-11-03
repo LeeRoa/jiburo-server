@@ -62,7 +62,7 @@ public interface LostPostControllerDocs {
     );
 
     @Operation(summary = "지도 마커용 게시글 조회", description = "지도 뷰포트(좌상단/우하단 좌표) 범위 내의 게시글 목록을 마커 표시용으로 조회합니다.")
-    ApiResponse<List<LostPostResponseDto>> getMapPosts(LostPostMapRequestDto request);
+    ApiResponse<List<LostPostResponseDto>> getMapPosts(LostPostMapRequestDto request, CustomOAuth2User user);
 
     @Operation(summary = "게시글 파인더 탐색 세션 목록 조회", description = "게시글 작성자가 해당 게시글에 대해 진행된 파인더(발견 도우미) 탐색 세션 목록을 조회합니다.")
     ApiResponse<Slice<FinderSessionResponseDto>> getFinderSessions(

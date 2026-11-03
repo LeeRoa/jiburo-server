@@ -94,6 +94,7 @@ class FinderServiceTest {
                 .latitude(37.5)
                 .longitude(127.0)
                 .foundLocation("서울 강남구")
+                .visibilityCode(com.jiburo.server.domain.post.domain.enums.VisibilityType.PUBLIC)
                 .build();
         ReflectionTestUtils.setField(post, "id", 1L);
 

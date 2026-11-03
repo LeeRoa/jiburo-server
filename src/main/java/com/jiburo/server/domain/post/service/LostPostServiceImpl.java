@@ -49,7 +49,7 @@ public class LostPostServiceImpl implements LostPostService {
 
     @Override
     public LostPostResponseDto findById(Long id, UUID userId) {
-        LostPost post = findPostByIdOrThrow(id);
+        LostPost post = findVisiblePostOrThrow(id, userId);
         long likeCount = postLikeRepository.countByLostPost_Id(post.getId());
         boolean isLiked = userId != null && postLikeRepository.existsByUser_IdAndLostPost_Id(userId, post.getId());
         return LostPostResponseDto.from(post, isLiked, likeCount);
@@ -131,7 +131,7 @@ public class LostPostServiceImpl implements LostPostService {
 
     @Override
     public Page<LostPostResponseDto> search(LostPostSearchCondition condition, Pageable pageable, UUID userId) {
-        Page<LostPost> posts = lostPostRepository.search(condition, pageable);
+        Page<LostPost> posts = lostPostRepository.search(condition, pageable, userId);
         if (posts.isEmpty()) {
             return posts.map(p -> LostPostResponseDto.from(p, false, 0L));
         }
@@ -151,23 +151,23 @@ public class LostPostServiceImpl implements LostPostService {
 
     // 지도 렌더링용 (마커 뿌리기)
     @Override
-    public List<LostPostResponseDto> getPostsForMap(LostPostMapRequestDto request) {
-        return lostPostRepository.searchByViewport(request).stream()
+    public List<LostPostResponseDto> getPostsForMap(LostPostMapRequestDto request, UUID viewerId) {
+        return lostPostRepository.searchByViewport(request, viewerId).stream()
                 .map(LostPostResponseDto::from)
                 .toList();
     }
 
     // 리스트 렌더링용 (클릭 시 상세)
     @Override
-    public Slice<LostPostResponseDto> getPostsForList(LostPostNearbyRequestDto request) {
-        Slice<LostPost> postSlice = lostPostRepository.searchByRadius(request);
+    public Slice<LostPostResponseDto> getPostsForList(LostPostNearbyRequestDto request, UUID viewerId) {
+        Slice<LostPost> postSlice = lostPostRepository.searchByRadius(request, viewerId);
         return postSlice.map(LostPostResponseDto::from);
     }
 
     @Override
     @Transactional
     public boolean toggleLike(UUID userId, Long postId) {
-        LostPost post = findPostByIdOrThrow(postId);
+        LostPost post = findVisiblePostOrThrow(postId, userId);
         return postLikeRepository.findByUser_IdAndLostPost_Id(userId, postId)
                 .map(like -> {
                     postLikeRepository.delete(like);
@@ -206,9 +206,17 @@ public class LostPostServiceImpl implements LostPostService {
                 ));
     }
 
-    // 삭제되지 않은 게시글 조회
+    // 삭제되지 않은 게시글 조회 (작성자 전용 작업: 수정/상태변경/삭제)
     private LostPost findPostByIdOrThrow(Long id) {
         return lostPostRepository.findByIdAndDeletedFalse(id)
+                .orElseThrow(() -> new JiburoException(ErrorCode.POST_NOT_FOUND));
+    }
+
+    // 삭제되지 않았고 viewer가 볼 수 있는 게시글 조회.
+    // 권한이 없으면 존재 자체를 숨기기 위해 403 대신 POST_NOT_FOUND(404)로 응답한다.
+    private LostPost findVisiblePostOrThrow(Long id, UUID viewerId) {
+        return lostPostRepository.findByIdAndDeletedFalse(id)
+                .filter(post -> post.isVisibleTo(viewerId))
                 .orElseThrow(() -> new JiburoException(ErrorCode.POST_NOT_FOUND));
     }
 

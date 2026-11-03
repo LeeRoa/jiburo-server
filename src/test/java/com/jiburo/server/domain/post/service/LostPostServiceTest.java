@@ -289,14 +289,14 @@ class LostPostServiceTest {
         LostPostNearbyRequestDto request = new LostPostNearbyRequestDto(
                 37.5, 127.0, 3.0, null, null, NearbySortType.DISTANCE, null, 0, 20
         );
-        given(lostPostRepository.searchByRadius(request))
+        given(lostPostRepository.searchByRadius(request, null))
                 .willReturn(new SliceImpl<>(List.of(post), PageRequest.of(0, 20), false));
 
         // when
-        lostPostService.getPostsForList(request);
+        lostPostService.getPostsForList(request, null);
 
         // then
-        then(lostPostRepository).should().searchByRadius(request);
+        then(lostPostRepository).should().searchByRadius(request, null);
     }
 
     @Test
@@ -305,14 +305,14 @@ class LostPostServiceTest {
         LostPostNearbyRequestDto request = new LostPostNearbyRequestDto(
                 37.5, 127.0, 3.0, null, null, NearbySortType.LATEST, null, 0, 20
         );
-        given(lostPostRepository.searchByRadius(request))
+        given(lostPostRepository.searchByRadius(request, null))
                 .willReturn(new SliceImpl<>(List.of(post), PageRequest.of(0, 20), false));
 
         // when
-        lostPostService.getPostsForList(request);
+        lostPostService.getPostsForList(request, null);
 
         // then
-        then(lostPostRepository).should().searchByRadius(request);
+        then(lostPostRepository).should().searchByRadius(request, null);
     }
 
     @Test

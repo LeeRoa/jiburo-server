@@ -49,8 +49,9 @@ public class ChatRoomServiceImpl implements ChatRoomService {
         Long postId = dto.getDecodedPostId();
 
         // id 기반 게시글 조회
-        // 삭제된 게시글이면 존재하지 않는 것으로 처리
+        // 삭제되었거나 볼 권한이 없는 게시글이면 존재하지 않는 것으로 처리
         LostPost post = lostPostRepository.findByIdAndDeletedFalse(postId)
+                .filter(p -> p.isVisibleTo(hostId))
                 .orElseThrow(() -> new JiburoException(ErrorCode.POST_NOT_FOUND));
 
         // 채팅 요청자

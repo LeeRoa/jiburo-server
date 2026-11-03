@@ -248,7 +248,7 @@ class LostPostControllerTest {
     void 반경_조회_sortType_DISTANCE_200_반환() throws Exception {
         // given
         LostPostResponseDto dto = mockDto(false, 0L);
-        given(lostPostService.getPostsForList(any()))
+        given(lostPostService.getPostsForList(any(), any()))
                 .willReturn(new SliceImpl<>(List.of(dto), PageRequest.of(0, 20), false));
 
         // when & then
@@ -266,7 +266,7 @@ class LostPostControllerTest {
     void 반경_조회_sortType_LATEST_200_반환() throws Exception {
         // given
         LostPostResponseDto dto = mockDto(false, 0L);
-        given(lostPostService.getPostsForList(any()))
+        given(lostPostService.getPostsForList(any(), any()))
                 .willReturn(new SliceImpl<>(List.of(dto), PageRequest.of(0, 20), false));
 
         // when & then
@@ -284,7 +284,7 @@ class LostPostControllerTest {
     void 반경_조회_sortType_생략시_200_반환() throws Exception {
         // given: sortType 미전달 → DISTANCE 기본값으로 처리
         LostPostResponseDto dto = mockDto(false, 0L);
-        given(lostPostService.getPostsForList(any()))
+        given(lostPostService.getPostsForList(any(), any()))
                 .willReturn(new SliceImpl<>(List.of(dto), PageRequest.of(0, 20), false));
 
         // when & then

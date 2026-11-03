@@ -20,6 +20,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @Entity
 @Getter
@@ -205,6 +206,23 @@ public class LostPost extends BaseTimeEntity {
     public void softDelete() {
         this.deleted = true;
         this.deletedAt = LocalDateTime.now();
+    }
+
+    /**
+     * 조회 권한 판단
+     * - 작성자 본인: 항상 가능
+     * - PUBLIC: 누구나 / PROTECTED: 로그인 사용자 / PRIVATE: 작성자만
+     * @param viewerId 비로그인이면 null
+     */
+    public boolean isVisibleTo(UUID viewerId) {
+        if (viewerId != null && viewerId.equals(this.user.getId())) {
+            return true;
+        }
+        return switch (this.visibilityCode) {
+            case PUBLIC -> true;
+            case PROTECTED -> viewerId != null;
+            case PRIVATE -> false;
+        };
     }
 
     public void complete(User finder, String resultNote) {

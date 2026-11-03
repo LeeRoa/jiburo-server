@@ -4,6 +4,7 @@ import com.jiburo.server.domain.post.domain.LostPost;
 import com.jiburo.server.domain.post.domain.enums.CategoryType;
 import com.jiburo.server.domain.post.domain.enums.NearbySortType;
 import com.jiburo.server.domain.post.domain.enums.PostStatus;
+import com.jiburo.server.domain.post.domain.enums.VisibilityType;
 import com.jiburo.server.domain.post.dto.LostPostMapRequestDto;
 import com.jiburo.server.domain.post.dto.LostPostNearbyRequestDto;
 import com.jiburo.server.domain.post.dto.LostPostSearchCondition;
@@ -26,6 +27,7 @@ import java.time.LocalDate;
 import java.util.Map;
 import java.util.Set;
 import java.util.List;
+import java.util.UUID;
 
 import static com.jiburo.server.domain.post.domain.QLostPost.lostPost;
 import static com.jiburo.server.domain.user.domain.QUser.user;
@@ -59,10 +61,11 @@ public class LostPostRepositoryImpl implements LostPostRepositoryCustom {
      * - Count 쿼리 최적화 적용 (PageableExecutionUtils)
      */
     @Override
-    public Page<LostPost> search(LostPostSearchCondition condition, Pageable pageable) {
-        // 1) 검색 조건 생성 (삭제 제외 + 사용자 필터)
+    public Page<LostPost> search(LostPostSearchCondition condition, Pageable pageable, UUID viewerId) {
+        // 1) 검색 조건 생성 (삭제 제외 + 공개 범위 + 사용자 필터)
         BooleanBuilder predicates = new BooleanBuilder()
                 .and(notDeleted())
+                .and(visibleTo(viewerId))
                 .and(getSearchPredicates(condition));
 
         // 2) 컨텐츠 조회
@@ -91,11 +94,12 @@ public class LostPostRepositoryImpl implements LostPostRepositoryCustom {
      * - 마커 렌더링 성능을 위해 limit 적용
      */
     @Override
-    public List<LostPost> searchByViewport(LostPostMapRequestDto request) {
+    public List<LostPost> searchByViewport(LostPostMapRequestDto request, UUID viewerId) {
         return queryFactory
                 .selectFrom(lostPost)
                 .where(
                         notDeleted(),
+                        visibleTo(viewerId),
                         latitudeBetween(request.minLat(), request.maxLat()),
                         longitudeBetween(request.minLng(), request.maxLng())
                 )
@@ -111,7 +115,7 @@ public class LostPostRepositoryImpl implements LostPostRepositoryCustom {
      * - 성능 최적화 3: Slice 방식 (Limit + 1)으로 Count 쿼리 제거
      */
     @Override
-    public Slice<LostPost> searchByRadius(LostPostNearbyRequestDto request) {
+    public Slice<LostPost> searchByRadius(LostPostNearbyRequestDto request, UUID viewerId) {
         // 1. 페이징 정보 생성 (page, size)
         Pageable pageable = PageRequest.of(request.page(), request.size());
 
@@ -136,6 +140,7 @@ public class LostPostRepositoryImpl implements LostPostRepositoryCustom {
                 .selectFrom(lostPost)
                 .where(
                         notDeleted(),
+                        visibleTo(viewerId),
                         latitudeBetween(minLat, maxLat),
                         longitudeBetween(minLng, maxLng),
                         distanceExpression.loe(request.radius())
@@ -179,6 +184,19 @@ public class LostPostRepositoryImpl implements LostPostRepositoryCustom {
     // Soft Delete 된 게시글 제외
     private BooleanExpression notDeleted() {
         return lostPost.deleted.isFalse();
+    }
+
+    /**
+     * 공개 범위 조건 (LostPost.isVisibleTo와 동일 규칙)
+     * - 비로그인: PUBLIC 만
+     * - 로그인: PUBLIC + PROTECTED + 본인 글(PRIVATE 포함)
+     */
+    private BooleanExpression visibleTo(UUID viewerId) {
+        if (viewerId == null) {
+            return lostPost.visibilityCode.eq(VisibilityType.PUBLIC);
+        }
+        return lostPost.visibilityCode.in(VisibilityType.PUBLIC, VisibilityType.PROTECTED)
+                .or(lostPost.user.id.eq(viewerId));
     }
 
     private BooleanExpression latitudeBetween(Double min, Double max) {

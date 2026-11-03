@@ -41,8 +41,9 @@ public class FinderServiceImpl implements FinderService {
     @Transactional
     public String createSession(UUID finderId, FinderSessionCreateRequestDto dto) {
         Long postId = HashidsUtils.decode(dto.postId());
-        // 삭제된 게시글이면 존재하지 않는 것으로 처리
+        // 삭제되었거나 볼 권한이 없는 게시글이면 존재하지 않는 것으로 처리
         LostPost post = lostPostRepository.findByIdAndDeletedFalse(postId)
+                .filter(p -> p.isVisibleTo(finderId))
                 .orElseThrow(() -> new JiburoException(ErrorCode.POST_NOT_FOUND));
         User finder = userRepository.findById(finderId)
                 .orElseThrow(() -> new JiburoException(ErrorCode.USER_NOT_FOUND));
