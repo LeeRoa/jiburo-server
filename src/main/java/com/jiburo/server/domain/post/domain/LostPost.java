@@ -203,6 +203,12 @@ public class LostPost extends BaseTimeEntity {
         }
     }
 
+    // 관리자 복구 (삭제 시 정리된 좋아요·취소된 탐색 세션은 되살리지 않음)
+    public void restore() {
+        this.deleted = false;
+        this.deletedAt = null;
+    }
+
     public void softDelete() {
         this.deleted = true;
         this.deletedAt = LocalDateTime.now();

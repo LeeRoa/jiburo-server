@@ -1,6 +1,5 @@
 package com.jiburo.server.domain.post.service;
 
-import com.jiburo.server.domain.finder.repository.FinderSessionRepository;
 import com.jiburo.server.domain.post.domain.LostPost;
 import com.jiburo.server.domain.post.domain.PostLike;
 import com.jiburo.server.domain.post.domain.enums.PostStatus;
@@ -34,7 +33,7 @@ public class LostPostServiceImpl implements LostPostService {
     private final LostPostRepository lostPostRepository;
     private final PostLikeRepository postLikeRepository;
     private final UserRepository userRepository;
-    private final FinderSessionRepository finderSessionRepository;
+    private final LostPostDeleter lostPostDeleter;
     private final AppSettingService appSettingService;
 
     // 게시글 이미지 최대 장수 (관리자 설정 POST_MAX_IMAGES)
@@ -135,11 +134,8 @@ public class LostPostServiceImpl implements LostPostService {
         LostPost post = findPostByIdOrThrow(postId);
         validateWriter(post, userId);
 
-        // Soft Delete: 채팅방/탐색 세션 기록은 보존하고, 목록·상세·지도 조회에서만 제외한다.
-        post.softDelete();
-        // 좋아요는 의미가 없어지므로 정리, 진행 중인 탐색 세션은 취소 처리
-        postLikeRepository.deleteAllByLostPostId(postId);
-        finderSessionRepository.cancelActiveSessionsByPostId(postId);
+        // Soft Delete + 좋아요 정리 + 진행 중 탐색 세션 취소 (관리자 강제 삭제와 공통 규칙)
+        lostPostDeleter.delete(post);
     }
 
     @Override

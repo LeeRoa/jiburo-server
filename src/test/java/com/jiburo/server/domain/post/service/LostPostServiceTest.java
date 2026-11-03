@@ -45,7 +45,7 @@ class LostPostServiceTest {
     @Mock private UserRepository userRepository;
     @org.mockito.Spy private com.jiburo.server.global.setting.AppSettingService appSettingService =
             com.jiburo.server.global.setting.TestSettings.defaults();
-    @Mock private com.jiburo.server.domain.finder.repository.FinderSessionRepository finderSessionRepository;
+    @Mock private LostPostDeleter lostPostDeleter;
 
     private UUID userId;
     private UUID otherUserId;
@@ -282,13 +282,9 @@ class LostPostServiceTest {
         // when
         lostPostService.delete(userId, 1L);
 
-        // then
-        // Soft Delete: 물리 삭제하지 않고 플래그만 변경, 좋아요 정리 + 진행 중 탐색 세션 취소
-        assertThat(post.isDeleted()).isTrue();
-        assertThat(post.getDeletedAt()).isNotNull();
+        // then: 물리 삭제하지 않고 공통 삭제 규칙(LostPostDeleter)에 위임
         then(lostPostRepository).should(never()).delete(any());
-        then(postLikeRepository).should().deleteAllByLostPostId(1L);
-        then(finderSessionRepository).should().cancelActiveSessionsByPostId(1L);
+        then(lostPostDeleter).should().delete(post);
     }
 
     @Test
