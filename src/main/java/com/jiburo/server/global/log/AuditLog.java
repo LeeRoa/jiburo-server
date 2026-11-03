@@ -16,7 +16,12 @@ import java.util.UUID;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @EntityListeners(AuditingEntityListener.class)
-@Table(name = "audit_logs")
+@Table(name = "audit_logs", indexes = {
+        // 관리자 감사 로그 화면의 최신순 / 사용자별 / 액션별 조회용
+        @Index(name = "idx_audit_created", columnList = "created_at"),
+        @Index(name = "idx_audit_user_created", columnList = "user_id, created_at"),
+        @Index(name = "idx_audit_action_created", columnList = "action, created_at")
+})
 public class AuditLog {
 
     @Id
