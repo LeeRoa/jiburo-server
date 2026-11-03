@@ -12,6 +12,8 @@ import com.jiburo.server.domain.chat.repository.ChatParticipantRepository;
 import com.jiburo.server.domain.chat.repository.ChatRoomRepository;
 import com.jiburo.server.global.error.ErrorCode;
 import com.jiburo.server.global.error.JiburoException;
+import com.jiburo.server.global.setting.AppSettingService;
+import com.jiburo.server.global.setting.SettingKey;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,12 +25,10 @@ import java.util.UUID;
 @Transactional
 public class ChatMessageServiceImpl implements ChatMessageService {
 
-    // 텍스트 메시지 최대 길이 (ChatMessage.content 주석의 권장값)
-    private static final int MAX_TALK_LENGTH = 1000;
-
     private final ChatMessageRepository chatMessageRepository;
     private final ChatRoomRepository chatRoomRepository;
     private final ChatParticipantRepository chatParticipantRepository;
+    private final AppSettingService appSettingService;
 
     /**
      * 실시간 채팅 메시지 저장 및 방 정보 갱신
@@ -68,7 +68,7 @@ public class ChatMessageServiceImpl implements ChatMessageService {
                 || dto.content() == null || dto.content().isBlank()) {
             throw new JiburoException(ErrorCode.INVALID_INPUT_VALUE);
         }
-        if (dto.messageTypeCode() == ChatMsgType.TALK && dto.content().length() > MAX_TALK_LENGTH) {
+        if (dto.messageTypeCode() == ChatMsgType.TALK && dto.content().length() > appSettingService.getInt(SettingKey.CHAT_MAX_TEXT_LENGTH)) { // 관리자 설정
             throw new JiburoException(ErrorCode.INVALID_INPUT_VALUE);
         }
     }

@@ -39,6 +39,8 @@ class ChatMessageServiceTest {
     @Mock private ChatMessageRepository chatMessageRepository;
     @Mock private ChatRoomRepository chatRoomRepository;
     @Mock private ChatParticipantRepository chatParticipantRepository;
+    @org.mockito.Spy private com.jiburo.server.global.setting.AppSettingService appSettingService =
+            com.jiburo.server.global.setting.TestSettings.defaults();
 
     private final Long roomId = 1L;
     private UUID senderId;
@@ -90,6 +92,18 @@ class ChatMessageServiceTest {
                 new ChatMessageRequestDto("chat/images/uuid/abc.png", ChatMsgType.IMAGE));
 
         assertThat(room.getLastMessage()).isEqualTo("[IMAGE]");
+    }
+
+    @Test
+    void 관리자가_최대_길이를_줄이면_그_길이를_넘는_메시지는_거부된다() {
+        com.jiburo.server.global.setting.TestSettings.with(appSettingService,
+                com.jiburo.server.global.setting.SettingKey.CHAT_MAX_TEXT_LENGTH, "10");
+        stubRoomAndParticipant();
+
+        assertThatThrownBy(() -> chatMessageService.saveMessage(roomId, senderId,
+                new ChatMessageRequestDto("a".repeat(11), ChatMsgType.TALK)))
+                .isInstanceOf(JiburoException.class);
+        verify(chatMessageRepository, never()).save(any());
     }
 
     @Test
