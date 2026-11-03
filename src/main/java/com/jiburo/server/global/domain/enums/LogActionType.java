@@ -34,6 +34,11 @@ public enum LogActionType implements CommonCodeType {
     ADMIN_COMMON_CODE_RELOAD("ADMIN_COMMON_CODE_RELOAD", "log.admin.common_code.reload"),
     ADMIN_SETTING_UPDATE("ADMIN_SETTING_UPDATE", "log.admin.setting.update"),
     ADMIN_SETTING_RESET("ADMIN_SETTING_RESET", "log.admin.setting.reset"),
+    ADMIN_ROLE_CREATE("ADMIN_ROLE_CREATE", "log.admin.role.create"),
+    ADMIN_ROLE_UPDATE("ADMIN_ROLE_UPDATE", "log.admin.role.update"),
+    ADMIN_ROLE_MENU_UPDATE("ADMIN_ROLE_MENU_UPDATE", "log.admin.role.menu_update"),
+    ADMIN_ROLE_DELETE("ADMIN_ROLE_DELETE", "log.admin.role.delete"),
+    ADMIN_USER_ROLE_CHANGE("ADMIN_USER_ROLE_CHANGE", "log.admin.user.role_change"),
 
     SPARE("SPARE", "log.spare");
 

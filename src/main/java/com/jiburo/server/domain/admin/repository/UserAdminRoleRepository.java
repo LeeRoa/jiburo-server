@@ -3,7 +3,6 @@ package com.jiburo.server.domain.admin.repository;
 import com.jiburo.server.domain.admin.domain.AdminRole;
 import com.jiburo.server.domain.admin.domain.UserAdminRole;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -26,6 +25,8 @@ public interface UserAdminRoleRepository extends JpaRepository<UserAdminRole, Lo
 
     boolean existsByUser_IdAndRole_Id(UUID userId, Long roleId);
 
+    List<UserAdminRole> findAllByRole_Id(Long roleId);
+
     long countByRole_Id(Long roleId);
 
     @Query("SELECT ur.role.id, COUNT(ur) FROM UserAdminRole ur GROUP BY ur.role.id")
@@ -33,14 +34,6 @@ public interface UserAdminRoleRepository extends JpaRepository<UserAdminRole, Lo
 
     @Query("SELECT DISTINCT ur.user.id FROM UserAdminRole ur WHERE ur.role.id = :roleId")
     List<UUID> findUserIdsByRoleId(@Param("roleId") Long roleId);
-
-    @Modifying
-    @Query("DELETE FROM UserAdminRole ur WHERE ur.role.id = :roleId")
-    int deleteAllByRoleId(@Param("roleId") Long roleId);
-
-    @Modifying
-    @Query("DELETE FROM UserAdminRole ur WHERE ur.user.id = :userId")
-    int deleteAllByUserId(@Param("userId") UUID userId);
 
     default List<AdminRole> rolesOf(UUID userId) {
         return findAllByUserIdWithRole(userId).stream().map(UserAdminRole::getRole).toList();

@@ -65,7 +65,14 @@ public enum ErrorCode {
     FINDER_SESSION_ALREADY_EXISTS(HttpStatus.CONFLICT, "error.finder.session_already_exists"),
     FINDER_SESSION_ALREADY_SUBMITTED(HttpStatus.CONFLICT, "error.finder.session_already_submitted"),
     FINDER_POST_ALREADY_COMPLETE(HttpStatus.BAD_REQUEST, "error.finder.post_already_complete"),
-    FINDER_CANNOT_FIND_OWN_POST(HttpStatus.BAD_REQUEST, "error.finder.cannot_find_own_post");
+    FINDER_CANNOT_FIND_OWN_POST(HttpStatus.BAD_REQUEST, "error.finder.cannot_find_own_post"),
+
+    // [8] Admin (관리자 역할·권한)
+    ADMIN_ROLE_NOT_FOUND(HttpStatus.NOT_FOUND, "error.admin.role_not_found"),
+    ADMIN_ROLE_CODE_DUPLICATE(HttpStatus.CONFLICT, "error.admin.role_code_duplicate"),
+    ADMIN_ROLE_CODE_INVALID(HttpStatus.BAD_REQUEST, "error.admin.role_code_invalid"),
+    ADMIN_SYSTEM_ROLE_IMMUTABLE(HttpStatus.BAD_REQUEST, "error.admin.system_role_immutable"),
+    ADMIN_MENU_NOT_GRANTABLE(HttpStatus.BAD_REQUEST, "error.admin.menu_not_grantable");
 
     private final HttpStatus status;
     private final String messageKey;
