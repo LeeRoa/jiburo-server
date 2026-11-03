@@ -11,6 +11,8 @@ import com.jiburo.server.domain.user.dto.TokenResponseDto;
 import com.jiburo.server.domain.user.jwt.JwtTokenProvider;
 import com.jiburo.server.global.error.ErrorCode;
 import com.jiburo.server.global.error.JiburoException;
+import com.jiburo.server.global.setting.AppSettingService;
+import com.jiburo.server.global.setting.SettingKey;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -18,6 +20,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.stereotype.Service;
 
 import java.security.SecureRandom;
+import java.time.Duration;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.UUID;
@@ -33,13 +36,15 @@ import java.util.UUID;
 public class AuthTokenService {
 
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
-    private static final int LOGIN_CODE_BYTES = 32;               // 256bit — 추측 불가
-    private static final long LOGIN_CODE_TTL_MILLIS = 60_000L;    // 1분: redirect 직후 바로 교환하는 용도
+    private static final int LOGIN_CODE_BYTES = 32; // 256bit — 추측 불가
 
     private final JwtTokenProvider jwtTokenProvider;
     private final AuthTokenRedisRepository authTokenRedisRepository;
     private final UserRepository userRepository;
     private final AdminBootstrapService adminBootstrapService;
+    // 토큰 유효 시간은 운영 설정(ACCESS_TOKEN_TTL_MINUTES / REFRESH_TOKEN_TTL_DAYS / LOGIN_CODE_TTL_SECONDS).
+    // 변경하면 이후 새로 발급되는 토큰부터 적용된다.
+    private final AppSettingService appSettingService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
@@ -60,10 +65,11 @@ public class AuthTokenService {
                 principal, null, principal.getAuthorities()
         );
 
-        TokenResponseDto tokenDto = jwtTokenProvider.generateTokenDto(authentication);
-        authTokenRedisRepository.saveRefreshToken(
-                user.getId(), tokenDto.refreshToken(), jwtTokenProvider.getRefreshTokenValidityTime()
-        );
+        long accessTtl = Duration.ofMinutes(appSettingService.getInt(SettingKey.ACCESS_TOKEN_TTL_MINUTES)).toMillis();
+        long refreshTtl = Duration.ofDays(appSettingService.getInt(SettingKey.REFRESH_TOKEN_TTL_DAYS)).toMillis();
+
+        TokenResponseDto tokenDto = jwtTokenProvider.generateTokenDto(authentication, accessTtl, refreshTtl);
+        authTokenRedisRepository.saveRefreshToken(user.getId(), tokenDto.refreshToken(), refreshTtl);
         return tokenDto;
     }
 
@@ -108,7 +114,8 @@ public class AuthTokenService {
         SECURE_RANDOM.nextBytes(bytes);
         String code = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
         try {
-            authTokenRedisRepository.saveLoginCode(code, objectMapper.writeValueAsString(tokenDto), LOGIN_CODE_TTL_MILLIS);
+            authTokenRedisRepository.saveLoginCode(code, objectMapper.writeValueAsString(tokenDto),
+                    Duration.ofSeconds(appSettingService.getInt(SettingKey.LOGIN_CODE_TTL_SECONDS)).toMillis());
         } catch (JsonProcessingException e) {
             throw new JiburoException(ErrorCode.INTERNAL_SERVER_ERROR);
         }

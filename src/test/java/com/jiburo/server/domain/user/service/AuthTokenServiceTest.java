@@ -42,13 +42,31 @@ class AuthTokenServiceTest {
     private User user;
     private UUID userId;
 
+    private com.jiburo.server.global.setting.AppSettingService settings;
+
+    @Test
+    void 토큰_유효시간은_운영_설정을_따른다() {
+        com.jiburo.server.global.setting.TestSettings.with(settings,
+                com.jiburo.server.global.setting.SettingKey.ACCESS_TOKEN_TTL_MINUTES, "10");
+        com.jiburo.server.global.setting.TestSettings.with(settings,
+                com.jiburo.server.global.setting.SettingKey.REFRESH_TOKEN_TTL_DAYS, "7");
+        long before = System.currentTimeMillis();
+
+        TokenResponseDto tokens = authTokenService.issueTokens(user);
+
+        assertThat(tokens.accessTokenExpiresIn() - before)
+                .isBetween(10 * 60_000L - 5_000L, 10 * 60_000L + 5_000L);
+        verify(redisRepository).saveRefreshToken(eq(userId), eq(tokens.refreshToken()), eq(7L * 24 * 60 * 60 * 1000));
+    }
+
     @BeforeEach
     void setUp() {
         jwtTokenProvider = new JwtTokenProvider(SECRET, 1_800_000L, 1_209_600_000L);
         redisRepository = mock(AuthTokenRedisRepository.class);
         userRepository = mock(UserRepository.class);
+        settings = com.jiburo.server.global.setting.TestSettings.defaults();
         authTokenService = new AuthTokenService(jwtTokenProvider, redisRepository, userRepository,
-                mock(com.jiburo.server.domain.admin.service.AdminBootstrapService.class));
+                mock(com.jiburo.server.domain.admin.service.AdminBootstrapService.class), settings);
 
         userId = UUID.randomUUID();
         user = User.builder()

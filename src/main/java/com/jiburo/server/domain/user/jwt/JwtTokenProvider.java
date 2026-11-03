@@ -55,12 +55,20 @@ public class JwtTokenProvider {
      * - Refresh Token에는 jti(랜덤 UUID)를 넣어 같은 시각에 발급돼도 값이 달라지도록 한다 (Rotation 비교용).
      */
     public TokenResponseDto generateTokenDto(Authentication authentication) {
+        return generateTokenDto(authentication, accessTokenValidityTime, refreshTokenValidityTime);
+    }
+
+    /**
+     * 유효 시간(ms)을 지정해 발급 — 운영 설정(ACCESS_TOKEN_TTL_MINUTES 등)을 쓰는 AuthTokenService에서 사용.
+     * 프로퍼티(jwt.*-validity)는 설정을 쓰지 않는 경로의 기본값으로만 남는다.
+     */
+    public TokenResponseDto generateTokenDto(Authentication authentication, long accessTtlMillis, long refreshTtlMillis) {
         String authorities = authentication.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
                 .collect(Collectors.joining(","));
 
         long now = System.currentTimeMillis();
-        Date accessTokenExpiresIn = new Date(now + accessTokenValidityTime);
+        Date accessTokenExpiresIn = new Date(now + accessTtlMillis);
 
         String accessToken = Jwts.builder()
                 .setSubject(authentication.getName())
@@ -76,7 +84,7 @@ public class JwtTokenProvider {
                 .claim(TOKEN_TYPE_KEY, TOKEN_TYPE_REFRESH)
                 .setId(UUID.randomUUID().toString())
                 .setIssuedAt(new Date(now))
-                .setExpiration(new Date(now + refreshTokenValidityTime))
+                .setExpiration(new Date(now + refreshTtlMillis))
                 .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
 
