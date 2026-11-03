@@ -46,7 +46,9 @@ import java.util.UUID;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -98,6 +100,31 @@ class LostPostControllerTest {
                 LocalDate.of(2024, 1, 1), 10000, LocalDateTime.now(),
                 isLiked, likeCount
         );
+    }
+
+    // ───────── PATCH /{id}/status ─────────
+
+    @Test
+    void 상태_변경_유효한_요청은_200_반환() throws Exception {
+        // 회귀 테스트: enum 필드에 @Pattern이 붙어 있어 @Valid 검증 시 UnexpectedTypeException(500)이 나던 문제
+        mockMvc.perform(patch("/api/v1/posts/{id}/status", encodedId)
+                        .with(withUser())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"statusCode\":\"COMPLETE\",\"resultNote\":\"경비실에서 보관\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+
+        then(lostPostService).should().updateStatus(eq(userId), eq(1L), any());
+    }
+
+    @Test
+    void 상태_변경_statusCode_누락시_400_반환() throws Exception {
+        mockMvc.perform(patch("/api/v1/posts/{id}/status", encodedId)
+                        .with(withUser())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"resultNote\":\"메모만\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errorCode").value("INVALID_INPUT_VALUE"));
     }
 
     // ───────── POST /{id}/like ─────────
