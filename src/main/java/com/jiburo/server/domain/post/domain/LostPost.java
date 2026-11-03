@@ -17,6 +17,7 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -26,7 +27,8 @@ import java.util.List;
 @Table(name = "lost_posts", indexes = {
         @Index(name = "idx_lost_post_location", columnList = "latitude, longitude"),
         @Index(name = "idx_lost_post_status", columnList = "status_code"),
-        @Index(name = "idx_lost_post_category", columnList = "category_code")
+        @Index(name = "idx_lost_post_category", columnList = "category_code"),
+        @Index(name = "idx_lost_post_deleted", columnList = "deleted")
 })
 public class LostPost extends BaseTimeEntity {
 
@@ -104,6 +106,16 @@ public class LostPost extends BaseTimeEntity {
 
     @Column(length = 500)
     private String resultNote;
+
+    // --- Soft Delete ---
+    // 채팅방/탐색 세션이 게시글을 FK로 참조하므로 물리 삭제 대신 플래그로 처리한다.
+    // 게시글 조회 시 deleted = false 조건을 명시적으로 붙여야 한다 (findByIdAndDeletedFalse, QueryDSL notDeleted()).
+    @Column(nullable = false, columnDefinition = "BOOLEAN DEFAULT FALSE")
+    @Comment("삭제 여부 (Soft Delete)")
+    private boolean deleted = false;
+
+    @Comment("삭제 시각")
+    private LocalDateTime deletedAt;
 
     @Builder
     public LostPost(User user, CategoryType categoryCode, String title, String content, PostStatus statusCode,
@@ -188,6 +200,11 @@ public class LostPost extends BaseTimeEntity {
                     .order(i)
                     .build());
         }
+    }
+
+    public void softDelete() {
+        this.deleted = true;
+        this.deletedAt = LocalDateTime.now();
     }
 
     public void complete(User finder, String resultNote) {

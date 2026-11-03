@@ -60,8 +60,10 @@ public class LostPostRepositoryImpl implements LostPostRepositoryCustom {
      */
     @Override
     public Page<LostPost> search(LostPostSearchCondition condition, Pageable pageable) {
-        // 1) 검색 조건 생성
-        BooleanBuilder predicates = getSearchPredicates(condition);
+        // 1) 검색 조건 생성 (삭제 제외 + 사용자 필터)
+        BooleanBuilder predicates = new BooleanBuilder()
+                .and(notDeleted())
+                .and(getSearchPredicates(condition));
 
         // 2) 컨텐츠 조회
         List<LostPost> content = queryFactory
@@ -93,6 +95,7 @@ public class LostPostRepositoryImpl implements LostPostRepositoryCustom {
         return queryFactory
                 .selectFrom(lostPost)
                 .where(
+                        notDeleted(),
                         latitudeBetween(request.minLat(), request.maxLat()),
                         longitudeBetween(request.minLng(), request.maxLng())
                 )
@@ -132,6 +135,7 @@ public class LostPostRepositoryImpl implements LostPostRepositoryCustom {
         List<LostPost> content = queryFactory
                 .selectFrom(lostPost)
                 .where(
+                        notDeleted(),
                         latitudeBetween(minLat, maxLat),
                         longitudeBetween(minLng, maxLng),
                         distanceExpression.loe(request.radius())
@@ -170,6 +174,11 @@ public class LostPostRepositoryImpl implements LostPostRepositoryCustom {
                 .toArray(OrderSpecifier[]::new);
 
         return result.length > 0 ? result : new OrderSpecifier[]{DEFAULT_ORDER};
+    }
+
+    // Soft Delete 된 게시글 제외
+    private BooleanExpression notDeleted() {
+        return lostPost.deleted.isFalse();
     }
 
     private BooleanExpression latitudeBetween(Double min, Double max) {

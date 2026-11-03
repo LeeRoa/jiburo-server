@@ -114,7 +114,7 @@ class FinderServiceTest {
     @Test
     void 세션_생성_성공() {
         FinderSessionCreateRequestDto dto = new FinderSessionCreateRequestDto(encodedPostId, 37.5, 127.0);
-        given(lostPostRepository.findById(1L)).willReturn(Optional.of(post));
+        given(lostPostRepository.findByIdAndDeletedFalse(1L)).willReturn(Optional.of(post));
         given(userRepository.findById(finderId)).willReturn(Optional.of(finder));
         given(finderSessionRepository.existsByPost_IdAndFinder_IdAndStatusCode(1L, finderId, FinderSessionStatus.ACTIVE))
                 .willReturn(false);
@@ -133,7 +133,7 @@ class FinderServiceTest {
     @Test
     void 세션_생성_시_게시글_없으면_POST_NOT_FOUND() {
         FinderSessionCreateRequestDto dto = new FinderSessionCreateRequestDto(encodedPostId, 37.5, 127.0);
-        given(lostPostRepository.findById(1L)).willReturn(Optional.empty());
+        given(lostPostRepository.findByIdAndDeletedFalse(1L)).willReturn(Optional.empty());
 
         assertThatThrownBy(() -> finderService.createSession(finderId, dto))
                 .isInstanceOf(JiburoException.class)
@@ -143,7 +143,7 @@ class FinderServiceTest {
     @Test
     void 세션_생성_시_사용자_없으면_USER_NOT_FOUND() {
         FinderSessionCreateRequestDto dto = new FinderSessionCreateRequestDto(encodedPostId, 37.5, 127.0);
-        given(lostPostRepository.findById(1L)).willReturn(Optional.of(post));
+        given(lostPostRepository.findByIdAndDeletedFalse(1L)).willReturn(Optional.of(post));
         given(userRepository.findById(finderId)).willReturn(Optional.empty());
 
         assertThatThrownBy(() -> finderService.createSession(finderId, dto))
@@ -154,7 +154,7 @@ class FinderServiceTest {
     @Test
     void 자신의_게시글에_세션_생성하면_FINDER_CANNOT_FIND_OWN_POST() {
         FinderSessionCreateRequestDto dto = new FinderSessionCreateRequestDto(encodedPostId, 37.5, 127.0);
-        given(lostPostRepository.findById(1L)).willReturn(Optional.of(post));
+        given(lostPostRepository.findByIdAndDeletedFalse(1L)).willReturn(Optional.of(post));
         given(userRepository.findById(postOwnerId)).willReturn(Optional.of(postOwner));
 
         assertThatThrownBy(() -> finderService.createSession(postOwnerId, dto))
@@ -166,7 +166,7 @@ class FinderServiceTest {
     void 완료된_게시글에_세션_생성하면_FINDER_POST_ALREADY_COMPLETE() {
         ReflectionTestUtils.setField(post, "statusCode", PostStatus.COMPLETE);
         FinderSessionCreateRequestDto dto = new FinderSessionCreateRequestDto(encodedPostId, 37.5, 127.0);
-        given(lostPostRepository.findById(1L)).willReturn(Optional.of(post));
+        given(lostPostRepository.findByIdAndDeletedFalse(1L)).willReturn(Optional.of(post));
         given(userRepository.findById(finderId)).willReturn(Optional.of(finder));
 
         assertThatThrownBy(() -> finderService.createSession(finderId, dto))
@@ -177,7 +177,7 @@ class FinderServiceTest {
     @Test
     void 이미_ACTIVE_세션이_있으면_FINDER_SESSION_ALREADY_EXISTS() {
         FinderSessionCreateRequestDto dto = new FinderSessionCreateRequestDto(encodedPostId, 37.5, 127.0);
-        given(lostPostRepository.findById(1L)).willReturn(Optional.of(post));
+        given(lostPostRepository.findByIdAndDeletedFalse(1L)).willReturn(Optional.of(post));
         given(userRepository.findById(finderId)).willReturn(Optional.of(finder));
         given(finderSessionRepository.existsByPost_IdAndFinder_IdAndStatusCode(1L, finderId, FinderSessionStatus.ACTIVE))
                 .willReturn(true);
@@ -525,7 +525,7 @@ class FinderServiceTest {
     @Test
     void 게시글별_세션_목록_조회_성공() {
         var pageable = PageRequest.of(0, 10);
-        given(lostPostRepository.findById(1L)).willReturn(Optional.of(post));
+        given(lostPostRepository.findByIdAndDeletedFalse(1L)).willReturn(Optional.of(post));
         given(finderSessionRepository.findByPostIdWithFinder(1L, pageable))
                 .willReturn(new SliceImpl<>(List.of(activeSession), pageable, false));
 
@@ -537,7 +537,7 @@ class FinderServiceTest {
     @Test
     void 게시글별_세션_조회_시_게시글_없으면_POST_NOT_FOUND() {
         var pageable = PageRequest.of(0, 10);
-        given(lostPostRepository.findById(999L)).willReturn(Optional.empty());
+        given(lostPostRepository.findByIdAndDeletedFalse(999L)).willReturn(Optional.empty());
 
         assertThatThrownBy(() -> finderService.getSessionsByPost(postOwnerId, 999L, pageable))
                 .isInstanceOf(JiburoException.class)
@@ -547,7 +547,7 @@ class FinderServiceTest {
     @Test
     void 게시글별_세션_조회_시_작성자_아니면_POST_ACCESS_DENIED() {
         var pageable = PageRequest.of(0, 10);
-        given(lostPostRepository.findById(1L)).willReturn(Optional.of(post));
+        given(lostPostRepository.findByIdAndDeletedFalse(1L)).willReturn(Optional.of(post));
 
         assertThatThrownBy(() -> finderService.getSessionsByPost(finderId, 1L, pageable))
                 .isInstanceOf(JiburoException.class)

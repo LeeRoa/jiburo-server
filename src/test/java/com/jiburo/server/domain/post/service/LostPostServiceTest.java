@@ -33,6 +33,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.never;
 
 @ExtendWith(MockitoExtension.class)
 class LostPostServiceTest {
@@ -42,6 +43,7 @@ class LostPostServiceTest {
     @Mock private LostPostRepository lostPostRepository;
     @Mock private PostLikeRepository postLikeRepository;
     @Mock private UserRepository userRepository;
+    @Mock private com.jiburo.server.domain.finder.repository.FinderSessionRepository finderSessionRepository;
 
     private UUID userId;
     private UUID otherUserId;
@@ -139,7 +141,7 @@ class LostPostServiceTest {
                 CategoryType.ANIMAL, null, AnimalType.DOG, null, null, GenderType.FEMALE, null, null, null, null,
                 null, null, null, null, 5000
         );
-        given(lostPostRepository.findById(1L)).willReturn(Optional.of(post));
+        given(lostPostRepository.findByIdAndDeletedFalse(1L)).willReturn(Optional.of(post));
 
         // when
         lostPostService.update(userId, 1L, request);
@@ -157,7 +159,7 @@ class LostPostServiceTest {
                 CategoryType.ANIMAL, null, AnimalType.DOG, null, null, null, null, null, null, null,
                 null, null, null, null, 0
         );
-        given(lostPostRepository.findById(1L)).willReturn(Optional.of(post));
+        given(lostPostRepository.findByIdAndDeletedFalse(1L)).willReturn(Optional.of(post));
 
         // when & then
         assertThatThrownBy(() -> lostPostService.update(otherUserId, 1L, request))
@@ -173,7 +175,7 @@ class LostPostServiceTest {
         // given
         LostPostStatusUpdateRequestDto request =
                 new LostPostStatusUpdateRequestDto(PostStatus.PROTECTING, null, null);
-        given(lostPostRepository.findById(1L)).willReturn(Optional.of(post));
+        given(lostPostRepository.findByIdAndDeletedFalse(1L)).willReturn(Optional.of(post));
 
         // when
         lostPostService.updateStatus(userId, 1L, request);
@@ -187,7 +189,7 @@ class LostPostServiceTest {
         // given
         LostPostStatusUpdateRequestDto request =
                 new LostPostStatusUpdateRequestDto(PostStatus.COMPLETE, null, "자력으로 찾았습니다");
-        given(lostPostRepository.findById(1L)).willReturn(Optional.of(post));
+        given(lostPostRepository.findByIdAndDeletedFalse(1L)).willReturn(Optional.of(post));
 
         // when
         lostPostService.updateStatus(userId, 1L, request);
@@ -211,7 +213,7 @@ class LostPostServiceTest {
 
         LostPostStatusUpdateRequestDto request =
                 new LostPostStatusUpdateRequestDto(PostStatus.COMPLETE, finderId, "감사합니다");
-        given(lostPostRepository.findById(1L)).willReturn(Optional.of(post));
+        given(lostPostRepository.findByIdAndDeletedFalse(1L)).willReturn(Optional.of(post));
         given(userRepository.findById(finderId)).willReturn(Optional.of(finder));
 
         // when
@@ -227,7 +229,7 @@ class LostPostServiceTest {
         // given
         LostPostStatusUpdateRequestDto request =
                 new LostPostStatusUpdateRequestDto(PostStatus.PROTECTING, null, null);
-        given(lostPostRepository.findById(1L)).willReturn(Optional.of(post));
+        given(lostPostRepository.findByIdAndDeletedFalse(1L)).willReturn(Optional.of(post));
 
         // when & then
         assertThatThrownBy(() -> lostPostService.updateStatus(otherUserId, 1L, request))
@@ -241,19 +243,24 @@ class LostPostServiceTest {
     @Test
     void 게시글_삭제_성공() {
         // given
-        given(lostPostRepository.findById(1L)).willReturn(Optional.of(post));
+        given(lostPostRepository.findByIdAndDeletedFalse(1L)).willReturn(Optional.of(post));
 
         // when
         lostPostService.delete(userId, 1L);
 
         // then
-        then(lostPostRepository).should().delete(post);
+        // Soft Delete: 물리 삭제하지 않고 플래그만 변경, 좋아요 정리 + 진행 중 탐색 세션 취소
+        assertThat(post.isDeleted()).isTrue();
+        assertThat(post.getDeletedAt()).isNotNull();
+        then(lostPostRepository).should(never()).delete(any());
+        then(postLikeRepository).should().deleteAllByLostPostId(1L);
+        then(finderSessionRepository).should().cancelActiveSessionsByPostId(1L);
     }
 
     @Test
     void 게시글_삭제_시_작성자_아니면_POST_ACCESS_DENIED() {
         // given
-        given(lostPostRepository.findById(1L)).willReturn(Optional.of(post));
+        given(lostPostRepository.findByIdAndDeletedFalse(1L)).willReturn(Optional.of(post));
 
         // when & then
         assertThatThrownBy(() -> lostPostService.delete(otherUserId, 1L))
@@ -265,7 +272,7 @@ class LostPostServiceTest {
     @Test
     void 게시글_삭제_시_게시글_없으면_POST_NOT_FOUND() {
         // given
-        given(lostPostRepository.findById(999L)).willReturn(Optional.empty());
+        given(lostPostRepository.findByIdAndDeletedFalse(999L)).willReturn(Optional.empty());
 
         // when & then
         assertThatThrownBy(() -> lostPostService.delete(userId, 999L))

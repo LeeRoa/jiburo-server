@@ -14,6 +14,7 @@ public record ChatRoomDetailDto(
         @Schema(description = "채팅방과 연결된 게시글 ID (인코딩된 문자열)") String postId,
         @Schema(description = "게시글 제목") String postTitle,
         @Schema(description = "게시글 상태 코드") PostStatus postStatusCode,
+        @Schema(description = "연결된 게시글이 삭제되었는지 여부 (true면 '삭제된 게시글'로 표시)") boolean postDeleted,
         @Schema(description = "메시지 내역") List<ChatMessageResponseDto> messageHistory,
         @Schema(description = "다음 페이지 존재 여부") boolean hasNext
 ) {
@@ -23,6 +24,7 @@ public record ChatRoomDetailDto(
                 HashidsUtils.encode(room.getPost().getId()),
                 room.getPost().getTitle(),
                 room.getPost().getStatusCode(),
+                room.getPost().isDeleted(),
                 messages.stream()
                         .map(msg -> {
                             // 상대방의 커서(partnerLastReadId)보다 메시지 PK가 크면 안 읽음(1), 작거나 같으면 읽음(0)

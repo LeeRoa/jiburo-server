@@ -96,7 +96,7 @@ class PostLikeServiceTest {
     @Test
     void 좋아요_추가_성공() {
         // given
-        given(lostPostRepository.findById(1L)).willReturn(Optional.of(post));
+        given(lostPostRepository.findByIdAndDeletedFalse(1L)).willReturn(Optional.of(post));
         given(postLikeRepository.findByUser_IdAndLostPost_Id(userId, 1L)).willReturn(Optional.empty());
         given(userRepository.findById(userId)).willReturn(Optional.of(user));
         given(postLikeRepository.save(any(PostLike.class)))
@@ -115,7 +115,7 @@ class PostLikeServiceTest {
     void 좋아요_취소_성공() {
         // given
         PostLike existingLike = PostLike.builder().user(user).lostPost(post).build();
-        given(lostPostRepository.findById(1L)).willReturn(Optional.of(post));
+        given(lostPostRepository.findByIdAndDeletedFalse(1L)).willReturn(Optional.of(post));
         given(postLikeRepository.findByUser_IdAndLostPost_Id(userId, 1L)).willReturn(Optional.of(existingLike));
 
         // when
@@ -130,7 +130,7 @@ class PostLikeServiceTest {
     @Test
     void 좋아요_시_게시글_없으면_POST_NOT_FOUND() {
         // given
-        given(lostPostRepository.findById(999L)).willReturn(Optional.empty());
+        given(lostPostRepository.findByIdAndDeletedFalse(999L)).willReturn(Optional.empty());
 
         // when & then
         assertThatThrownBy(() -> lostPostService.toggleLike(userId, 999L))
@@ -144,7 +144,7 @@ class PostLikeServiceTest {
     @Test
     void 단건_조회_로그인_시_isLiked_true_likeCount_반환() {
         // given
-        given(lostPostRepository.findById(1L)).willReturn(Optional.of(post));
+        given(lostPostRepository.findByIdAndDeletedFalse(1L)).willReturn(Optional.of(post));
         given(postLikeRepository.countByLostPost_Id(1L)).willReturn(5L);
         given(postLikeRepository.existsByUser_IdAndLostPost_Id(userId, 1L)).willReturn(true);
 
@@ -159,7 +159,7 @@ class PostLikeServiceTest {
     @Test
     void 단건_조회_비로그인_시_isLiked_false_likeCount_반환() {
         // given
-        given(lostPostRepository.findById(1L)).willReturn(Optional.of(post));
+        given(lostPostRepository.findByIdAndDeletedFalse(1L)).willReturn(Optional.of(post));
         given(postLikeRepository.countByLostPost_Id(1L)).willReturn(3L);
 
         // when
@@ -174,7 +174,7 @@ class PostLikeServiceTest {
     @Test
     void 단건_조회_게시글_없으면_POST_NOT_FOUND() {
         // given
-        given(lostPostRepository.findById(999L)).willReturn(Optional.empty());
+        given(lostPostRepository.findByIdAndDeletedFalse(999L)).willReturn(Optional.empty());
 
         // when & then
         assertThatThrownBy(() -> lostPostService.findById(999L, userId))
