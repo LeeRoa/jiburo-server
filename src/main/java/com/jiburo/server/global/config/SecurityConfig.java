@@ -1,9 +1,11 @@
 package com.jiburo.server.global.config;
 
+import com.jiburo.server.domain.user.jwt.JwtAccessDeniedHandler;
 import com.jiburo.server.domain.user.jwt.JwtAuthenticationEntryPoint;
 import com.jiburo.server.domain.user.jwt.JwtFilter;
 import com.jiburo.server.domain.user.jwt.JwtTokenProvider;
 import com.jiburo.server.domain.user.jwt.OAuth2SuccessHandler;
+import com.jiburo.server.domain.user.domain.enums.RoleType;
 import com.jiburo.server.domain.user.service.AuthTokenService;
 import com.jiburo.server.domain.user.service.CustomOAuth2UserService;
 import lombok.RequiredArgsConstructor;
@@ -35,6 +37,7 @@ public class SecurityConfig {
     private final OAuth2SuccessHandler oAuth2SuccessHandler;
     private final JwtTokenProvider jwtTokenProvider;
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
+    private final JwtAccessDeniedHandler jwtAccessDeniedHandler;
     private final AuthTokenService authTokenService;
 
     @Bean
@@ -48,6 +51,8 @@ public class SecurityConfig {
                 // 인증 실패 시(401) 우리가 만든 EntryPoint가 동작하도록 설정
                 .exceptionHandling(exception -> exception
                         .authenticationEntryPoint(jwtAuthenticationEntryPoint)
+                        // 권한 부족 시(403)도 ApiResponse JSON으로 응답
+                        .accessDeniedHandler(jwtAccessDeniedHandler)
                 )
 
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -55,6 +60,9 @@ public class SecurityConfig {
                 .httpBasic(AbstractHttpConfigurer::disable)
 
                 .authorizeHttpRequests(auth -> auth
+                        // 관리자 API: 경로 단위로 일괄 보호. 새 관리자 기능은 /api/v1/admin/** 아래에 두기만 하면 된다.
+                        // (가장 먼저 선언해야 아래 permitAll 규칙에 가로채이지 않음)
+                        .requestMatchers("/api/v1/admin/**").hasRole(RoleType.ADMIN.getCode())
                         // 게시글: 조회(GET)는 비로그인 허용, 작성/수정/삭제는 인증 필요
                         .requestMatchers(HttpMethod.GET, "/api/v1/posts/**").permitAll()
                         .requestMatchers(

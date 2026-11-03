@@ -45,10 +45,5 @@ public class CommonCodeController implements CommonCodeControllerDocs {
         return ApiResponse.success(result);
     }
 
-    @Override
-    @PostMapping("/reload")
-    public ApiResponse<Void> reload() {
-        commonCodeCache.reload();
-        return ApiResponse.success();
-    }
+    // 캐시 리로드는 관리자 전용 API로 이동: POST /api/v1/admin/common-codes/reload (AdminCommonCodeController)
 }

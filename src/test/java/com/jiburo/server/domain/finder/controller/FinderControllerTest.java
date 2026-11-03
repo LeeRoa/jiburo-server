@@ -47,7 +47,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         controllers = FinderController.class,
         excludeAutoConfiguration = {OAuth2ClientAutoConfiguration.class}
 )
-@Import({SecurityConfig.class, JwtAuthenticationEntryPoint.class})
+@Import({SecurityConfig.class, JwtAuthenticationEntryPoint.class, com.jiburo.server.domain.user.jwt.JwtAccessDeniedHandler.class})
 class
 FinderControllerTest {
 

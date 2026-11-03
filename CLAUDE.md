@@ -145,6 +145,9 @@ permitAll (인증 불필요):
 - `/api/v1/notifications/**` → `NotificationController`
 - `/api/v1/images/**` → `ImageController`
 
+관리자 전용 (`ROLE_ADMIN`, 경로 단위 보호):
+- `/api/v1/admin/**` → `domain/admin/controller/Admin*Controller` (아래 "관리자 API" 참고)
+
 STOMP 채널:
 - 발행 (클라 → 서버): `/pub/chat/rooms/{roomId}` (메시지 전송), `/pub/chat/rooms/{roomId}/read` (읽음 처리)
 - 구독 (서버 → 클라): `/sub/chat/rooms/{roomId}` (메시지 수신), `/sub/chat/rooms/{roomId}/read` (읽음 영수증)
@@ -175,6 +178,15 @@ DB PK(`Long`)는 외부에 절대 그대로 노출하지 않습니다. `global/u
 
 ### 감사 로그 (AOP)
 변경 작업이 있는 컨트롤러 메서드에 `@AuditLog(action = LogActionType.XXX)`를 붙이면 `AuditLogAspect`가 `@AfterReturning`으로 가로채 `ApplicationEventPublisher`로 이벤트 발행 → 리스너가 비동기로 DB 저장. **컨트롤러 메서드에서 직접 로그를 남기지 말고 어노테이션을 사용**하세요. 새 액션은 `LogActionType` enum에 추가.
+- `audit_logs.user_id`는 NOT NULL이라 비로그인 요청은 AOP가 기록을 건너뜁니다. 로그인/토큰 재발급처럼 인증 전 시점의 작업은 서비스에서 userId를 채워 `AuditLogEvent`를 직접 발행합니다.
+- `targetData`에는 로그인 사용자/요청 객체를 제외한 메서드 인자(경로 변수, 요청 DTO)가 기록됩니다. 민감 정보가 있는 DTO는 `toString()`을 마스킹하세요 (예: `TokenRequestDto`).
+
+### 관리자 API (`domain/admin`)
+- 모든 관리자 컨트롤러는 `AdminApi.BASE_PATH`(`/api/v1/admin`) 아래에 매핑합니다. `SecurityConfig`가 이 경로 전체를 `hasRole("ADMIN")`으로 보호하므로 컨트롤러마다 권한 검사를 넣지 않습니다.
+- 권한 부족은 `JwtAccessDeniedHandler`가 403 `ApiResponse`(`ACCESS_DENIED`)로 응답합니다.
+- 관리자 컨트롤러는 `domain/admin/controller`, 관리자 전용 로직은 `domain/admin/service`에 두고, 각 도메인의 서비스/리포지토리를 재사용합니다.
+- 상태를 바꾸는 관리자 API에는 `@AuditLog(action = LogActionType.ADMIN_XXX)`를 반드시 붙입니다.
+- 테스트는 `AdminControllerTestSupport`를 상속하면 보안 설정과 `withAdmin()`/`withUser()` 헬퍼를 그대로 쓸 수 있습니다.
 
 ### 영속성 (JPA + QueryDSL)
 - 모든 엔티티는 `BaseTimeEntity`(JPA Auditing, `createdAt`/`updatedAt` 자동) 상속.

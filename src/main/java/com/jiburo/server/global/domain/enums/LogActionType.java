@@ -30,6 +30,9 @@ public enum LogActionType implements CommonCodeType {
     FINDER_SESSION_SUBMIT("FINDER_SESSION_SUBMIT", "log.finder.session.submit"),
     FINDER_SESSION_CANCEL("FINDER_SESSION_CANCEL", "log.finder.session.cancel"),
 
+    // 관리자 작업 (관리자 API는 모두 ADMIN_ 접두사로 기록)
+    ADMIN_COMMON_CODE_RELOAD("ADMIN_COMMON_CODE_RELOAD", "log.admin.common_code.reload"),
+
     SPARE("SPARE", "log.spare");
 
     private final String code;
