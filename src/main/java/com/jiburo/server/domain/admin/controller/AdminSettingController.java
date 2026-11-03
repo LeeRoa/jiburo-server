@@ -10,6 +10,7 @@ import com.jiburo.server.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -25,18 +26,21 @@ public class AdminSettingController implements AdminSettingControllerDocs {
 
     @Override
     @GetMapping
+    @PreAuthorize("@adminAccess.read('SETTING')")
     public ApiResponse<List<AdminSettingResponseDto>> getSettings() {
         return ApiResponse.success(adminSettingService.findAll());
     }
 
     @Override
     @GetMapping("/{key}")
+    @PreAuthorize("@adminAccess.read('SETTING')")
     public ApiResponse<AdminSettingResponseDto> getSetting(@PathVariable String key) {
         return ApiResponse.success(adminSettingService.find(key));
     }
 
     @Override
     @PutMapping("/{key}")
+    @PreAuthorize("@adminAccess.write('SETTING')")
     @AuditLog(action = LogActionType.ADMIN_SETTING_UPDATE)
     public ApiResponse<AdminSettingResponseDto> updateSetting(
             @AuthenticationPrincipal CustomOAuth2User admin,
@@ -48,6 +52,7 @@ public class AdminSettingController implements AdminSettingControllerDocs {
 
     @Override
     @DeleteMapping("/{key}")
+    @PreAuthorize("@adminAccess.write('SETTING')")
     @AuditLog(action = LogActionType.ADMIN_SETTING_RESET)
     public ApiResponse<AdminSettingResponseDto> resetSetting(@PathVariable String key) {
         return ApiResponse.success(adminSettingService.reset(key));

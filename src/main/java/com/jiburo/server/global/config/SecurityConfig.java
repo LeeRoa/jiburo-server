@@ -29,7 +29,9 @@ import java.util.List;
 
 @Configuration
 @EnableWebSecurity
-@EnableMethodSecurity
+// 컨트롤러가 *ControllerDocs 인터페이스를 구현하므로, @PreAuthorize 프록시를 클래스 기반으로 고정해야
+// 요청 매핑이 컨트롤러를 인식한다 (인터페이스 기반 JDK 프록시면 핸들러를 못 찾아 404)
+@EnableMethodSecurity(proxyTargetClass = true)
 @RequiredArgsConstructor
 public class SecurityConfig {
 

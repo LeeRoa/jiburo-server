@@ -2,6 +2,7 @@ package com.jiburo.server.domain.user.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.jiburo.server.domain.admin.service.AdminBootstrapService;
 import com.jiburo.server.domain.user.dao.AuthTokenRedisRepository;
 import com.jiburo.server.domain.user.dao.UserRepository;
 import com.jiburo.server.domain.user.domain.User;
@@ -38,7 +39,17 @@ public class AuthTokenService {
     private final JwtTokenProvider jwtTokenProvider;
     private final AuthTokenRedisRepository authTokenRedisRepository;
     private final UserRepository userRepository;
+    private final AdminBootstrapService adminBootstrapService;
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    /**
+     * 로그인 시점 토큰 발급. 초기 관리자(ADMIN_OAUTH_IDS) 계정이면 SUPER_ADMIN을 먼저 부여한 뒤 발급한다.
+     * (재발급은 issueTokens를 쓴다 — 로그인 때 이미 반영되어 있음)
+     */
+    public TokenResponseDto issueLoginTokens(User user) {
+        adminBootstrapService.applyOnLogin(user);
+        return issueTokens(user);
+    }
 
     public TokenResponseDto issueTokens(User user) {
         CustomOAuth2User principal = new CustomOAuth2User(

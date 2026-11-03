@@ -29,10 +29,15 @@ import java.util.UUID;
  * 하위 클래스는 @WebMvcTest(controllers = Xxx.class, excludeAutoConfiguration = OAuth2ClientAutoConfiguration.class)
  * 만 붙이고 테스트할 서비스를 @MockitoBean으로 선언하면 된다.
  */
-@Import({SecurityConfig.class, JwtAuthenticationEntryPoint.class, JwtAccessDeniedHandler.class})
+@Import({SecurityConfig.class, JwtAuthenticationEntryPoint.class, JwtAccessDeniedHandler.class,
+        com.jiburo.server.domain.admin.service.AdminAccessEvaluator.class})
 public abstract class AdminControllerTestSupport {
 
     @Autowired protected MockMvc mockMvc;
+
+    // 메뉴 권한 판단 (기본: 아무 권한 없음). withAdmin()은 SUPER_ADMIN처럼 전부 허용,
+    // withAdmin(menu, level)은 해당 메뉴 권한만 허용한다.
+    @MockitoBean protected com.jiburo.server.domain.admin.service.AdminAuthorizationService adminAuthorizationService;
 
     @MockitoBean protected JpaMetamodelMappingContext jpaMetamodelMappingContext;
     @MockitoBean protected JwtTokenProvider jwtTokenProvider;
@@ -51,7 +56,29 @@ public abstract class AdminControllerTestSupport {
         userId = UUID.randomUUID();
     }
 
+    // 모든 메뉴 편집 가능한 관리자 (SUPER_ADMIN)
     protected RequestPostProcessor withAdmin() {
+        org.mockito.BDDMockito.given(adminAuthorizationService.can(
+                org.mockito.ArgumentMatchers.eq(adminId), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
+                .willReturn(true);
+        org.mockito.BDDMockito.given(adminAuthorizationService.hasAnyRole(adminId)).willReturn(true);
+        return as(adminId, "ROLE_ADMIN");
+    }
+
+    // 특정 메뉴 권한만 가진 관리자 (WRITE는 READ 포함)
+    protected RequestPostProcessor withAdmin(com.jiburo.server.domain.admin.domain.AdminMenu menu,
+                                             com.jiburo.server.domain.admin.domain.AdminAccessLevel level) {
+        org.mockito.BDDMockito.given(adminAuthorizationService.hasAnyRole(adminId)).willReturn(true);
+        for (com.jiburo.server.domain.admin.domain.AdminAccessLevel required
+                : com.jiburo.server.domain.admin.domain.AdminAccessLevel.values()) {
+            org.mockito.BDDMockito.given(adminAuthorizationService.can(adminId, menu, required))
+                    .willReturn(level.covers(required));
+        }
+        return as(adminId, "ROLE_ADMIN");
+    }
+
+    // ROLE_ADMIN 토큰만 있고 메뉴 권한은 없는 상태 (역할이 회수됐지만 토큰이 아직 유효한 경우)
+    protected RequestPostProcessor withAdminTokenOnly() {
         return as(adminId, "ROLE_ADMIN");
     }
 

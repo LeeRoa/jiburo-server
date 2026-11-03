@@ -81,6 +81,15 @@ public class User extends BaseTimeEntity {
     }
 
     /**
+     * 계정 구분 변경 (USER / ADMIN).
+     * ADMIN = 관리자 역할(admin_roles)을 1개 이상 가진 계정. 세부 권한은 역할의 메뉴 권한으로 결정되며,
+     * 이 값은 관리자 역할 부여/회수 시 AdminRoleAssignmentService가 자동으로 맞춘다.
+     */
+    public void changeRole(RoleType roleCode) {
+        this.roleCode = roleCode;
+    }
+
+    /**
      * 소셜 로그인 시 프로필 동기화.
      * - 소셜 제공자가 값을 주지 않으면(null/빈 값) 기존 값을 유지한다.
      *   (기존 구현은 profileImageUrl이 null인 사용자가 재로그인하면 NPE 발생)

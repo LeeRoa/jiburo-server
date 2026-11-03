@@ -160,7 +160,7 @@ class AuthServiceTest {
         ReflectionTestUtils.setField(existingUser, "id", UUID.randomUUID());
 
         given(userRepository.findByOauthId("kakao_12345")).willReturn(Optional.of(existingUser));
-        given(authTokenService.issueTokens(existingUser)).willReturn(tokens("access.token", "refresh.token"));
+        given(authTokenService.issueLoginTokens(existingUser)).willReturn(tokens("access.token", "refresh.token"));
 
         // when
         TokenResponseDto result = authService.kakaoLogin(new KakaoLoginRequestDto("kakao-access-token"));
@@ -186,7 +186,7 @@ class AuthServiceTest {
                 .build();
         ReflectionTestUtils.setField(savedUser, "id", UUID.randomUUID());
         given(userRepository.save(any(User.class))).willReturn(savedUser);
-        given(authTokenService.issueTokens(savedUser)).willReturn(tokens("new.access.token", "new.refresh.token"));
+        given(authTokenService.issueLoginTokens(savedUser)).willReturn(tokens("new.access.token", "new.refresh.token"));
 
         // when
         TokenResponseDto result = authService.kakaoLogin(new KakaoLoginRequestDto("kakao-access-token"));

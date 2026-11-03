@@ -62,6 +62,30 @@ class AdminSettingControllerTest extends AdminControllerTestSupport {
     }
 
     @Test
+    void 운영_설정_노출만_가진_관리자는_조회는_되고_변경은_403() throws Exception {
+        given(adminSettingService.findAll()).willReturn(List.of(dto("5")));
+        var readOnly = withAdmin(com.jiburo.server.domain.admin.domain.AdminMenu.SETTING,
+                com.jiburo.server.domain.admin.domain.AdminAccessLevel.READ);
+
+        mockMvc.perform(get("/api/v1/admin/settings").with(readOnly))
+                .andExpect(status().isOk());
+        mockMvc.perform(put("/api/v1/admin/settings/POST_MAX_IMAGES").with(readOnly)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"value\":\"8\"}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.errorCode").value("ACCESS_DENIED"));
+        org.mockito.BDDMockito.then(adminSettingService).should(org.mockito.Mockito.never()).update(any(), any(), any());
+    }
+
+    @Test
+    void 운영_설정_메뉴가_없는_관리자는_조회도_403() throws Exception {
+        mockMvc.perform(get("/api/v1/admin/settings").with(withAdmin(
+                        com.jiburo.server.domain.admin.domain.AdminMenu.I18N,
+                        com.jiburo.server.domain.admin.domain.AdminAccessLevel.WRITE)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     void 잘못된_값이면_400() throws Exception {
         given(adminSettingService.update(eq("POST_MAX_IMAGES"), eq("999"), any()))
                 .willThrow(new JiburoException(ErrorCode.INVALID_SETTING_VALUE));

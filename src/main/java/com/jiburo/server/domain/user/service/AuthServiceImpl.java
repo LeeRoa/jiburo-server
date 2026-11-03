@@ -63,7 +63,7 @@ public class AuthServiceImpl implements AuthService {
         User user = findOrCreateUser(attributes);
 
         // 3. 토큰 발급 (Refresh Token은 Redis에 저장됨)
-        TokenResponseDto tokenDto = authTokenService.issueTokens(user);
+        TokenResponseDto tokenDto = authTokenService.issueLoginTokens(user);
 
         // 4. 로그인 감사 로그 발행 (@AuditLog AOP가 잡을 수 없는 로그인 시점이라 직접 발행)
         publishLoginLog(user);

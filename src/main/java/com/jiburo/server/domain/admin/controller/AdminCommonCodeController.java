@@ -6,6 +6,7 @@ import com.jiburo.server.global.log.annotation.AuditLog;
 import com.jiburo.server.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -24,6 +25,7 @@ public class AdminCommonCodeController implements AdminCommonCodeControllerDocs 
 
     @Override
     @PostMapping("/reload")
+    @PreAuthorize("@adminAccess.write('COMMON_CODE')")
     @AuditLog(action = LogActionType.ADMIN_COMMON_CODE_RELOAD)
     public ApiResponse<Void> reload() {
         commonCodeCache.reload();

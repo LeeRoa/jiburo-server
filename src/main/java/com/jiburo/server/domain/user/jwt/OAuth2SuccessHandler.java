@@ -48,7 +48,7 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         User dbUser = resolveUser(authToken, oAuth2User);
 
         // 2. 토큰 발급 (Refresh Token은 Redis에 저장됨)
-        TokenResponseDto tokenDto = authTokenService.issueTokens(dbUser);
+        TokenResponseDto tokenDto = authTokenService.issueLoginTokens(dbUser);
 
         // 3. 로그 발행
         publishLoginLog(request, dbUser);

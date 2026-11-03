@@ -182,8 +182,14 @@ DB PK(`Long`)는 외부에 절대 그대로 노출하지 않습니다. `global/u
 - `targetData`에는 로그인 사용자/요청 객체를 제외한 메서드 인자(경로 변수, 요청 DTO)가 기록됩니다. 민감 정보가 있는 DTO는 `toString()`을 마스킹하세요 (예: `TokenRequestDto`).
 
 ### 관리자 API (`domain/admin`)
-- 모든 관리자 컨트롤러는 `AdminApi.BASE_PATH`(`/api/v1/admin`) 아래에 매핑합니다. `SecurityConfig`가 이 경로 전체를 `hasRole("ADMIN")`으로 보호하므로 컨트롤러마다 권한 검사를 넣지 않습니다.
-- 권한 부족은 `JwtAccessDeniedHandler`가 403 `ApiResponse`(`ACCESS_DENIED`)로 응답합니다.
+- 모든 관리자 컨트롤러는 `AdminApi.BASE_PATH`(`/api/v1/admin`) 아래에 매핑합니다. `SecurityConfig`가 이 경로를 `hasRole("ADMIN")`으로 1차 보호합니다 (ADMIN = 관리자 역할 1개 이상 보유 계정).
+- **권한 모델**: 메뉴(`AdminMenu` enum, 코드 고정) × 접근 수준(READ=노출·조회, WRITE=편집·변경). 역할(`admin_roles`)은 메뉴 권한의 묶음으로 관리자 웹에서 관리하고, 계정에 여러 개 부여합니다(`user_admin_roles`). `SUPER_ADMIN`은 시스템 역할로 모든 메뉴 WRITE.
+- **엔드포인트마다 메뉴 권한을 반드시 선언**: `@PreAuthorize("@adminAccess.read('SETTING')")`(GET) / `@PreAuthorize("@adminAccess.write('SETTING')")`(변경) / `@PreAuthorize("@adminAccess.any()")`(역할만 있으면). 누락·오타·변경 API에 read 사용은 `AdminControllerSecurityConventionTest`가 실패시킵니다.
+- 권한은 JWT가 아니라 `AdminAuthorizationService`(메모리 캐시, 60초 주기 비우기)로 매 요청 확인 → 회수가 즉시 반영됩니다. 역할/메뉴 권한을 바꾸는 코드는 반드시 `invalidate`를 호출하세요.
+- 새 관리자 기능 = `AdminMenu`에 메뉴 추가 + API에 `@PreAuthorize`. 새 메뉴는 SUPER_ADMIN 외 어떤 역할에도 자동으로 열리지 않습니다.
+- 초기 관리자: 환경변수 `ADMIN_OAUTH_IDS`(예: `kakao_123`)에 적힌 계정은 로그인 시 SUPER_ADMIN을 자동으로 받습니다 (`AdminBootstrapService`).
+- 권한 부족은 403 `ApiResponse`(`ACCESS_DENIED`)로 응답합니다 (경로 단계: `JwtAccessDeniedHandler`, 메서드 단계: `GlobalExceptionHandler`).
+- `@EnableMethodSecurity(proxyTargetClass = true)`는 유지하세요. 컨트롤러가 Docs 인터페이스를 구현하므로 인터페이스 프록시가 되면 매핑이 사라져 404가 납니다.
 - 관리자 컨트롤러는 `domain/admin/controller`, 관리자 전용 로직은 `domain/admin/service`에 두고, 각 도메인의 서비스/리포지토리를 재사용합니다.
 - 상태를 바꾸는 관리자 API에는 `@AuditLog(action = LogActionType.ADMIN_XXX)`를 반드시 붙입니다.
 - 테스트는 `AdminControllerTestSupport`를 상속하면 보안 설정과 `withAdmin()`/`withUser()` 헬퍼를 그대로 쓸 수 있습니다.

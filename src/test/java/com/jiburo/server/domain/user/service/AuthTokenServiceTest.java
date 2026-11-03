@@ -47,7 +47,8 @@ class AuthTokenServiceTest {
         jwtTokenProvider = new JwtTokenProvider(SECRET, 1_800_000L, 1_209_600_000L);
         redisRepository = mock(AuthTokenRedisRepository.class);
         userRepository = mock(UserRepository.class);
-        authTokenService = new AuthTokenService(jwtTokenProvider, redisRepository, userRepository);
+        authTokenService = new AuthTokenService(jwtTokenProvider, redisRepository, userRepository,
+                mock(com.jiburo.server.domain.admin.service.AdminBootstrapService.class));
 
         userId = UUID.randomUUID();
         user = User.builder()
