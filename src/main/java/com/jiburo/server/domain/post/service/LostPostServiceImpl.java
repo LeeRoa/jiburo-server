@@ -11,6 +11,8 @@ import com.jiburo.server.domain.user.dao.UserRepository;
 import com.jiburo.server.domain.user.domain.User;
 import com.jiburo.server.global.error.JiburoException;
 import com.jiburo.server.global.error.ErrorCode;
+import com.jiburo.server.global.setting.AppSettingService;
+import com.jiburo.server.global.setting.SettingKey;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -33,10 +35,20 @@ public class LostPostServiceImpl implements LostPostService {
     private final PostLikeRepository postLikeRepository;
     private final UserRepository userRepository;
     private final FinderSessionRepository finderSessionRepository;
+    private final AppSettingService appSettingService;
+
+    // 게시글 이미지 최대 장수 (관리자 설정 POST_MAX_IMAGES)
+    private void validateImageCount(List<String> imageUrls) {
+        if (imageUrls != null && imageUrls.size() > appSettingService.getInt(SettingKey.POST_MAX_IMAGES)) {
+            throw new JiburoException(ErrorCode.POST_IMAGE_LIMIT_EXCEEDED);
+        }
+    }
 
     @Override
     @Transactional
     public Long create(UUID userId, LostPostCreateRequestDto requestDto) {
+        validateImageCount(requestDto.imageUrls());
+
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new JiburoException(ErrorCode.USER_NOT_FOUND));
 
@@ -60,6 +72,7 @@ public class LostPostServiceImpl implements LostPostService {
     public void update(UUID userId, Long postId, LostPostUpdateRequestDto requestDto) {
         LostPost post = findPostByIdOrThrow(postId);
         validateWriter(post, userId);
+        validateImageCount(requestDto.imageUrls());
 
         // 엔티티 업데이트 호출 (categoryCode가 없으면 상세정보도 변경하지 않음)
         post.update(

@@ -9,6 +9,8 @@ import com.jiburo.server.domain.user.dao.UserRepository;
 import com.jiburo.server.domain.user.domain.User;
 import com.jiburo.server.global.error.ErrorCode;
 import com.jiburo.server.global.error.JiburoException;
+import com.jiburo.server.global.setting.AppSettingService;
+import com.jiburo.server.global.setting.SettingKey;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -28,13 +30,13 @@ public class ImageStorageServiceImpl implements ImageStorageService {
     private final S3Presigner s3Presigner;
     private final ImageMetaRepository imageMetaRepository;
     private final UserRepository userRepository;
-    private static final long MAX_CAPACITY_BYTES = 10L * 1024 * 1024 * 1024; // 10GB
+    private final AppSettingService appSettingService;
+
+    private static final long MB = 1024L * 1024;
+    private static final long GB = 1024L * MB;
 
     @Value("${cloud.cloudflare.r2.bucket}")
     private String bucketName;
-
-    @Value("${cloud.cloudflare.r2.presigned.expiration-minutes}")
-    private long expirationMinutes;
 
     @Override
     public PresignedUrlResponseDto createPresignedUrl(UUID userId, PresignedUrlRequestDto request) {
@@ -43,10 +45,22 @@ public class ImageStorageServiceImpl implements ImageStorageService {
             throw new JiburoException(ErrorCode.INVALID_FILE_FORMAT);
         }
 
+        // 파일 1개 최대 크기 (관리자 설정: 이미지/동영상 별도)
+        SettingKey maxSizeKey = request.fileCode().isVideo()
+                ? SettingKey.UPLOAD_MAX_VIDEO_SIZE_MB
+                : SettingKey.UPLOAD_MAX_IMAGE_SIZE_MB;
+        if (request.fileSize() > appSettingService.getInt(maxSizeKey) * MB) {
+            throw new JiburoException(ErrorCode.FILE_SIZE_EXCEEDED);
+        }
+
+        // 전체 저장 용량 한도 (관리자 설정)
+        long capacityBytes = appSettingService.getInt(SettingKey.UPLOAD_TOTAL_CAPACITY_GB) * GB;
         Long currentTotalSize = imageMetaRepository.sumTotalFileSize();
-        if (currentTotalSize + request.fileSize() > MAX_CAPACITY_BYTES) {
+        if (currentTotalSize + request.fileSize() > capacityBytes) {
             throw new JiburoException(ErrorCode.STORAGE_CAPACITY_EXCEEDED);
         }
+
+        long expirationMinutes = appSettingService.getInt(SettingKey.UPLOAD_PRESIGNED_EXPIRATION_MINUTES);
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new JiburoException(ErrorCode.USER_NOT_FOUND));

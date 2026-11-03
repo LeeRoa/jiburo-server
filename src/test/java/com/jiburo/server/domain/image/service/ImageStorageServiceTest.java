@@ -44,6 +44,8 @@ class ImageStorageServiceTest {
     @Mock private S3Presigner s3Presigner;
     @Mock private ImageMetaRepository imageMetaRepository;
     @Mock private UserRepository userRepository;
+    @org.mockito.Spy private com.jiburo.server.global.setting.AppSettingService appSettingService =
+            com.jiburo.server.global.setting.TestSettings.defaults();
 
     private UUID userId;
     private User user;
@@ -52,7 +54,6 @@ class ImageStorageServiceTest {
     void setUp() {
         new HashidsUtils("test-salt", 8);
         ReflectionTestUtils.setField(imageStorageService, "bucketName", "test-bucket");
-        ReflectionTestUtils.setField(imageStorageService, "expirationMinutes", 15L);
 
         userId = UUID.randomUUID();
         user = User.builder()

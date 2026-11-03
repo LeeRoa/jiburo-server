@@ -43,6 +43,8 @@ class LostPostServiceTest {
     @Mock private LostPostRepository lostPostRepository;
     @Mock private PostLikeRepository postLikeRepository;
     @Mock private UserRepository userRepository;
+    @org.mockito.Spy private com.jiburo.server.global.setting.AppSettingService appSettingService =
+            com.jiburo.server.global.setting.TestSettings.defaults();
     @Mock private com.jiburo.server.domain.finder.repository.FinderSessionRepository finderSessionRepository;
 
     private UUID userId;

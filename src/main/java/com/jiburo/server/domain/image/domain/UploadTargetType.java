@@ -25,6 +25,11 @@ public enum UploadTargetType implements CommonCodeType {
         return extension != null && allowedExtensions.contains(extension.toLowerCase());
     }
 
+    // 동영상 업로드 대상 여부 (파일 1개 최대 크기 설정을 이미지/동영상으로 구분하는 데 사용)
+    public boolean isVideo() {
+        return this == CHAT_VIDEO || this == FINDER_VIDEO;
+    }
+
     @Override
     public String getGroupCode() { return "UPLOAD_TARGET"; }
 

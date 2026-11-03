@@ -57,6 +57,7 @@ public enum ErrorCode {
     POST_NOT_FOUND(HttpStatus.NOT_FOUND, "error.post.not_found"), // 게시글 없음
     POST_ACCESS_DENIED(HttpStatus.FORBIDDEN, "error.post.access_denied"), // 작성자 불일치 (수정/삭제 권한 없음)
     POST_CATEGORY_INVALID(HttpStatus.BAD_REQUEST, "error.post.category_invalid"),
+    POST_IMAGE_LIMIT_EXCEEDED(HttpStatus.BAD_REQUEST, "error.post.image_limit_exceeded"),
 
     // [7] Finder Session (파인더 탐색 세션)
     FINDER_SESSION_NOT_FOUND(HttpStatus.NOT_FOUND, "error.finder.session_not_found"),

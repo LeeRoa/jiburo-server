@@ -52,6 +52,8 @@ class PostLikeServiceTest {
     @Mock private LostPostRepository lostPostRepository;
     @Mock private PostLikeRepository postLikeRepository;
     @Mock private UserRepository userRepository;
+    @org.mockito.Spy private com.jiburo.server.global.setting.AppSettingService appSettingService =
+            com.jiburo.server.global.setting.TestSettings.defaults();
 
     private UUID userId;
     private User user;
