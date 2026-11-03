@@ -80,10 +80,17 @@ public class User extends BaseTimeEntity {
         this.badgeCode = newBadgeCode;
     }
 
+    /**
+     * 소셜 로그인 시 프로필 동기화.
+     * - 소셜 제공자가 값을 주지 않으면(null/빈 값) 기존 값을 유지한다.
+     *   (기존 구현은 profileImageUrl이 null인 사용자가 재로그인하면 NPE 발생)
+     * - 값이 같으면 필드가 바뀌지 않으므로 Dirty Checking으로 UPDATE도 나가지 않는다.
+     */
     public User updateProfile(String nickname, String profileImageUrl) {
-        // 기존 값과 다를 때만 갱신 (Dirty Checking)
-        if (!this.nickname.equals(nickname) || !this.profileImageUrl.equals(profileImageUrl)) {
+        if (nickname != null && !nickname.isBlank()) {
             this.nickname = nickname;
+        }
+        if (profileImageUrl != null && !profileImageUrl.isBlank()) {
             this.profileImageUrl = profileImageUrl;
         }
         return this;
