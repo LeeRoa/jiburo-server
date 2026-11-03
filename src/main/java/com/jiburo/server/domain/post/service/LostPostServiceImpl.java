@@ -165,7 +165,11 @@ public class LostPostServiceImpl implements LostPostService {
     // 지도 렌더링용 (마커 뿌리기)
     @Override
     public List<LostPostResponseDto> getPostsForMap(LostPostMapRequestDto request, UUID viewerId) {
-        return lostPostRepository.searchByViewport(request, viewerId).stream()
+        // 마커 수 상한 (관리자 설정 MAP_MAX_MARKERS) — 큰 limit 요청으로 대량 조회되는 것 방지
+        int maxMarkers = appSettingService.getInt(SettingKey.MAP_MAX_MARKERS);
+        int limit = request.limit() <= 0 ? maxMarkers : Math.min(request.limit(), maxMarkers);
+
+        return lostPostRepository.searchByViewport(request.withLimit(limit), viewerId).stream()
                 .map(LostPostResponseDto::from)
                 .toList();
     }
@@ -173,11 +177,19 @@ public class LostPostServiceImpl implements LostPostService {
     // 리스트 렌더링용 (클릭 시 상세)
     @Override
     public Slice<LostPostResponseDto> getPostsForList(LostPostNearbyRequestDto request, UUID viewerId) {
+        // 반경: 생략 시 기본값, 최대값 초과는 거부 / 페이지 크기: 최대값으로 제한 (모두 관리자 설정)
+        double radius = request.radius() != null
+                ? request.radius()
+                : appSettingService.getDouble(SettingKey.NEARBY_DEFAULT_RADIUS_KM);
+        int maxSize = appSettingService.getInt(SettingKey.NEARBY_MAX_PAGE_SIZE);
+        int size = request.size() <= 0 ? maxSize : Math.min(request.size(), maxSize);
+
         // 중심 좌표가 없으면 박스 계산에서 NPE(500)가 나므로 400으로 거부
-        if (request.centerLat() == null || request.centerLng() == null || request.radius() <= 0) {
+        if (request.centerLat() == null || request.centerLng() == null
+                || radius <= 0 || radius > appSettingService.getDouble(SettingKey.NEARBY_MAX_RADIUS_KM)) {
             throw new JiburoException(ErrorCode.INVALID_INPUT_VALUE);
         }
-        Slice<LostPost> postSlice = lostPostRepository.searchByRadius(request, viewerId);
+        Slice<LostPost> postSlice = lostPostRepository.searchByRadius(request.withRadiusAndSize(radius, size), viewerId);
         return postSlice.map(LostPostResponseDto::from);
     }
 

@@ -350,6 +350,44 @@ class LostPostServiceTest {
     }
 
     @Test
+    void 반경을_생략하면_운영_설정_기본_반경을_쓰고_페이지_크기는_최대값으로_제한된다() {
+        LostPostNearbyRequestDto request = new LostPostNearbyRequestDto(
+                37.5, 127.0, null, null, null, NearbySortType.DISTANCE, null, 0, 500
+        );
+        LostPostNearbyRequestDto expected = request.withRadiusAndSize(3.0, 50); // 기본 반경 3.0, 최대 크기 50
+        given(lostPostRepository.searchByRadius(expected, null))
+                .willReturn(new SliceImpl<>(List.of(post), PageRequest.of(0, 50), false));
+
+        lostPostService.getPostsForList(request, null);
+
+        then(lostPostRepository).should().searchByRadius(expected, null);
+    }
+
+    @Test
+    void 최대_반경을_넘으면_INVALID_INPUT_VALUE() {
+        com.jiburo.server.global.setting.TestSettings.with(appSettingService,
+                com.jiburo.server.global.setting.SettingKey.NEARBY_MAX_RADIUS_KM, "10");
+        LostPostNearbyRequestDto request = new LostPostNearbyRequestDto(
+                37.5, 127.0, 20.0, null, null, NearbySortType.DISTANCE, null, 0, 20
+        );
+
+        assertThatThrownBy(() -> lostPostService.getPostsForList(request, null))
+                .isInstanceOf(JiburoException.class)
+                .satisfies(ex -> assertThat(((JiburoException) ex).getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT_VALUE));
+    }
+
+    @Test
+    void 지도_마커_요청_개수는_운영_설정_최대값으로_제한된다() {
+        com.jiburo.server.domain.post.dto.LostPostMapRequestDto request =
+                new com.jiburo.server.domain.post.dto.LostPostMapRequestDto(37.0, 38.0, 126.0, 128.0, 100000);
+        given(lostPostRepository.searchByViewport(request.withLimit(300), null)).willReturn(List.of(post));
+
+        lostPostService.getPostsForMap(request, null);
+
+        then(lostPostRepository).should().searchByViewport(request.withLimit(300), null);
+    }
+
+    @Test
     void 반경_조회_sortType_null이면_DISTANCE_기본값() {
         // given: sortType을 null로 전달
         LostPostNearbyRequestDto request = new LostPostNearbyRequestDto(
