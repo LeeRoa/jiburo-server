@@ -72,7 +72,11 @@ public enum ErrorCode {
     ADMIN_ROLE_CODE_DUPLICATE(HttpStatus.CONFLICT, "error.admin.role_code_duplicate"),
     ADMIN_ROLE_CODE_INVALID(HttpStatus.BAD_REQUEST, "error.admin.role_code_invalid"),
     ADMIN_SYSTEM_ROLE_IMMUTABLE(HttpStatus.BAD_REQUEST, "error.admin.system_role_immutable"),
-    ADMIN_MENU_NOT_GRANTABLE(HttpStatus.BAD_REQUEST, "error.admin.menu_not_grantable");
+    ADMIN_MENU_NOT_GRANTABLE(HttpStatus.BAD_REQUEST, "error.admin.menu_not_grantable"),
+    ADMIN_CANNOT_CHANGE_OWN_ROLES(HttpStatus.BAD_REQUEST, "error.admin.cannot_change_own_roles"),
+    ADMIN_SUPER_ADMIN_ONLY(HttpStatus.FORBIDDEN, "error.admin.super_admin_only"),
+    ADMIN_ROLE_EXCEEDS_OWN_PERMISSION(HttpStatus.FORBIDDEN, "error.admin.role_exceeds_own_permission"),
+    ADMIN_LAST_SUPER_ADMIN(HttpStatus.CONFLICT, "error.admin.last_super_admin");
 
     private final HttpStatus status;
     private final String messageKey;
