@@ -1,6 +1,7 @@
 package com.jiburo.server.domain.user.jwt;
 
 import com.jiburo.server.domain.user.dao.UserRepository;
+import com.jiburo.server.global.error.ErrorCode;
 import com.jiburo.server.domain.user.domain.User;
 import com.jiburo.server.domain.user.domain.enums.RoleType;
 import com.jiburo.server.domain.user.dto.CustomOAuth2User;
@@ -46,6 +47,15 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
 
         // 1. CustomOAuth2UserService에서 이미 저장/갱신한 사용자 조회
         User dbUser = resolveUser(authToken, oAuth2User);
+
+        // 1-1. 정지 계정은 토큰 대신 에러로 돌려보낸다 (프론트가 안내 화면 표시)
+        if (dbUser.isSuspended()) {
+            String errorUrl = UriComponentsBuilder.fromUriString(redirectUri)
+                    .queryParam("error", ErrorCode.USER_SUSPENDED.name())
+                    .build().toUriString();
+            getRedirectStrategy().sendRedirect(request, response, errorUrl);
+            return;
+        }
 
         // 2. 토큰 발급 (Refresh Token은 Redis에 저장됨)
         TokenResponseDto tokenDto = authTokenService.issueLoginTokens(dbUser);

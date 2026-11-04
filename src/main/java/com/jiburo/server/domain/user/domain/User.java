@@ -12,6 +12,7 @@ import org.hibernate.annotations.Comment;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.UuidGenerator;
 
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
@@ -52,6 +53,17 @@ public class User extends BaseTimeEntity {
     @Column(nullable = false, length = 20)
     @Comment("사용자 권한 코드 (USER, ADMIN)")
     private RoleType roleCode;
+
+    /** 영구 정지를 나타내는 정지 만료 시각 */
+    public static final LocalDateTime PERMANENT_SUSPENSION = LocalDateTime.of(9999, 12, 31, 23, 59, 59);
+
+    @Column(name = "suspended_until")
+    @Comment("정지 만료 시각 (null = 정지 아님, 9999-12-31 = 영구 정지)")
+    private LocalDateTime suspendedUntil;
+
+    @Column(name = "suspend_reason", length = 500)
+    @Comment("정지 사유 (관리자 입력)")
+    private String suspendReason;
 
     @Builder
     public User(String oauthId, String nickname, String email, String profileImageUrl, RoleType roleCode) {
@@ -103,5 +115,23 @@ public class User extends BaseTimeEntity {
             this.profileImageUrl = profileImageUrl;
         }
         return this;
+    }
+
+    public boolean isSuspended() {
+        return suspendedUntil != null && suspendedUntil.isAfter(LocalDateTime.now());
+    }
+
+    public boolean isPermanentlySuspended() {
+        return PERMANENT_SUSPENSION.equals(suspendedUntil);
+    }
+
+    public void suspend(LocalDateTime until, String reason) {
+        this.suspendedUntil = until;
+        this.suspendReason = reason;
+    }
+
+    public void unsuspend() {
+        this.suspendedUntil = null;
+        this.suspendReason = null;
     }
 }

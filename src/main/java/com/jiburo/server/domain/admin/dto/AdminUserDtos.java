@@ -37,14 +37,17 @@ public final class AdminUserDtos {
             @Schema(description = "뱃지") BadgeType badgeCode,
             @Schema(description = "활동 점수") int activityScore,
             @Schema(description = "보유 관리자 역할") List<RoleRef> adminRoles,
-            @Schema(description = "가입일") LocalDateTime createdAt
+            @Schema(description = "가입일") LocalDateTime createdAt,
+            @Schema(description = "정지 만료 시각 (null = 정지 아님, 9999-12-31 = 영구)") LocalDateTime suspendedUntil,
+            @Schema(description = "정지 사유") String suspendReason
     ) {
         public static UserResponse of(User user, List<AdminRole> roles) {
             String oauthId = user.getOauthId();
             String provider = oauthId != null && oauthId.contains("_") ? oauthId.substring(0, oauthId.indexOf('_')) : null;
             return new UserResponse(user.getId(), user.getNickname(), user.getEmail(), provider, user.getRoleCode(),
                     user.getBadgeCode(), user.getActivityScore(),
-                    roles.stream().map(RoleRef::of).toList(), user.getCreatedAt());
+                    roles.stream().map(RoleRef::of).toList(), user.getCreatedAt(),
+                    user.isSuspended() ? user.getSuspendedUntil() : null, user.isSuspended() ? user.getSuspendReason() : null);
         }
     }
 

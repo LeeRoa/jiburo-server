@@ -68,6 +68,14 @@ public enum ErrorCode {
     BANNED_WORD_DUPLICATED(HttpStatus.CONFLICT, "error.banned_word.duplicated"),
     NICKNAME_CONTAINS_BANNED_WORD(HttpStatus.BAD_REQUEST, "error.banned_word.nickname"),
 
+    // [9] Report (신고) / 정지
+    REPORT_NOT_FOUND(HttpStatus.NOT_FOUND, "error.report.not_found"),
+    REPORT_TARGET_NOT_FOUND(HttpStatus.NOT_FOUND, "error.report.target_not_found"),
+    ALREADY_REPORTED(HttpStatus.CONFLICT, "error.report.already_reported"),
+    CANNOT_REPORT_SELF(HttpStatus.BAD_REQUEST, "error.report.cannot_report_self"),
+    REPORT_ALREADY_HANDLED(HttpStatus.CONFLICT, "error.report.already_handled"),
+    USER_SUSPENDED(HttpStatus.FORBIDDEN, "error.user.suspended"),
+
     // [6] Post (게시글 - 분실물/목격 제보) [추가된 부분]
     POST_NOT_FOUND(HttpStatus.NOT_FOUND, "error.post.not_found"), // 게시글 없음
     POST_ACCESS_DENIED(HttpStatus.FORBIDDEN, "error.post.access_denied"), // 작성자 불일치 (수정/삭제 권한 없음)

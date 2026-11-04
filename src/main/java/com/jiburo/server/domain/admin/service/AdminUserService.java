@@ -18,6 +18,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import com.jiburo.server.domain.user.service.UserSuspensionService;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
@@ -44,6 +45,7 @@ public class AdminUserService {
     private final AdminRoleRepository adminRoleRepository;
     private final UserAdminRoleRepository userAdminRoleRepository;
     private final AdminAuthorizationService adminAuthorizationService;
+    private final UserSuspensionService userSuspensionService;
 
     public Page<UserResponse> search(SearchCondition condition, Pageable pageable) {
         Long roleId = StringUtils.hasText(condition.adminRoleId()) ? HashidsUtils.decode(condition.adminRoleId()) : null;
@@ -63,6 +65,19 @@ public class AdminUserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new JiburoException(ErrorCode.USER_NOT_FOUND));
         return UserResponse.of(user, userAdminRoleRepository.rolesOf(userId));
+    }
+
+    /** 계정 정지 (days가 null이면 영구). 관리자 계정·본인은 불가 */
+    @Transactional
+    public UserResponse suspend(UUID actorId, UUID userId, Integer days, String reason) {
+        userSuspensionService.suspend(actorId, userId, days, reason == null || reason.isBlank() ? null : reason.trim());
+        return find(userId);
+    }
+
+    @Transactional
+    public UserResponse unsuspend(UUID userId) {
+        userSuspensionService.unsuspend(userId);
+        return find(userId);
     }
 
     /**

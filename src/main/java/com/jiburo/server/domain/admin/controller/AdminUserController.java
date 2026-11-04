@@ -2,6 +2,7 @@ package com.jiburo.server.domain.admin.controller;
 
 import com.jiburo.server.domain.admin.dto.AdminUserDtos.RolesUpdateRequest;
 import com.jiburo.server.domain.admin.dto.AdminUserDtos.SearchCondition;
+import com.jiburo.server.domain.admin.dto.AdminReportDtos.SuspendRequest;
 import com.jiburo.server.domain.admin.dto.AdminUserDtos.UserResponse;
 import com.jiburo.server.domain.admin.service.AdminUserService;
 import com.jiburo.server.domain.user.dto.CustomOAuth2User;
@@ -61,5 +62,27 @@ public class AdminUserController {
             @Valid @RequestBody RolesUpdateRequest request
     ) {
         return ApiResponse.success(adminUserService.updateRoles(admin.getUserId(), userId, request.roleIds()));
+    }
+
+    @Operation(summary = "[관리자] 계정 정지",
+            description = "days를 비우면 영구 정지. 정지되면 로그인·토큰 재발급이 막히고 Refresh Token이 지워집니다 "
+                    + "(이미 받은 Access Token은 만료까지 유효). 관리자 계정·본인은 정지할 수 없습니다.")
+    @PostMapping("/{userId}/suspension")
+    @PreAuthorize("@adminAccess.write('USER')")
+    @AuditLog(action = LogActionType.ADMIN_USER_SUSPEND)
+    public ApiResponse<UserResponse> suspend(
+            @Parameter(hidden = true) @AuthenticationPrincipal CustomOAuth2User admin,
+            @PathVariable UUID userId,
+            @Valid @RequestBody SuspendRequest request
+    ) {
+        return ApiResponse.success(adminUserService.suspend(admin.getUserId(), userId, request.days(), request.reason()));
+    }
+
+    @Operation(summary = "[관리자] 계정 정지 해제")
+    @DeleteMapping("/{userId}/suspension")
+    @PreAuthorize("@adminAccess.write('USER')")
+    @AuditLog(action = LogActionType.ADMIN_USER_UNSUSPEND)
+    public ApiResponse<UserResponse> unsuspend(@PathVariable UUID userId) {
+        return ApiResponse.success(adminUserService.unsuspend(userId));
     }
 }

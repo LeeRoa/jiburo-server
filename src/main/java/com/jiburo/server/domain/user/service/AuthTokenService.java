@@ -57,6 +57,10 @@ public class AuthTokenService {
     }
 
     public TokenResponseDto issueTokens(User user) {
+        // 로그인·재발급 모두 여기를 지나므로 정지 계정은 한 곳에서 막는다
+        if (user.isSuspended()) {
+            throw new JiburoException(ErrorCode.USER_SUSPENDED);
+        }
         CustomOAuth2User principal = new CustomOAuth2User(
                 user.getId(),
                 Collections.singleton(new SimpleGrantedAuthority(user.getRoleKey()))
