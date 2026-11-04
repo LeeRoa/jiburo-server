@@ -49,8 +49,8 @@ public final class AdminMonitoringDtos {
 
     public record Activity(
             @Schema(description = "실시간 채팅(STOMP) 접속 사용자 수 — 이 서버 기준") int chatConnectedUsers,
-            @Schema(description = "처리 대기 신고 수") long pendingReports,
-            @Schema(description = "1시간 넘게 완료되지 않은 업로드 수 (업로드 실패 의심)") long staleUploads
+            @Schema(description = "처리 대기 신고 수 (조회 실패 시 -1)") long pendingReports,
+            @Schema(description = "1시간 넘게 완료되지 않은 업로드 수 (업로드 실패 의심, 조회 실패 시 -1)") long staleUploads
     ) {}
 
     public record Errors(
@@ -65,7 +65,7 @@ public final class AdminMonitoringDtos {
             ServerInfo server,
             Jvm jvm,
             List<Dependency> dependencies,
-            @Schema(description = "업로드 저장소 사용량 (대시보드와 같은 값)") AdminDashboardDtos.Storage storage,
+            @Schema(description = "업로드 저장소 사용량 (대시보드와 같은 값, DB 장애 중이면 null)") AdminDashboardDtos.Storage storage,
             Activity activity,
             Errors errors
     ) {}

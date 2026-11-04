@@ -40,5 +40,8 @@ services:
       SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_NAVER_CLIENT-SECRET: ${NAVER_CLIENT_SECRET}
       SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_NAVER_REDIRECT-URI: "https://jiburo.on-do.kro.kr/login/oauth2/code/naver"
 
+      # 7. 푸시 (FCM) — Firebase 서비스 계정 키 JSON 내용. 비우면 푸시를 보내지 않고 로그만 남김
+      FIREBASE_CREDENTIALS_JSON: ${FIREBASE_CREDENTIALS_JSON:-}
+
     depends_on:
       - db

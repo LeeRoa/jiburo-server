@@ -72,6 +72,9 @@ dependencies {
     // HashIds 유틸 라이브러리
     implementation 'org.hashids:hashids:1.0.3'
 
+    // 푸시 알림 (FCM — Flutter 앱 firebase_messaging)
+    implementation 'com.google.firebase:firebase-admin:9.4.1'
+
     // 7. Test
     developmentOnly 'org.springframework.boot:spring-boot-devtools'
     testImplementation 'org.springframework.boot:spring-boot-starter-test'

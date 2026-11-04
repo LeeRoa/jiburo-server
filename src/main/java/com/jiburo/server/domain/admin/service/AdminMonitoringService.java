@@ -52,13 +52,15 @@ public class AdminMonitoringService {
         LocalDateTime now = LocalDateTime.now();
         Jvm jvm = jvm();
         List<Dependency> dependencies = List.of(checkDatabase(), checkRedis());
-        Storage storage = adminDashboardService.storage();
+        // DB를 쓰는 항목은 DB 장애 중에도 화면·장애 감지가 멈추지 않도록 실패하면 비워 둔다 (저장소 null, 건수 -1)
+        Storage storage = orElse(adminDashboardService::storage, null);
         Errors errors = new Errors(serverErrorRecorder.totalSinceStart(),
                 serverErrorRecorder.countSince(now.minusHours(1)), serverErrorRecorder.recent());
         Activity activity = new Activity(
                 simpUserRegistry.stream().mapToInt(SimpUserRegistry::getUserCount).findFirst().orElse(0),
-                reportRepository.countByStatus(ReportStatus.PENDING),
-                imageMetaRepository.countByStatusCodeAndCreatedAtBefore(ImageStatus.PENDING, now.minusHours(STALE_UPLOAD_HOURS)));
+                orElse(() -> reportRepository.countByStatus(ReportStatus.PENDING), -1L),
+                orElse(() -> imageMetaRepository.countByStatusCodeAndCreatedAtBefore(ImageStatus.PENDING,
+                        now.minusHours(STALE_UPLOAD_HOURS)), -1L));
 
         return new MonitoringResponse(now, overall(jvm, dependencies, storage, errors), server(), jvm,
                 dependencies, storage, activity, errors);
@@ -75,7 +77,7 @@ public class AdminMonitoringService {
                 reasons.add(d.name() + " 응답 지연 " + d.latencyMs() + "ms");
             }
         }
-        if (storage.warning()) {
+        if (storage != null && storage.warning()) {
             reasons.add("저장소 사용률 " + storage.usagePercent() + "%");
         }
         if (jvm.heapUsagePercent() >= HEAP_WARN_PERCENT) {
@@ -116,6 +118,14 @@ public class AdminMonitoringService {
         }
         return new Jvm(heap.getUsed(), max, heapPercent, ManagementFactory.getThreadMXBean().getThreadCount(),
                 Runtime.getRuntime().availableProcessors(), processCpu, systemCpu);
+    }
+
+    private static <T> T orElse(java.util.function.Supplier<T> query, T fallback) {
+        try {
+            return query.get();
+        } catch (RuntimeException e) {
+            return fallback;
+        }
     }
 
     private static double percent(double load) {

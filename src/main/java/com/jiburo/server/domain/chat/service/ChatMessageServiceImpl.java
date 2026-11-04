@@ -17,6 +17,7 @@ import com.jiburo.server.global.error.JiburoException;
 import com.jiburo.server.global.setting.AppSettingService;
 import com.jiburo.server.global.setting.SettingKey;
 import com.jiburo.server.global.util.HashidsUtils;
+import com.jiburo.server.domain.push.service.UserPushListener;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,6 +35,7 @@ public class ChatMessageServiceImpl implements ChatMessageService {
     private final AppSettingService appSettingService;
     private final EmoticonService emoticonService;
     private final BannedWordFilter bannedWordFilter;
+    private final org.springframework.context.ApplicationEventPublisher eventPublisher;
 
     /**
      * 실시간 채팅 메시지 저장 및 방 정보 갱신
@@ -74,6 +76,16 @@ public class ChatMessageServiceImpl implements ChatMessageService {
         room.updateLastChat(message.getMessageTypeCode(), message.getContent());
 
         int unreadCount = room.getParticipants().size() - 1;
+
+        // 6-1. 다른 참여자에게 푸시 (커밋 후 비동기 발송 — UserPushListener)
+        java.util.List<UUID> recipients = room.getParticipants().stream()
+                .filter(p -> !p.isExited() && !p.getUser().getId().equals(senderId))
+                .map(p -> p.getUser().getId())
+                .toList();
+        if (!recipients.isEmpty()) {
+            eventPublisher.publishEvent(new UserPushListener.ChatMessageSentEvent(room.getId(), message.getId(),
+                    participant.getUser().getNickname(), message.getMessageTypeCode(), message.getContent(), recipients));
+        }
 
         // 7. 응답용 DTO로 변환하여 반환
         return ChatMessageResponseDto.from(message, unreadCount);
