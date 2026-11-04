@@ -48,6 +48,9 @@ public enum LogActionType implements CommonCodeType {
     ADMIN_EMOTICON_DELETE("ADMIN_EMOTICON_DELETE", "log.admin.emoticon.delete"),
     ADMIN_I18N_UPDATE("ADMIN_I18N_UPDATE", "log.admin.i18n.update"),
     ADMIN_I18N_RESET("ADMIN_I18N_RESET", "log.admin.i18n.reset"),
+    ADMIN_BANNED_WORD_ADD("ADMIN_BANNED_WORD_ADD", "log.admin.banned_word.add"),
+    ADMIN_BANNED_WORD_UPDATE("ADMIN_BANNED_WORD_UPDATE", "log.admin.banned_word.update"),
+    ADMIN_BANNED_WORD_DELETE("ADMIN_BANNED_WORD_DELETE", "log.admin.banned_word.delete"),
 
     SPARE("SPARE", "log.spare");
 

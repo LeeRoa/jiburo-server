@@ -22,6 +22,7 @@ public enum AdminMenu {
     USER("사용자", "/users", true, true),
     POST("게시글", "/posts", true, true),
     EMOTICON("이모티콘", "/emoticons", true, true),
+    BANNED_WORD("금지어", "/banned-words", true, true),
     AUDIT_LOG("감사 로그", "/audit-logs", false, true),
     ROLE("역할·권한", "/roles", true, false);
 

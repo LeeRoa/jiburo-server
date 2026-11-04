@@ -11,6 +11,7 @@ import com.jiburo.server.domain.chat.repository.ChatMessageRepository;
 import com.jiburo.server.domain.chat.repository.ChatParticipantRepository;
 import com.jiburo.server.domain.chat.repository.ChatRoomRepository;
 import com.jiburo.server.domain.emoticon.service.EmoticonService;
+import com.jiburo.server.domain.moderation.service.BannedWordFilter;
 import com.jiburo.server.global.error.ErrorCode;
 import com.jiburo.server.global.error.JiburoException;
 import com.jiburo.server.global.setting.AppSettingService;
@@ -32,6 +33,7 @@ public class ChatMessageServiceImpl implements ChatMessageService {
     private final ChatParticipantRepository chatParticipantRepository;
     private final AppSettingService appSettingService;
     private final EmoticonService emoticonService;
+    private final BannedWordFilter bannedWordFilter;
 
     /**
      * 실시간 채팅 메시지 저장 및 방 정보 갱신
@@ -54,6 +56,11 @@ public class ChatMessageServiceImpl implements ChatMessageService {
         if (dto.messageTypeCode() == ChatMsgType.EMOTICON) {
             String imageKey = emoticonService.resolveImageKey(HashidsUtils.decode(dto.content()));
             dto = new ChatMessageRequestDto(imageKey, ChatMsgType.EMOTICON);
+        }
+
+        // 3-2. 텍스트의 금지어는 *** 로 가려 저장 (원문은 저장하지 않음)
+        if (dto.messageTypeCode() == ChatMsgType.TALK) {
+            dto = new ChatMessageRequestDto(bannedWordFilter.mask(dto.content()), ChatMsgType.TALK);
         }
 
         // 4. 메시지 엔티티 생성 및 저장 (DTO의 toEntity 활용)

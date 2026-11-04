@@ -9,6 +9,7 @@ import com.jiburo.server.domain.post.repository.PostLikeRepository;
 import com.jiburo.server.domain.user.dao.UserRepository;
 import com.jiburo.server.domain.user.domain.User;
 import com.jiburo.server.global.error.JiburoException;
+import com.jiburo.server.domain.moderation.service.BannedWordFilter;
 import com.jiburo.server.global.error.ErrorCode;
 import com.jiburo.server.global.setting.AppSettingService;
 import com.jiburo.server.global.setting.SettingKey;
@@ -35,6 +36,7 @@ public class LostPostServiceImpl implements LostPostService {
     private final UserRepository userRepository;
     private final LostPostDeleter lostPostDeleter;
     private final AppSettingService appSettingService;
+    private final BannedWordFilter bannedWordFilter;
 
     // 게시글 이미지 최대 장수 (관리자 설정 POST_MAX_IMAGES)
     private void validateImageCount(List<String> imageUrls) {
@@ -53,6 +55,9 @@ public class LostPostServiceImpl implements LostPostService {
 
         // 2. 엔티티 생성
         LostPost post = requestDto.toEntity(user);
+        // 제목·내용의 금지어는 *** 로 가려 저장
+        post.update(bannedWordFilter.mask(post.getTitle()), bannedWordFilter.mask(post.getContent()),
+                null, null, null, null, null, null, null);
         post.updateImages(requestDto.imageUrls());
 
         return lostPostRepository.save(post).getId();
@@ -75,8 +80,8 @@ public class LostPostServiceImpl implements LostPostService {
 
         // 엔티티 업데이트 호출 (categoryCode가 없으면 상세정보도 변경하지 않음)
         post.update(
-                requestDto.title(),
-                requestDto.content(),
+                bannedWordFilter.mask(requestDto.title()),   // 금지어는 *** 로 가려 저장 (null이면 기존 값 유지)
+                bannedWordFilter.mask(requestDto.content()),
                 requestDto.categoryCode(),
                 requestDto.categoryCode() != null ? requestDto.toDetail() : null,
                 requestDto.latitude(),

@@ -46,6 +46,8 @@ class LostPostServiceTest {
     @org.mockito.Spy private com.jiburo.server.global.setting.AppSettingService appSettingService =
             com.jiburo.server.global.setting.TestSettings.defaults();
     @Mock private LostPostDeleter lostPostDeleter;
+    @org.mockito.Spy private com.jiburo.server.domain.moderation.service.BannedWordFilter bannedWordFilter =
+            new com.jiburo.server.domain.moderation.service.BannedWordFilter(org.mockito.Mockito.mock(com.jiburo.server.domain.moderation.repository.BannedWordRepository.class)); // 금지어 없음 = 그대로 통과
 
     private UUID userId;
     private UUID otherUserId;

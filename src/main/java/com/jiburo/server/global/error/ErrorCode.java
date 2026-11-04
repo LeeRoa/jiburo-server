@@ -63,6 +63,11 @@ public enum ErrorCode {
     INVALID_I18N_MESSAGE_FORMAT(HttpStatus.BAD_REQUEST, "error.i18n.invalid_format"),
     I18N_MESSAGE_NOT_FOUND(HttpStatus.NOT_FOUND, "error.i18n.not_found"),
 
+    // [8] Moderation (금지어)
+    BANNED_WORD_NOT_FOUND(HttpStatus.NOT_FOUND, "error.banned_word.not_found"),
+    BANNED_WORD_DUPLICATED(HttpStatus.CONFLICT, "error.banned_word.duplicated"),
+    NICKNAME_CONTAINS_BANNED_WORD(HttpStatus.BAD_REQUEST, "error.banned_word.nickname"),
+
     // [6] Post (게시글 - 분실물/목격 제보) [추가된 부분]
     POST_NOT_FOUND(HttpStatus.NOT_FOUND, "error.post.not_found"), // 게시글 없음
     POST_ACCESS_DENIED(HttpStatus.FORBIDDEN, "error.post.access_denied"), // 작성자 불일치 (수정/삭제 권한 없음)
