@@ -52,6 +52,10 @@ public enum ErrorCode {
     BADGE_NOT_FOUND(HttpStatus.NOT_FOUND, "error.badge.not_found"),
     NOT_CHAT_PARTICIPANT(HttpStatus.FORBIDDEN, "error.chat.not_chat_participant"),
     PARTNER_NOT_FOUND(HttpStatus.NOT_FOUND, "error.chat.partner_not_found"),
+    EMOTICON_NOT_FOUND(HttpStatus.NOT_FOUND, "error.emoticon.not_found"),
+    EMOTICON_PACK_NOT_FOUND(HttpStatus.NOT_FOUND, "error.emoticon.pack_not_found"),
+    INVALID_EMOTICON_IMAGE(HttpStatus.BAD_REQUEST, "error.emoticon.invalid_image"),
+    INVALID_EMOTICON_ORDER(HttpStatus.BAD_REQUEST, "error.emoticon.invalid_order"),
 
     // [6] Post (게시글 - 분실물/목격 제보) [추가된 부분]
     POST_NOT_FOUND(HttpStatus.NOT_FOUND, "error.post.not_found"), // 게시글 없음

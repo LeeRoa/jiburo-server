@@ -5,6 +5,8 @@ import com.jiburo.server.domain.image.dto.PresignedUrlRequestDto;
 import com.jiburo.server.domain.image.dto.PresignedUrlResponseDto;
 import com.jiburo.server.domain.image.service.ImageStorageService;
 import com.jiburo.server.domain.user.dto.CustomOAuth2User;
+import com.jiburo.server.global.error.ErrorCode;
+import com.jiburo.server.global.error.JiburoException;
 import com.jiburo.server.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -27,6 +29,10 @@ public class ImageController implements ImageControllerDocs {
     public ApiResponse<PresignedUrlResponseDto> getPresignedUrl(
             @AuthenticationPrincipal CustomOAuth2User user,
             @Valid @RequestBody PresignedUrlRequestDto request) {
+        // 이모티콘 등 관리자 전용 대상은 관리자 API(/api/v1/admin/emoticons/presigned-url)로만 발급
+        if (request.fileCode().isAdminOnly()) {
+            throw new JiburoException(ErrorCode.INVALID_FILE_CODE);
+        }
         return ApiResponse.success(imageStorageService.createPresignedUrl(user.getUserId(), request));
     }
 

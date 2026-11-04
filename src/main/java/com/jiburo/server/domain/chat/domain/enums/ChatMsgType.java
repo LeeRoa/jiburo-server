@@ -19,7 +19,10 @@ public enum ChatMsgType implements CommonCodeType {
     // 4. 지도/위치 정보
     MAP("MAP", "chat.msg.map"),
 
-    // 5. 시스템 메시지 (입장, 퇴장 등)
+    // 5. 이모티콘 (요청은 이모티콘 ID, 저장은 이미지 키 — 이후 이모티콘이 삭제돼도 과거 메시지는 그대로 보임)
+    EMOTICON("EMOTICON", "chat.msg.emoticon"),
+
+    // 6. 시스템 메시지 (입장, 퇴장 등)
     SYS("SYS", "chat.msg.sys");
 
     private final String code;           // DB의 code 컬럼값
