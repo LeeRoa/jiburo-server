@@ -1,6 +1,8 @@
 package com.jiburo.server.domain.admin.service;
 
 import com.jiburo.server.domain.admin.dto.AdminI18nDtos.*;
+import com.jiburo.server.global.cache.CommonCodeCache;
+import com.jiburo.server.global.domain.CommonCode;
 import com.jiburo.server.global.error.ErrorCode;
 import com.jiburo.server.global.error.JiburoException;
 import com.jiburo.server.global.i18n.I18nMessage;
@@ -20,7 +22,7 @@ import java.util.regex.Pattern;
 
 /**
  * 관리자 다국어 문구 관리.
- * - 목록의 키 = properties 파일 키 + 관리자가 추가한 키. 언어 = 파일/DB에 문구가 있는 언어 (ko 먼저).
+ * - 목록의 키 = properties 파일 키 + 관리자가 추가한 키 + 공통코드 message_key (문구가 하나도 없어도 MISSING으로 보이도록). 언어 = 파일/DB에 문구가 있는 언어 (ko 먼저).
  * - 수정은 DB(i18n_messages)에 저장되어 properties 기본값보다 우선한다. 되돌리기 = DB 값 삭제.
  * - 저장 직후 이 서버의 캐시를 다시 읽고, 다른 서버는 I18nMessageCache 주기(기본 60초)로 반영된다.
  *   그래서 트랜잭션을 걸지 않는다 (저장이 커밋된 뒤 reload해야 새 값이 보임).
@@ -35,6 +37,7 @@ public class AdminI18nService {
     private final MessageCatalog catalog;
     private final I18nMessageRepository repository;
     private final I18nMessageCache cache;
+    private final CommonCodeCache commonCodeCache;
 
     public List<String> locales() {
         return catalog.locales();
@@ -46,7 +49,7 @@ public class AdminI18nService {
         String keyword = c.keyword() == null || c.keyword().isBlank() ? null : c.keyword().trim().toLowerCase(Locale.ROOT);
         Status status = c.status() == null ? Status.ALL : c.status();
 
-        List<MessageRow> rows = catalog.allKeys().stream()
+        List<MessageRow> rows = allKeys().stream()
                 .filter(key -> c.prefix() == null || c.prefix().isBlank() || key.startsWith(c.prefix().trim()))
                 .map(key -> toRow(key, locales, stored.getOrDefault(key, Map.of())))
                 .filter(row -> keyword == null || matches(row, keyword))
@@ -64,7 +67,7 @@ public class AdminI18nService {
 
     public MessageRow find(String key) {
         Map<String, I18nMessage> stored = storedOf(key);
-        if (stored.isEmpty() && !catalog.allKeys().contains(key)) {
+        if (stored.isEmpty() && !allKeys().contains(key)) {
             throw new JiburoException(ErrorCode.I18N_MESSAGE_NOT_FOUND);
         }
         return toRow(key, localesWith(stored.keySet()), stored);
@@ -89,7 +92,7 @@ public class AdminI18nService {
     public MessageRow reset(String key, String rawLocale) {
         String locale = normalizeLocale(rawLocale);
         Optional<I18nMessage> stored = repository.findByMessageKeyAndLocale(key, locale);
-        if (stored.isEmpty() && !catalog.allKeys().contains(key)) {
+        if (stored.isEmpty() && !allKeys().contains(key)) {
             throw new JiburoException(ErrorCode.I18N_MESSAGE_NOT_FOUND);
         }
         stored.ifPresent(repository::delete);
@@ -100,6 +103,13 @@ public class AdminI18nService {
     }
 
     // ── 내부 ──
+
+    private Set<String> allKeys() {
+        Set<String> keys = new TreeSet<>(catalog.allKeys());
+        commonCodeCache.getAll().values().stream().flatMap(List::stream)
+                .map(CommonCode::getMessageKey).filter(Objects::nonNull).forEach(keys::add);
+        return keys;
+    }
 
     private MessageRow toRow(String key, List<String> locales, Map<String, I18nMessage> stored) {
         List<LocaleValue> values = locales.stream().map(locale -> {

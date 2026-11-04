@@ -7,6 +7,8 @@ import com.jiburo.server.domain.admin.dto.AdminI18nDtos.Status;
 import com.jiburo.server.global.error.ErrorCode;
 import com.jiburo.server.global.i18n.I18nMessageCache;
 import com.jiburo.server.global.i18n.I18nMessageRepository;
+import com.jiburo.server.global.i18n.LabelResolver;
+import org.springframework.context.i18n.LocaleContextHolder;
 import com.jiburo.server.global.i18n.MessageCatalog.Source;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -36,6 +38,7 @@ class AdminI18nServiceIntegrationTest {
     @Autowired private I18nMessageRepository repository;
     @Autowired private I18nMessageCache cache;
     @Autowired private MessageSource messageSource;
+    @Autowired private LabelResolver labelResolver;
 
     private final UUID adminId = UUID.randomUUID();
 
@@ -97,6 +100,23 @@ class AdminI18nServiceIntegrationTest {
         assertThatThrownBy(() -> adminI18nService.update(KEY, "ko", "깨진 {0 문구", adminId))
                 .extracting("errorCode").isEqualTo(ErrorCode.INVALID_I18N_MESSAGE_FORMAT);
         assertThat(repository.count()).isZero();
+    }
+
+    @Test
+    void 문구가_없는_공통코드_키도_누락으로_나오고_채우면_라벨로_내려간다() {
+        String key = "chat.msg.emoticon"; // ChatMsgType.EMOTICON의 message_key (properties에 없음)
+        LocaleContextHolder.setLocale(Locale.KOREAN);
+        try {
+            assertThat(labelResolver.resolve(key)).isNull();
+            assertThat(adminI18nService.search(new SearchCondition(null, "chat.msg.", Status.MISSING), PageRequest.of(0, 50))
+                    .getContent()).extracting(MessageRow::key).contains(key);
+
+            adminI18nService.update(key, "ko", "이모티콘", adminId);
+
+            assertThat(labelResolver.resolve(key)).isEqualTo("이모티콘");
+        } finally {
+            LocaleContextHolder.resetLocaleContext();
+        }
     }
 
     @Test

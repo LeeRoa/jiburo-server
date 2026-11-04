@@ -1,7 +1,9 @@
 package com.jiburo.server.global.controller;
 
 import com.jiburo.server.global.cache.CommonCodeCache;
+import com.jiburo.server.global.domain.CommonCode;
 import com.jiburo.server.global.dto.CommonCodeResponseDto;
+import com.jiburo.server.global.i18n.LabelResolver;
 import com.jiburo.server.global.response.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +20,7 @@ import java.util.stream.Collectors;
 public class CommonCodeController implements CommonCodeControllerDocs {
 
     private final CommonCodeCache commonCodeCache;
+    private final LabelResolver labelResolver;
 
     @Override
     @GetMapping
@@ -27,7 +30,7 @@ public class CommonCodeController implements CommonCodeControllerDocs {
                 .collect(Collectors.toMap(
                         Map.Entry::getKey,
                         entry -> entry.getValue().stream()
-                                .map(CommonCodeResponseDto::from)
+                                .map(this::toDto)
                                 .toList()
                 ));
 
@@ -39,10 +42,14 @@ public class CommonCodeController implements CommonCodeControllerDocs {
     public ApiResponse<List<CommonCodeResponseDto>> getCodesByGroup(@PathVariable String group) {
         List<CommonCodeResponseDto> result = commonCodeCache.getGroup(group.toUpperCase())
                 .stream()
-                .map(CommonCodeResponseDto::from)
+                .map(this::toDto)
                 .toList();
 
         return ApiResponse.success(result);
+    }
+
+    private CommonCodeResponseDto toDto(CommonCode code) {
+        return CommonCodeResponseDto.from(code, labelResolver.resolve(code.getMessageKey()));
     }
 
     // 캐시 리로드는 관리자 전용 API로 이동: POST /api/v1/admin/common-codes/reload (AdminCommonCodeController)
