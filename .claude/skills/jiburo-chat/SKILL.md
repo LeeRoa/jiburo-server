@@ -88,8 +88,9 @@ ChatMessage (PK Long)
 5. **새 메시지 타입 추가** — `ChatMsgType` enum에만 추가하면 기동 시 `CommonCodeSyncer`가 공통코드(group `CHAT_MSG_TYPE`)에 upsert. `data.sql`은 건드리지 않음.
    - 미디어성 타입은 `ChatMessageResponseDto.from`에서 content를 `R2UrlProvider.buildUrl`로 변환하는 목록(IMAGE/VIDEO/EMOTICON)에 추가.
    - 목록 미리보기는 TALK 외 타입이면 자동으로 `[TYPE]`.
-7. **이모티콘 메시지** — 요청 content = 이모티콘 Hashids ID → `ChatMessageServiceImpl.saveMessage`가 `EmoticonService.resolveImageKey`로 **이미지 키로 바꿔 저장**. 비노출 묶음/없는 이모티콘은 `EMOTICON_NOT_FOUND`.
 6. **양방향 연관관계 편의 메서드** — `ChatRoom.addParticipant(p)`를 통해 추가 (반대편 `participant.setChatRoom` 호출 포함).
+7. **이모티콘 메시지** — 요청 content = 이모티콘 Hashids ID → `ChatMessageServiceImpl.saveMessage`가 `EmoticonService.resolveImageKey`로 **이미지 키로 바꿔 저장**. 비노출 묶음/없는 이모티콘은 `EMOTICON_NOT_FOUND`.
+8. **금지어** — TALK 메시지는 저장 전에 `BannedWordFilter.mask`로 `***` 처리 (원문 미저장). 단위 테스트에서 `ChatMessageServiceImpl`을 직접 만들 때는 빈 저장소를 넣은 실제 `BannedWordFilter`를 `@Spy`로 넣는다.
 
 ## 자주 하는 실수 (Common pitfalls)
 

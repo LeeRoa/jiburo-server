@@ -44,7 +44,7 @@ docker compose -f compose-prod.yaml up --build -d
 src/main/
 ├── java/com/jiburo/server/
 │   ├── JiburoServerApplication.java         # @SpringBootApplication, @EnableJpaAuditing, @EnableSpringDataWebSupport(VIA_DTO)
-│   ├── domain/                              # 비즈니스 도메인 모듈 (admin / chat / emoticon / image / notification / post / user 등)
+│   ├── domain/                              # 비즈니스 도메인 모듈 (admin / chat / emoticon / image / moderation / notification / post / user 등)
 │   └── global/                              # 횡단 관심사 (config / error / response / log / cache / util / domain / controller / repository / dto)
 └── resources/
     ├── application.properties               # spring.profiles.include=oauth,jwt,db,r2
@@ -92,6 +92,7 @@ domain/{모듈명}/
 - **chat** — 진입점 두 개: REST `ChatRoomController` (`/api/v1/chat/rooms`)와 STOMP `ChatController` (`@MessageMapping("/chat/rooms/{roomId}")`). 핵심 엔티티 `ChatRoom`, `ChatMessage`, `ChatParticipant`. 게시글 단위 1:N 채팅방, 실시간 전송 + 읽음 처리. `lastChatAt`로 목록 정렬, `idx_chat_room_created` 인덱스로 메시지 페이징 최적화.
 - **image** — 진입점 `ImageController` (`/api/v1/images`). 핵심 엔티티 `ImageMeta`. Cloudflare R2 presigned PUT URL 발급 → 클라이언트 직접 업로드 → `/complete` 콜백으로 `ImageStatus` 전환. 전체 누적 10GB 가드.
 - **emoticon** — 진입점 `EmoticonController` (`GET /api/v1/chat/emoticons`). 핵심 엔티티 `EmoticonPack`, `Emoticon`. 관리자가 등록한 무료 이모티콘(png / 움직이는 gif·webp). 노출 묶음 목록은 메모리 캐시(`EmoticonService.invalidateCatalog`, 60초 주기). 채팅 `EMOTICON` 메시지는 이모티콘 ID로 받아 **이미지 키로 저장** → 이모티콘을 지워도 과거 메시지 유지. 관리 API는 `AdminEmoticonController`.
+- **moderation** — 금지어. 핵심 엔티티 `BannedWord`, 핵심 컴포넌트 `BannedWordFilter`(`mask` / `contains`). 채팅 텍스트(TALK)·게시글 제목/내용은 **`***`로 가린 값을 저장**(원문 미저장). 대소문자 무시, 글자 사이 기호까지 매칭, 공백은 오탐 때문에 미허용. 메모리 캐시(`invalidate`, 60초 주기). 관리 API는 `AdminBannedWordController`. 닉네임은 가리지 않고 거부(`NICKNAME_CONTAINS_BANNED_WORD`) — 닉네임 변경 API(mypage 브랜치) 머지 후 연결 필요.
 - **notification** — 진입점 `NotificationController` (`/api/v1/notifications`). 핵심 엔티티 `Notification`. 알림 목록 / 안 읽음 카운트. `typeCode` + `args`(콤마 구분 가변인자) + `targetId` 패턴 — 메시지 본문은 프론트가 다국어 키로 조립.
 
 ### 주요 엔티티 관계
@@ -194,7 +195,7 @@ DB PK(`Long`)는 외부에 절대 그대로 노출하지 않습니다. `global/u
 - `@EnableMethodSecurity(proxyTargetClass = true)`는 유지하세요. 컨트롤러가 Docs 인터페이스를 구현하므로 인터페이스 프록시가 되면 매핑이 사라져 404가 납니다.
 - 관리자 컨트롤러는 `domain/admin/controller`, 관리자 전용 로직은 `domain/admin/service`에 두고, 각 도메인의 서비스/리포지토리를 재사용합니다.
 - 상태를 바꾸는 관리자 API에는 `@AuditLog(action = LogActionType.ADMIN_XXX)`를 반드시 붙입니다.
-- 현재 메뉴: 대시보드, 운영 설정, 공통코드, 다국어 문구(`AdminI18nController`), 사용자, 게시글, 이모티콘(`AdminEmoticonController`), 감사 로그, 역할·권한.
+- 현재 메뉴: 대시보드, 운영 설정, 공통코드, 다국어 문구(`AdminI18nController`), 사용자, 게시글, 이모티콘(`AdminEmoticonController`), 금지어(`AdminBannedWordController`), 감사 로그, 역할·권한.
 - 이모티콘 업로드: `POST /api/v1/admin/emoticons/presigned-url` → R2 PUT → `/api/v1/images/complete` → `POST /packs/{packId}/emoticons`. `UploadTargetType.EMOTICON`은 `isAdminOnly()`라 일반 업로드 API에서 거부됩니다.
 - 테스트는 `AdminControllerTestSupport`를 상속하면 보안 설정과 `withAdmin()`/`withUser()` 헬퍼를 그대로 쓸 수 있습니다.
 

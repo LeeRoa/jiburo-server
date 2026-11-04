@@ -97,6 +97,7 @@
 > - STOMP CONNECT 시 `StompHandler`가 JWT 검증
 > - 채팅방은 게시글 단위 1:N 구조 (하나의 게시글에 여러 채팅방 가능)
 > - 채팅방 목록은 `lastChatAt` 기준 내림차순 정렬 (텍스트 외 타입은 미리보기가 `[IMAGE]`, `[EMOTICON]` 형태)
+> - 텍스트 메시지의 금지어는 `***`로 가려 저장·전송 (관리자 금지어 메뉴에서 관리)
 > - 이모티콘은 관리자가 등록한 무료 이모티콘(png / 움직이는 gif·webp). 노출 중인 묶음만 목록·전송 가능하며, 비노출·삭제돼도 이미 보낸 메시지는 그대로 보임
 
 ---
@@ -174,6 +175,7 @@
 | 다국어 문구 `I18N` | `GET /i18n/locales`, `GET /i18n/messages`, `PUT·DELETE /i18n/messages/{key}/{locale}` | 문구 검색(번역 누락·수정 필터), 수정/추가, 기본값 되돌리기 |
 | 사용자 `USER` | `GET /users`, `PUT /users/{userId}/admin-roles` | 사용자 검색, 관리자 역할 부여/회수 |
 | 게시글 `POST` | `GET /posts`, `POST /posts/{postId}/force-delete·restore` | 전체 조회(삭제·비공개 포함), 강제 삭제(사유 필수), 복구 |
+| 금지어 `BANNED_WORD` | `GET·POST /banned-words`, `PATCH·DELETE /banned-words/{wordId}`, `GET /banned-words/test` | 금지어 검색·추가·수정·삭제(등록자/수정자·시각 표시), 가리기 미리보기 |
 | 이모티콘 `EMOTICON` | `/emoticons/packs/**`, `POST /emoticons/presigned-url` | 묶음 CRUD·순서, 이모티콘 업로드·등록·순서·삭제 |
 | 감사 로그 `AUDIT_LOG` | `GET /audit-logs` | 사용자·액션·기간 검색 |
 | 역할·권한 `ROLE` | `GET /menus`, `/roles/**` | 역할 CRUD, 역할별 메뉴 권한 (SUPER_ADMIN 전용 메뉴) |
@@ -218,6 +220,6 @@
 | Notification | 2 (미구현 3) | 전체 |
 | Image | 2 | 전체 |
 | Common Code | 2 | 불필요 |
-| Admin | 메뉴 9개 (위 표) | 관리자 |
+| Admin | 메뉴 10개 (위 표) | 관리자 |
 | Search History | 6 | 전체 |
 | **합계** | **31 REST + 4 STOMP채널 (관리자 API 제외)** | |
