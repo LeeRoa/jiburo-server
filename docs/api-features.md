@@ -1,6 +1,6 @@
 # Jiburo Server — 구현된 기능 목록
 
-> 마지막 업데이트: 2026-06-21
+> 마지막 업데이트: 2026-11-04
 
 ---
 
@@ -12,6 +12,7 @@
 - [Notification — 알림](#notification--알림)
 - [Image — 이미지 업로드](#image--이미지-업로드)
 - [Common Code — 공통 코드](#common-code--공통-코드)
+- [Admin — 관리자](#admin--관리자)
 
 ---
 
@@ -72,6 +73,7 @@
 | 내 채팅방 목록 조회 | `GET` | `/api/v1/chat/rooms` | 필요 |
 | 채팅 메시지 내역 조회 (페이징) | `GET` | `/api/v1/chat/rooms/{roomId}/messages` | 필요 |
 | 채팅 메시지 키워드 검색 | `GET` | `/api/v1/chat/rooms/{roomId}/messages/search` | 필요 |
+| 채팅 이모티콘 목록 | `GET` | `/api/v1/chat/emoticons` | 필요 |
 
 ### STOMP 실시간 채널 (`/ws-jiburo`)
 
@@ -85,12 +87,17 @@
 ### 메시지 타입 (`ChatMsgType`)
 | 타입 | 설명 |
 |---|---|
-| `TEXT` | 텍스트 메시지 |
-| `IMAGE` | 이미지 메시지 (R2 URL) |
+| `TALK` | 텍스트 메시지 (최대 길이: 운영 설정 `CHAT_MAX_TEXT_LENGTH`) |
+| `IMAGE` | 이미지 메시지 (수신 content = R2 URL) |
+| `VIDEO` | 동영상 메시지 (수신 content = R2 URL) |
+| `MAP` | 지도/위치 정보 |
+| `EMOTICON` | 이모티콘. 전송 content = 이모티콘 ID, 수신 content = 이미지 URL |
+| `SYS` | 시스템 메시지 (입장, 퇴장 등) |
 
 > - STOMP CONNECT 시 `StompHandler`가 JWT 검증
 > - 채팅방은 게시글 단위 1:N 구조 (하나의 게시글에 여러 채팅방 가능)
-> - 채팅방 목록은 `lastChatAt` 기준 내림차순 정렬
+> - 채팅방 목록은 `lastChatAt` 기준 내림차순 정렬 (텍스트 외 타입은 미리보기가 `[IMAGE]`, `[EMOTICON]` 형태)
+> - 이모티콘은 관리자가 등록한 무료 이모티콘(png / 움직이는 gif·webp). 노출 중인 묶음만 목록·전송 가능하며, 비노출·삭제돼도 이미 보낸 메시지는 그대로 보임
 
 ---
 
@@ -126,11 +133,15 @@
 ### 업로드 대상 타입 (`UploadTargetType`)
 | 타입 | 경로 prefix |
 |---|---|
-| `CHAT` | `chat/{userId}/` |
-| `POST` | `post/{userId}/` |
-| `PROFILE` | `profile/{userId}/` |
+| `CHAT` | `chat/images/` |
+| `CHAT_VIDEO` | `chat/videos/` |
+| `POST` | `post/images/` |
+| `PROFILE` | `profile/images/` |
+| `FINDER_IMAGE` | `finder/images/` |
+| `FINDER_VIDEO` | `finder/videos/` |
+| `EMOTICON` | `emoticon/images/` — 관리자 API로만 발급 |
 
-> - 전체 누적 용량 10GB 초과 시 업로드 불가
+> - 파일 1개 최대 크기·전체 누적 용량은 운영 설정(`UPLOAD_*`)으로 관리
 > - 키 구조: `{basePath}/{userId}/{uuid}.{ext}`
 
 ---
@@ -146,6 +157,26 @@
 
 > 앱 시작 시 1회 호출해 클라이언트에서 로컬 캐싱하는 용도
 > 서버 내부에서도 `CommonCodeCache`로 메모리 캐싱 (DB JOIN 없이 조회)
+> 각 코드의 `label`은 `Accept-Language` 기준 표시 문구 (관리자 수정값 → 파일 기본값 → ko). 서버에 문구가 없으면 생략되므로 프론트 번역으로 대체
+
+---
+
+## Admin — 관리자
+
+모든 경로는 `/api/v1/admin` 아래이며 `ROLE_ADMIN` + 메뉴별 권한(READ=조회, WRITE=편집)이 필요합니다. 상태 변경 API는 감사 로그에 남습니다.
+
+| 메뉴 | 주요 경로 | 기능 |
+|---|---|---|
+| (공통) | `GET /me` | 내 역할·메뉴 권한 |
+| 대시보드 `DASHBOARD` | `GET /dashboard` | 기간별 가입·게시글·채팅방 집계, 저장소 사용량, 최근 관리자 작업 |
+| 운영 설정 `SETTING` | `GET·PUT·DELETE /settings/{key}` | 업로드·채팅·검색·인증 제한값 조회/변경/기본값 복원 |
+| 공통코드 `COMMON_CODE` | `POST /common-codes/reload` | 공통코드 캐시 다시 읽기 |
+| 다국어 문구 `I18N` | `GET /i18n/locales`, `GET /i18n/messages`, `PUT·DELETE /i18n/messages/{key}/{locale}` | 문구 검색(번역 누락·수정 필터), 수정/추가, 기본값 되돌리기 |
+| 사용자 `USER` | `GET /users`, `PUT /users/{userId}/admin-roles` | 사용자 검색, 관리자 역할 부여/회수 |
+| 게시글 `POST` | `GET /posts`, `POST /posts/{postId}/force-delete·restore` | 전체 조회(삭제·비공개 포함), 강제 삭제(사유 필수), 복구 |
+| 이모티콘 `EMOTICON` | `/emoticons/packs/**`, `POST /emoticons/presigned-url` | 묶음 CRUD·순서, 이모티콘 업로드·등록·순서·삭제 |
+| 감사 로그 `AUDIT_LOG` | `GET /audit-logs` | 사용자·액션·기간 검색 |
+| 역할·권한 `ROLE` | `GET /menus`, `/roles/**` | 역할 CRUD, 역할별 메뉴 권한 (SUPER_ADMIN 전용 메뉴) |
 
 ---
 
@@ -182,10 +213,11 @@
 |---|---|---|
 | Auth | 4 (OAuth2 3 + REST 1) | 일부 |
 | Post | 10 | 일부 |
-| Chat (REST) | 4 | 전체 |
+| Chat (REST) | 5 | 전체 |
 | Chat (STOMP) | 4채널 | 전체 (STOMP CONNECT 시 JWT) |
 | Notification | 2 (미구현 3) | 전체 |
 | Image | 2 | 전체 |
 | Common Code | 2 | 불필요 |
+| Admin | 메뉴 9개 (위 표) | 관리자 |
 | Search History | 6 | 전체 |
-| **합계** | **30 REST + 4 STOMP채널** | |
+| **합계** | **31 REST + 4 STOMP채널 (관리자 API 제외)** | |

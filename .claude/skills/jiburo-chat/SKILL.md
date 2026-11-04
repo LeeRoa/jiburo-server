@@ -77,13 +77,18 @@ ChatMessage (PK Long)
 | GET | `/{roomId}/messages` | 메시지 내역 (`Pageable`, sort `createdAt ASC`, size 50) |
 | GET | `/{roomId}/messages/search` | 키워드 검색 (`Slice`) |
 
+이모티콘 목록: `GET /api/v1/chat/emoticons` → `domain/emoticon/controller/EmoticonController` (노출 묶음만, 메모리 캐시)
+
 ## 도메인 규약 (Conventions)
 
 1. **인증**: REST 컨트롤러는 `@AuthenticationPrincipal CustomOAuth2User user`, STOMP는 `Authentication authentication` 받아 `(CustomOAuth2User) authentication.getPrincipal()` 캐스팅.
 2. **roomId / messageId는 Hashids String** — STOMP/REST 모두 `HashidsUtils.decode(roomId)`로 변환. 응답 DTO에서는 다시 `encode`.
 3. **메시지 저장 직후 방 상태 갱신** — `chatMessageService.saveMessage(...)` 안에서 `ChatRoom.updateLastChat(message)`로 `lastMessage`/`lastChatAt`을 갱신해야 목록 정렬이 맞음.
 4. **읽음 처리 흐름** — `ChatParticipant.lastReadMessageId`를 갱신 → 그 방의 다른 참여자에게 `/sub/.../read`로 영수증 push.
-5. **새 메시지 타입 추가** — `ChatMsgType` enum + `data.sql`(`group_code='CHAT_TYPE'`) 동시 추가. [[jiburo-conventions]] §5 참고.
+5. **새 메시지 타입 추가** — `ChatMsgType` enum에만 추가하면 기동 시 `CommonCodeSyncer`가 공통코드(group `CHAT_MSG_TYPE`)에 upsert. `data.sql`은 건드리지 않음.
+   - 미디어성 타입은 `ChatMessageResponseDto.from`에서 content를 `R2UrlProvider.buildUrl`로 변환하는 목록(IMAGE/VIDEO/EMOTICON)에 추가.
+   - 목록 미리보기는 TALK 외 타입이면 자동으로 `[TYPE]`.
+7. **이모티콘 메시지** — 요청 content = 이모티콘 Hashids ID → `ChatMessageServiceImpl.saveMessage`가 `EmoticonService.resolveImageKey`로 **이미지 키로 바꿔 저장**. 비노출 묶음/없는 이모티콘은 `EMOTICON_NOT_FOUND`.
 6. **양방향 연관관계 편의 메서드** — `ChatRoom.addParticipant(p)`를 통해 추가 (반대편 `participant.setChatRoom` 호출 포함).
 
 ## 자주 하는 실수 (Common pitfalls)
@@ -102,6 +107,7 @@ ChatMessage (PK Long)
 - `CANNOT_CHAT_WITH_SELF`
 - `NOT_CHAT_PARTICIPANT`
 - `PARTNER_NOT_FOUND`
+- `EMOTICON_NOT_FOUND`, `EMOTICON_PACK_NOT_FOUND`, `INVALID_EMOTICON_IMAGE`, `INVALID_EMOTICON_ORDER`
 
 새 에러 추가는 [[jiburo-conventions]] §2 참고.
 

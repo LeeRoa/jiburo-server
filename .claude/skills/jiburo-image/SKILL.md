@@ -95,8 +95,10 @@ cloud.cloudflare.r2.presigned.expiration-minutes=${R2_PRESIGNED_EXPIRATION_MINUT
 | `CHAT` | `chat/images` |
 | `POST` | `post/images` |
 | `PROFILE` | `profile/images` |
+| `CHAT_VIDEO` / `FINDER_IMAGE` / `FINDER_VIDEO` | `chat/videos` / `finder/images` / `finder/videos` |
+| `EMOTICON` | `emoticon/images` — `isAdminOnly()`: `ImageController`가 거부, `AdminEmoticonService.presign`으로만 발급 |
 
-새 타입 추가: enum에 항목 추가 + `data.sql`의 `common_codes` (group `UPLOAD_TARGET`) INSERT — [[jiburo-conventions]] §5.
+새 타입 추가: enum에 항목(허용 확장자 포함) 추가 — 공통코드는 `CommonCodeSyncer`가 기동 시 자동 upsert. 관리자만 쓰는 대상이면 `isAdminOnly()`에 포함.
 
 최종 objectKey: `{folderPath}/{userId-UUID}/{random-uuid}.{ext}` — 폴더 단위로 user별 분리.
 
