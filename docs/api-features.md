@@ -173,11 +173,13 @@
 | 운영 설정 `SETTING` | `GET·PUT·DELETE /settings/{key}` | 업로드·채팅·검색·인증 제한값 조회/변경/기본값 복원 |
 | 공통코드 `COMMON_CODE` | `POST /common-codes/reload` | 공통코드 캐시 다시 읽기 |
 | 다국어 문구 `I18N` | `GET /i18n/locales`, `GET /i18n/messages`, `PUT·DELETE /i18n/messages/{key}/{locale}` | 문구 검색(번역 누락·수정 필터), 수정/추가, 기본값 되돌리기 |
-| 사용자 `USER` | `GET /users`, `PUT /users/{userId}/admin-roles` | 사용자 검색, 관리자 역할 부여/회수 |
+| 사용자 `USER` | `GET /users`, `PUT /users/{userId}/admin-roles`, `POST·DELETE /users/{userId}/suspension` | 사용자 검색, 관리자 역할 부여/회수, 계정 정지·해제 |
+| 신고 `REPORT` | `GET /reports`, `GET /reports/{id}`, `POST /reports/{id}/resolve` | 신고 목록·상세(채팅 앞뒤 대화), 콘텐츠 삭제·정지·기각 (같은 대상 일괄, 신고자 알림) |
 | 게시글 `POST` | `GET /posts`, `POST /posts/{postId}/force-delete·restore` | 전체 조회(삭제·비공개 포함), 강제 삭제(사유 필수), 복구 |
 | 금지어 `BANNED_WORD` | `GET·POST /banned-words`, `PATCH·DELETE /banned-words/{wordId}`, `GET /banned-words/test` | 금지어 검색·추가·수정·삭제(등록자/수정자·시각 표시), 가리기 미리보기 |
 | 이모티콘 `EMOTICON` | `/emoticons/packs/**`, `POST /emoticons/presigned-url` | 묶음 CRUD·순서, 이모티콘 업로드·등록·순서·삭제 |
 | 감사 로그 `AUDIT_LOG` | `GET /audit-logs` | 사용자·액션·기간 검색 |
+| 시스템 모니터링 `MONITORING` | `GET /monitoring` | 종합 상태, DB·Redis 응답, JVM, 저장소, 채팅 접속자, 최근 500 오류 (조회 전용, 서버별 값) |
 | 역할·권한 `ROLE` | `GET /menus`, `/roles/**` | 역할 CRUD, 역할별 메뉴 권한 (SUPER_ADMIN 전용 메뉴) |
 
 ---
@@ -220,6 +222,7 @@
 | Notification | 2 (미구현 3) | 전체 |
 | Image | 2 | 전체 |
 | Common Code | 2 | 불필요 |
-| Admin | 메뉴 10개 (위 표) | 관리자 |
+| Report | 1 (`POST /api/v1/reports`) | 필요 |
+| Admin | 메뉴 12개 (위 표) | 관리자 |
 | Search History | 6 | 전체 |
-| **합계** | **31 REST + 4 STOMP채널 (관리자 API 제외)** | |
+| **합계** | **32 REST + 4 STOMP채널 (관리자 API 제외)** | |
