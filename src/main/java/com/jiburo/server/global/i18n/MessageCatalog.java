@@ -116,6 +116,17 @@ public class MessageCatalog {
         return keys;
     }
 
+    /** 파일 + DB에 문구가 있는 언어 (기준 언어 ko 먼저, 나머지는 이름순) */
+    public List<String> locales() {
+        Set<String> tags = new TreeSet<>(fileMessages.keySet());
+        tags.addAll(dbMessages.keySet());
+        tags.remove(BASE_LOCALE);
+        List<String> result = new ArrayList<>(tags.size() + 1);
+        result.add(BASE_LOCALE);
+        result.addAll(tags);
+        return result;
+    }
+
     private static String get(Map<String, Map<String, String>> source, String locale, String key) {
         Map<String, String> m = source.get(locale);
         return m == null ? null : m.get(key);

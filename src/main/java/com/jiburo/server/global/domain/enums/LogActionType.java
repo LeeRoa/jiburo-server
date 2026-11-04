@@ -46,6 +46,8 @@ public enum LogActionType implements CommonCodeType {
     ADMIN_EMOTICON_PACK_DELETE("ADMIN_EMOTICON_PACK_DELETE", "log.admin.emoticon.pack.delete"),
     ADMIN_EMOTICON_ADD("ADMIN_EMOTICON_ADD", "log.admin.emoticon.add"),
     ADMIN_EMOTICON_DELETE("ADMIN_EMOTICON_DELETE", "log.admin.emoticon.delete"),
+    ADMIN_I18N_UPDATE("ADMIN_I18N_UPDATE", "log.admin.i18n.update"),
+    ADMIN_I18N_RESET("ADMIN_I18N_RESET", "log.admin.i18n.reset"),
 
     SPARE("SPARE", "log.spare");
 

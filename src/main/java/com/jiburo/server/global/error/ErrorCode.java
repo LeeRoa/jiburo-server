@@ -57,6 +57,12 @@ public enum ErrorCode {
     INVALID_EMOTICON_IMAGE(HttpStatus.BAD_REQUEST, "error.emoticon.invalid_image"),
     INVALID_EMOTICON_ORDER(HttpStatus.BAD_REQUEST, "error.emoticon.invalid_order"),
 
+    // [7] i18n (관리자 다국어 문구)
+    INVALID_I18N_KEY(HttpStatus.BAD_REQUEST, "error.i18n.invalid_key"),
+    INVALID_I18N_LOCALE(HttpStatus.BAD_REQUEST, "error.i18n.invalid_locale"),
+    INVALID_I18N_MESSAGE_FORMAT(HttpStatus.BAD_REQUEST, "error.i18n.invalid_format"),
+    I18N_MESSAGE_NOT_FOUND(HttpStatus.NOT_FOUND, "error.i18n.not_found"),
+
     // [6] Post (게시글 - 분실물/목격 제보) [추가된 부분]
     POST_NOT_FOUND(HttpStatus.NOT_FOUND, "error.post.not_found"), // 게시글 없음
     POST_ACCESS_DENIED(HttpStatus.FORBIDDEN, "error.post.access_denied"), // 작성자 불일치 (수정/삭제 권한 없음)

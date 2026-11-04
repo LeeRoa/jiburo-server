@@ -27,7 +27,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class AdminControllerSecurityConventionTest {
 
-    private static final Pattern MENU_EXPR = Pattern.compile("^@adminAccess\\.(read|write)\\('([A-Z_]+)'\\)$");
+    private static final Pattern MENU_EXPR = Pattern.compile("^@adminAccess\\.(read|write)\\('([A-Z0-9_]+)'\\)$");
     private static final String ANY_EXPR = "@adminAccess.any()";
 
     @Test
