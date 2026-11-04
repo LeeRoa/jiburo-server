@@ -68,7 +68,8 @@ public class AdminDashboardService {
         return new DashboardResponse(period, fromDate, today, summary, storage(), daily, recent);
     }
 
-    private Storage storage() {
+    /** 업로드 저장소 사용량 (모니터링 화면에서도 사용) */
+    public Storage storage() {
         long used = imageMetaRepository.sumTotalFileSize();
         long capacity = appSettingService.getInt(SettingKey.UPLOAD_TOTAL_CAPACITY_GB) * GB;
         double percent = capacity == 0 ? 0 : Math.round(used * 1000.0 / capacity) / 10.0;

@@ -29,6 +29,10 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 @RequiredArgsConstructor
 public class GlobalExceptionHandler {
 
+    // 관리자 모니터링용 최근 500 오류 보관 (단위 테스트에서 new로 만들 때는 없을 수 있음)
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.jiburo.server.global.monitoring.ServerErrorRecorder serverErrorRecorder;
+
     /**
      * [1] 비즈니스 예외
      * 서비스 로직에서 의도적으로 던진 예외. 예: throw new JiburoException(ErrorCode.USER_NOT_FOUND);
@@ -114,8 +118,11 @@ public class GlobalExceptionHandler {
      * [10] 그 외 모든 예외 (최후의 보루) — 예상치 못한 서버 에러(NPE 등)
      */
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ApiResponse<Void>> handleException(Exception e) {
+    public ResponseEntity<ApiResponse<Void>> handleException(Exception e, jakarta.servlet.http.HttpServletRequest request) {
         log.error("Unhandled Exception: ", e);
+        if (serverErrorRecorder != null) {
+            serverErrorRecorder.record(request.getMethod(), request.getRequestURI(), e);
+        }
         return fail(ErrorCode.INTERNAL_SERVER_ERROR);
     }
 

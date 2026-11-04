@@ -25,6 +25,7 @@ public enum AdminMenu {
     EMOTICON("이모티콘", "/emoticons", true, true),
     BANNED_WORD("금지어", "/banned-words", true, true),
     AUDIT_LOG("감사 로그", "/audit-logs", false, true),
+    MONITORING("시스템 모니터링", "/monitoring", false, true),
     ROLE("역할·권한", "/roles", true, false);
 
     private final String label;

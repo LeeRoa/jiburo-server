@@ -48,4 +48,6 @@ public interface ReportRepository extends JpaRepository<Report, Long> {
     List<Object[]> countByTargetKeys(@Param("status") ReportStatus status, @Param("keys") Collection<String> keys);
 
     long countByTargetUser_Id(UUID targetUserId);
+
+    long countByStatus(ReportStatus status);
 }
