@@ -10,7 +10,7 @@ import java.util.UUID;
 
 public record AdminSettingResponseDto(
         @Schema(description = "설정 키", example = "POST_MAX_IMAGES") String key,
-        @Schema(description = "분류 (UPLOAD/CHAT/SEARCH/AUTH/I18N)") SettingKey.Category category,
+        @Schema(description = "분류 (UPLOAD/CHAT/SEARCH/AUTH)") SettingKey.Category category,
         @Schema(description = "값 타입 (INT/LONG/DOUBLE/BOOLEAN/STRING/STRING_LIST)") SettingType type,
         @Schema(description = "현재 적용 중인 값") String value,
         @Schema(description = "기본값") String defaultValue,

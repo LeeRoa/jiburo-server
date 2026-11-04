@@ -54,7 +54,7 @@ public enum SettingKey {
     LOGIN_CODE_TTL_SECONDS(AUTH, SettingType.INT, "60", 10d, 300d, "초", false,
             "웹 OAuth 로그인 1회용 code 유효 시간");
 
-    public enum Category { UPLOAD, CHAT, SEARCH, AUTH, I18N }
+    public enum Category { UPLOAD, CHAT, SEARCH, AUTH }
 
     private final Category category;
     private final SettingType type;
