@@ -44,7 +44,7 @@ docker compose -f compose-prod.yaml up --build -d
 src/main/
 ├── java/com/jiburo/server/
 │   ├── JiburoServerApplication.java         # @SpringBootApplication, @EnableJpaAuditing, @EnableSpringDataWebSupport(VIA_DTO)
-│   ├── domain/                              # 비즈니스 도메인 모듈 (admin / chat / emoticon / image / moderation / notification / post / report / user 등)
+│   ├── domain/                              # 비즈니스 도메인 모듈 (admin / chat / emoticon / image / moderation / notification / post / push / report / user 등)
 │   └── global/                              # 횡단 관심사 (config / error / response / log / cache / util / domain / controller / repository / dto)
 └── resources/
     ├── application.properties               # spring.profiles.include=oauth,jwt,db,r2
@@ -95,6 +95,8 @@ domain/{모듈명}/
 - **moderation** — 금지어. 핵심 엔티티 `BannedWord`, 핵심 컴포넌트 `BannedWordFilter`(`mask` / `contains`). 채팅 텍스트(TALK)·게시글 제목/내용은 **`***`로 가린 값을 저장**(원문 미저장). 대소문자 무시, 글자 사이 기호까지 매칭, 공백은 오탐 때문에 미허용. 메모리 캐시(`invalidate`, 60초 주기). 관리 API는 `AdminBannedWordController`. 닉네임은 가리지 않고 거부(`NICKNAME_CONTAINS_BANNED_WORD`) — 닉네임 변경 API(mypage 브랜치) 머지 후 연결 필요.
 - **report** — 진입점 `ReportController` (`POST /api/v1/reports`). 핵심 엔티티 `Report`. 게시글·채팅 메시지·사용자 신고, `target_key`로 같은 대상 묶음(중복 신고 차단·일괄 처리), 신고 당시 내용 스냅샷. 처리는 `AdminReportController`(콘텐츠 삭제 / 정지 / 기각 + 신고자 알림 `REPORT_HANDLED`).
 - **계정 정지** — `User.suspendedUntil`(9999-12-31 = 영구). `UserSuspensionService`가 정지 + Refresh Token 삭제, `AuthTokenService.issueTokens`가 정지 계정의 로그인·재발급을 `USER_SUSPENDED`로 막음 (웹 OAuth는 `?error=USER_SUSPENDED` 리다이렉트). 이미 받은 Access Token은 만료까지 유효. 관리자 계정은 정지 불가.
+- **push** — 진입점 `PushDeviceController` (`/api/v1/push/devices`). 핵심 엔티티 `PushDevice`(FCM 토큰·플랫폼·문구 언어). `PushService`가 기기 언어별 문구로 발송, `PushSender` 구현은 FCM(`FcmPushSender`) 또는 키가 없을 때 로그 전용. **알림은 `notificationRepository.save()`만 하면 자동으로 푸시**(`Notification` @DomainEvents → `UserPushListener` AFTER_COMMIT 비동기), 채팅은 `ChatMessageServiceImpl`이 이벤트 발행. 새 알림 typeCode를 만들면 `i18n/push/messages*.properties`에 `push.noti.{TYPE}.title/body`를 추가(없으면 기본 문구).
+- **운영자 푸시** — `AdminAlertMonitor`(1분 주기)가 DB·Redis 장애, 5분간 500 오류 급증(시작·복구 1번씩), 저장소 80%/95%(넘을 때 1번)를 `AdminAlertService`로 발송. 수신 = 관리자 + MONITORING 노출 권한 + `admin_push_preferences` 켜짐(기본 켜짐). 서버 간 중복은 `AlertDeduplicator`(Redis), DB 장애 중엔 마지막으로 확인한 기기로 발송.
 - **notification** — 진입점 `NotificationController` (`/api/v1/notifications`). 핵심 엔티티 `Notification`. 알림 목록 / 안 읽음 카운트. `typeCode` + `args`(콤마 구분 가변인자) + `targetId` 패턴 — 메시지 본문은 프론트가 다국어 키로 조립.
 
 ### 주요 엔티티 관계
@@ -148,6 +150,7 @@ permitAll (인증 불필요):
 - `/api/v1/chat/rooms/**` → `ChatRoomController`
 - `/api/v1/chat/emoticons` → `EmoticonController` (채팅 이모티콘 목록)
 - `/api/v1/reports` → `ReportController` (신고 접수)
+- `/api/v1/push/devices/**` → `PushDeviceController` (푸시 기기 등록·해제)
 - `/api/v1/notifications/**` → `NotificationController`
 - `/api/v1/images/**` → `ImageController`
 
@@ -231,6 +234,7 @@ AWS S3 SDK(`software.amazon.awssdk:s3`)를 R2 엔드포인트에 붙여 사용. 
 - `application-jwt.properties` — JWT secret/만료
 - `application-oauth.properties` — Google/Kakao/Naver client id/secret
 - `application-r2.properties` — Cloudflare R2 자격증명/버킷 (모두 `${...}` 환경변수)
+- 푸시: `FIREBASE_CREDENTIALS_JSON`(서비스 계정 키 JSON 내용) 또는 `FIREBASE_CREDENTIALS_PATH`. 없으면 푸시는 로그로만 남음
 
 ## 작업 시 주의사항
 

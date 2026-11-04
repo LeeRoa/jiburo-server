@@ -169,6 +169,7 @@
 | 메뉴 | 주요 경로 | 기능 |
 |---|---|---|
 | (공통) | `GET /me` | 내 역할·메뉴 권한 |
+| (공통) | `GET·PUT /me/push-preferences`, `POST /me/push-preferences/test` | 내 운영자 푸시 설정(장애·저장소), 테스트 푸시 |
 | 대시보드 `DASHBOARD` | `GET /dashboard` | 기간별 가입·게시글·채팅방 집계, 저장소 사용량, 최근 관리자 작업 |
 | 운영 설정 `SETTING` | `GET·PUT·DELETE /settings/{key}` | 업로드·채팅·검색·인증 제한값 조회/변경/기본값 복원 |
 | 공통코드 `COMMON_CODE` | `POST /common-codes/reload` | 공통코드 캐시 다시 읽기 |
@@ -223,6 +224,7 @@
 | Image | 2 | 전체 |
 | Common Code | 2 | 불필요 |
 | Report | 1 (`POST /api/v1/reports`) | 필요 |
+| Push | 2 (`POST /api/v1/push/devices`, `POST /api/v1/push/devices/unregister`) | 필요 |
 | Admin | 메뉴 12개 (위 표) | 관리자 |
 | Search History | 6 | 전체 |
-| **합계** | **32 REST + 4 STOMP채널 (관리자 API 제외)** | |
+| **합계** | **34 REST + 4 STOMP채널 (관리자 API 제외)** | |
