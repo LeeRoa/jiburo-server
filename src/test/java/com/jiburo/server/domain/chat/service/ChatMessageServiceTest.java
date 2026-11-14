@@ -140,4 +140,59 @@ class ChatMessageServiceTest {
                 .isInstanceOf(JiburoException.class)
                 .satisfies(ex -> assertThat(((JiburoException) ex).getErrorCode()).isEqualTo(ErrorCode.NOT_CHAT_PARTICIPANT));
     }
+
+    @Test
+    void 정지된_사용자는_연결된_소켓으로도_메시지를_보낼_수_없다() {
+        senderPart.getUser().suspend(java.time.LocalDateTime.now().plusDays(1), "spam");
+        stubRoomAndParticipant();
+
+        assertThatThrownBy(() -> chatMessageService.saveMessage(roomId, senderId, new ChatMessageRequestDto("hi", ChatMsgType.TALK)))
+                .isInstanceOf(JiburoException.class)
+                .satisfies(ex -> assertThat(((JiburoException) ex).getErrorCode()).isEqualTo(ErrorCode.USER_SUSPENDED));
+        verify(chatMessageRepository, never()).save(any());
+    }
+
+    @Test
+    void 안_읽음_수에서_나간_참여자는_빠진다() {
+        User partner = User.builder().oauthId("kakao_2").nickname("partner").roleCode(RoleType.USER).build();
+        ReflectionTestUtils.setField(partner, "id", UUID.randomUUID());
+        User exited = User.builder().oauthId("kakao_3").nickname("exited").roleCode(RoleType.USER).build();
+        ReflectionTestUtils.setField(exited, "id", UUID.randomUUID());
+        ChatParticipant exitedPart = new ChatParticipant(room, exited);
+        exitedPart.exit();
+        senderPart.setChatRoom(room);
+        new ChatParticipant(room, partner).setChatRoom(room);
+        exitedPart.setChatRoom(room);
+        stubRoomAndParticipant();
+        stubSaveWithId(50L);
+
+        var response = chatMessageService.saveMessage(roomId, senderId, new ChatMessageRequestDto("hi", ChatMsgType.TALK));
+
+        assertThat(response.unreadCount()).isEqualTo(1);
+    }
+
+    // ───────── processReadReceipt ─────────
+
+    @Test
+    void 다른_방의_메시지_ID로는_읽음_처리할_수_없다() {
+        given(chatParticipantRepository.findByChatRoomIdAndUserId(roomId, senderId)).willReturn(Optional.of(senderPart));
+        given(chatMessageRepository.existsByIdAndChatRoomId(999L, roomId)).willReturn(false);
+
+        assertThatThrownBy(() -> chatMessageService.processReadReceipt(senderId, roomId, 999L))
+                .isInstanceOf(JiburoException.class)
+                .satisfies(ex -> assertThat(((JiburoException) ex).getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT_VALUE));
+        assertThat(senderPart.getLastReadMessageId()).isZero();
+    }
+
+    @Test
+    void 예전_메시지로_읽음_처리해도_커서는_뒤로_가지_않고_현재_커서로_알린다() {
+        senderPart.updateLastRead(30L);
+        given(chatParticipantRepository.findByChatRoomIdAndUserId(roomId, senderId)).willReturn(Optional.of(senderPart));
+        given(chatMessageRepository.existsByIdAndChatRoomId(10L, roomId)).willReturn(true);
+
+        var response = chatMessageService.processReadReceipt(senderId, roomId, 10L);
+
+        assertThat(senderPart.getLastReadMessageId()).isEqualTo(30L);
+        assertThat(response.lastReadMessageId()).isEqualTo(HashidsUtils.encode(30L));
+    }
 }

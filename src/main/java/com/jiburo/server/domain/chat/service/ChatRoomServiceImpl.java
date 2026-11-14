@@ -1,5 +1,6 @@
 package com.jiburo.server.domain.chat.service;
 
+import com.jiburo.server.domain.chat.config.ChatSubscriptionRevoker;
 import com.jiburo.server.domain.chat.domain.ChatMessage;
 import com.jiburo.server.domain.chat.domain.ChatParticipant;
 import com.jiburo.server.domain.chat.domain.ChatRoom;
@@ -35,6 +36,7 @@ public class ChatRoomServiceImpl implements ChatRoomService {
     private final LostPostRepository lostPostRepository;
     private final UserRepository userRepository;
     private final SimpMessagingTemplate messagingTemplate;
+    private final ChatSubscriptionRevoker chatSubscriptionRevoker;
 
     /**
      * [채팅방 생성]
@@ -144,6 +146,8 @@ public class ChatRoomServiceImpl implements ChatRoomService {
         ChatParticipant participant = chatParticipantRepository.findByChatRoomIdAndUserId(roomId, userId)
                 .orElseThrow(() -> new JiburoException(ErrorCode.NOT_CHAT_PARTICIPANT));
         participant.exit();
+        // 나간 뒤에도 기존 구독으로 메시지를 계속 받지 않도록 커밋 후 구독 회수
+        chatSubscriptionRevoker.revokeRoomAfterCommit(userId, roomId);
     }
 
     @Override

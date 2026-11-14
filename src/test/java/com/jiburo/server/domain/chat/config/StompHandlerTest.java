@@ -22,7 +22,9 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -135,5 +137,71 @@ class StompHandlerTest {
         StompHeaderAccessor send = StompHeaderAccessor.create(StompCommand.SEND);
         send.setDestination("/pub/chat/rooms/" + HashidsUtils.encode(10L));
         assertError(message(send), ErrorCode.UNAUTHORIZED);
+    }
+
+    // ───────── SEND ─────────
+
+    private StompHeaderAccessor send(String destination, Map<String, Object> session) {
+        StompHeaderAccessor accessor = StompHeaderAccessor.create(StompCommand.SEND);
+        accessor.setDestination(destination);
+        accessor.setUser(authentication);
+        accessor.setSessionAttributes(session);
+        return accessor;
+    }
+
+    private Map<String, Object> liveSession(String token) {
+        Map<String, Object> session = new HashMap<>();
+        session.put(StompHandler.SESSION_ACCESS_TOKEN, token);
+        session.put(StompHandler.SESSION_TOKEN_EXPIRES_AT, System.currentTimeMillis() + 60_000L);
+        return session;
+    }
+
+    @Test
+    void 브로커_destination으로_직접_SEND하면_ACCESS_DENIED() {
+        // /sub 로 바로 보내면 SimpleBroker가 참여자·금지어 검증 없이 구독자에게 뿌리므로 막아야 한다
+        String roomHash = HashidsUtils.encode(10L);
+        assertError(message(send("/sub/chat/rooms/" + roomHash, liveSession("t"))), ErrorCode.ACCESS_DENIED);
+        assertError(message(send("/sub/chat/rooms/" + roomHash + "/read", liveSession("t"))), ErrorCode.ACCESS_DENIED);
+        assertError(message(send(null, liveSession("t"))), ErrorCode.ACCESS_DENIED);
+    }
+
+    @Test
+    void 유효한_세션은_pub으로_SEND할_수_있다() {
+        given(authTokenService.isBlacklisted("t")).willReturn(false);
+
+        assertThatNoException().isThrownBy(() ->
+                stompHandler.preSend(message(send("/pub/chat/rooms/" + HashidsUtils.encode(10L), liveSession("t"))), channel));
+    }
+
+    @Test
+    void 연결_토큰이_만료되면_SEND는_INVALID_TOKEN() {
+        Map<String, Object> session = liveSession("t");
+        session.put(StompHandler.SESSION_TOKEN_EXPIRES_AT, System.currentTimeMillis() - 1L);
+
+        assertError(message(send("/pub/chat/rooms/" + HashidsUtils.encode(10L), session)), ErrorCode.INVALID_TOKEN);
+    }
+
+    @Test
+    void 로그아웃한_토큰의_세션은_SEND가_INVALID_TOKEN() {
+        given(authTokenService.isBlacklisted("t")).willReturn(true);
+
+        assertError(message(send("/pub/chat/rooms/" + HashidsUtils.encode(10L), liveSession("t"))), ErrorCode.INVALID_TOKEN);
+    }
+
+    @Test
+    void CONNECT하면_세션에_토큰과_만료시각이_저장된다() {
+        StompHeaderAccessor accessor = StompHeaderAccessor.create(StompCommand.CONNECT);
+        accessor.addNativeHeader("Authorization", "Bearer good.token");
+        Map<String, Object> session = new HashMap<>();
+        accessor.setSessionAttributes(session);
+        given(jwtTokenProvider.validateAccessToken("good.token")).willReturn(true);
+        given(authTokenService.isBlacklisted("good.token")).willReturn(false);
+        given(jwtTokenProvider.getAuthentication("good.token")).willReturn(authentication);
+        given(jwtTokenProvider.getRemainingValidityMillis("good.token")).willReturn(60_000L);
+
+        stompHandler.preSend(message(accessor), channel);
+
+        assertThat(session.get(StompHandler.SESSION_ACCESS_TOKEN)).isEqualTo("good.token");
+        assertThat((Long) session.get(StompHandler.SESSION_TOKEN_EXPIRES_AT)).isGreaterThan(System.currentTimeMillis());
     }
 }

@@ -139,7 +139,7 @@ global/
 
 permitAll (인증 불필요):
 - `/api/v1/auth/**` → `AuthController` (토큰 재발급)
-- `/api/v1/posts/**` → `LostPostController` (조회 중심, 작성/수정도 permitAll이지만 내부에서 `@AuthenticationPrincipal` 사용)
+- `GET /api/v1/posts/**` → `LostPostController` (조회만 permitAll. 작성/수정/삭제는 인증 필요. 로그인 전용 GET(`/liked`, `/search/history` 등)은 컨트롤러에서 `user == null`이면 `UNAUTHORIZED`)
 - `/api/v1/common-codes/**` → `CommonCodeController` (앱 시작 시 1회 호출, 각 코드에 요청 언어 `label` 포함)
 - `/ws-jiburo` → STOMP 엔드포인트 (CONNECT 시 `StompHandler`가 JWT 검증)
 - `/swagger-ui.html`, `/v3/api-docs/**` → Springdoc Swagger UI
@@ -216,6 +216,10 @@ DB PK(`Long`)는 외부에 절대 그대로 노출하지 않습니다. `global/u
 - 엔드포인트: `/ws-jiburo` (SecurityConfig에서 permitAll).
 - 구독 prefix `/sub`, 발행 prefix `/pub`.
 - `StompHandler`가 인바운드 채널 인터셉터로 STOMP CONNECT 시 JWT 검증.
+- SEND는 `/pub/**`만 허용. `/sub/**`로 직접 SEND하면 SimpleBroker가 검증 없이 구독자에게 뿌리므로 반드시 막는다.
+- 소켓은 연결 후 계속 살아 있으므로 SEND마다 CONNECT 때 세션에 남긴 토큰의 만료·로그아웃(블랙리스트)을 다시 확인하고, 정지 계정은 `ChatMessageService`가 `USER_SUSPENDED`로 거부.
+- 구독 권한은 SUBSCRIBE 시점에만 검사하므로, 방을 나가면 `ChatSubscriptionRevoker`가 커밋 후 해당 방 구독을 브로커에서 지운다. 새로 "방에서 빠지는" 경로를 만들면 같이 호출할 것.
+- 읽음 처리는 그 방의 메시지 ID만 받고, 커서는 앞으로만 움직인다.
 
 ### 이미지 업로드 (Cloudflare R2)
 AWS S3 SDK(`software.amazon.awssdk:s3`)를 R2 엔드포인트에 붙여 사용. 클라이언트는 **presigned PUT URL을 받아 직접 업로드** 후 완료 콜백(`completeUpload`)으로 `ImageStatus`를 `COMPLETED`로 전환합니다. `ImageStorageServiceImpl`이 전체 누적 용량(10GB) 가드를 가짐. 키 구조: `{basePath}/{userId}/{uuid}.{ext}`.

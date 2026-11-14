@@ -51,6 +51,11 @@ public class ChatMessageServiceImpl implements ChatMessageService {
                 .filter(p -> !p.isExited())
                 .orElseThrow(() -> new JiburoException(ErrorCode.NOT_CHAT_PARTICIPANT));
 
+        // 2-1. 정지 계정은 이미 연결된 소켓으로도 보낼 수 없다 (Access Token이 아직 살아 있어도 차단)
+        if (participant.getUser().isSuspended()) {
+            throw new JiburoException(ErrorCode.USER_SUSPENDED);
+        }
+
         // 3. 입력 검증 (DB 제약 위반으로 500이 나지 않도록 사전 차단)
         validateMessage(dto);
 
@@ -75,7 +80,8 @@ public class ChatMessageServiceImpl implements ChatMessageService {
         // 6. 방의 마지막 대화 내용과 시간 최신화 (목록 정렬 및 노출용)
         room.updateLastChat(message.getMessageTypeCode(), message.getContent());
 
-        int unreadCount = room.getParticipants().size() - 1;
+        // 나간 참여자는 읽을 수 없으므로 안 읽음 수에서 뺀다
+        int unreadCount = (int) Math.max(0, room.getParticipants().stream().filter(p -> !p.isExited()).count() - 1);
 
         // 6-1. 다른 참여자에게 푸시 (커밋 후 비동기 발송 — UserPushListener)
         java.util.List<UUID> recipients = room.getParticipants().stream()
@@ -109,10 +115,15 @@ public class ChatMessageServiceImpl implements ChatMessageService {
                 .filter(p -> !p.isExited())
                 .orElseThrow(() -> new JiburoException(ErrorCode.NOT_CHAT_PARTICIPANT));
 
-        // DB 업데이트 (더티 체킹)
+        // 이 방의 메시지인지 확인 (다른 방·존재하지 않는 ID로 커서를 앞당겨 안 읽음 수·읽음 표시를 조작하지 못하게)
+        if (messageId == null || !chatMessageRepository.existsByIdAndChatRoomId(messageId, chatRoomId)) {
+            throw new JiburoException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+
+        // DB 업데이트 (더티 체킹). 커서는 앞으로만 움직인다
         participant.updateLastRead(messageId);
 
-        // 브로드캐스트할 응답 데이터 반환
-        return new ChatReadDto.Response(userId, messageId);
+        // 브로드캐스트할 응답 데이터 반환 (예전 ID가 와도 실제 커서 기준으로 알린다)
+        return new ChatReadDto.Response(userId, participant.getLastReadMessageId());
     }
 }
