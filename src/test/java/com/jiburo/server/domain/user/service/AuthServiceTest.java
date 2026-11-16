@@ -1,6 +1,5 @@
 package com.jiburo.server.domain.user.service;
 
-import com.jiburo.server.domain.user.dao.UserRepository;
 import com.jiburo.server.domain.user.domain.User;
 import com.jiburo.server.domain.user.domain.enums.RoleType;
 import com.jiburo.server.domain.user.dto.KakaoLoginRequestDto;
@@ -29,6 +28,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.mock;
 import static org.mockito.Mockito.never;
@@ -41,7 +41,7 @@ class AuthServiceTest {
     @InjectMocks private AuthServiceImpl authService;
 
     @Mock private AuthTokenService authTokenService;
-    @Mock private UserRepository userRepository;
+    @Mock private OAuthUserService oAuthUserService;
     @Mock private ApplicationEventPublisher eventPublisher;
     @Mock private HttpServletRequest request;
     @Mock private RestClient kakaoRestClient;
@@ -159,7 +159,7 @@ class AuthServiceTest {
                 .build();
         ReflectionTestUtils.setField(existingUser, "id", UUID.randomUUID());
 
-        given(userRepository.findByOauthId("kakao_12345")).willReturn(Optional.of(existingUser));
+        given(oAuthUserService.findOrCreate(argThat(a -> a.oauthId().equals("kakao_12345")))).willReturn(existingUser);
         given(authTokenService.issueLoginTokens(existingUser)).willReturn(tokens("access.token", "refresh.token"));
 
         // when
@@ -167,7 +167,6 @@ class AuthServiceTest {
 
         // then
         assertThat(result.accessToken()).isEqualTo("access.token");
-        verify(userRepository, never()).save(any());
     }
 
     @Test
@@ -175,7 +174,6 @@ class AuthServiceTest {
         // given
         stubKakaoUserInfo(kakaoUserInfoResponse(99999L, "신규유저"));
 
-        given(userRepository.findByOauthId("kakao_99999")).willReturn(Optional.empty());
 
         User savedUser = User.builder()
                 .oauthId("kakao_99999")
@@ -185,7 +183,7 @@ class AuthServiceTest {
                 .roleCode(RoleType.USER)
                 .build();
         ReflectionTestUtils.setField(savedUser, "id", UUID.randomUUID());
-        given(userRepository.save(any(User.class))).willReturn(savedUser);
+        given(oAuthUserService.findOrCreate(argThat(a -> a.oauthId().equals("kakao_99999")))).willReturn(savedUser);
         given(authTokenService.issueLoginTokens(savedUser)).willReturn(tokens("new.access.token", "new.refresh.token"));
 
         // when
@@ -193,7 +191,6 @@ class AuthServiceTest {
 
         // then
         assertThat(result.accessToken()).isEqualTo("new.access.token");
-        verify(userRepository).save(any(User.class));
     }
 
     @Test

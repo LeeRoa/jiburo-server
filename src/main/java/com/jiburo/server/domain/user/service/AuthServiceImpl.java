@@ -1,6 +1,5 @@
 package com.jiburo.server.domain.user.service;
 
-import com.jiburo.server.domain.user.dao.UserRepository;
 import com.jiburo.server.domain.user.domain.User;
 import com.jiburo.server.domain.user.dto.KakaoLoginRequestDto;
 import com.jiburo.server.domain.user.dto.OAuthAttributes;
@@ -15,7 +14,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,7 +33,7 @@ public class AuthServiceImpl implements AuthService {
     private static final String KAKAO_USER_NAME_ATTRIBUTE = "id";
 
     private final AuthTokenService authTokenService;
-    private final UserRepository userRepository;
+    private final OAuthUserService oAuthUserService;
     private final ApplicationEventPublisher eventPublisher;
     private final HttpServletRequest request;
     private final RestClient kakaoRestClient;
@@ -52,15 +50,18 @@ public class AuthServiceImpl implements AuthService {
         return tokenDto;
     }
 
+    /**
+     * 트랜잭션을 걸지 않는다: 사용자 조회·가입은 OAuthUserService가 자체 트랜잭션으로 처리하고
+     * (동시 첫 로그인 충돌 시 새 트랜잭션에서 재조회해야 하므로), 이후 토큰 발급은 웹 OAuth 로그인과 같은 경로를 탄다.
+     */
     @Override
-    @Transactional
     public TokenResponseDto kakaoLogin(KakaoLoginRequestDto requestDto) {
         // 1. 안드로이드 Kakao SDK 액세스 토큰으로 카카오 서버에서 사용자 정보 조회
         Map<String, Object> kakaoUserInfo = fetchKakaoUserInfo(requestDto.accessToken());
         OAuthAttributes attributes = OAuthAttributes.of(KAKAO_REGISTRATION_ID, KAKAO_USER_NAME_ATTRIBUTE, kakaoUserInfo);
 
         // 2. 최초 로그인이면 신규 가입, 아니면 프로필 갱신
-        User user = findOrCreateUser(attributes);
+        User user = oAuthUserService.findOrCreate(attributes);
 
         // 3. 토큰 발급 (Refresh Token은 Redis에 저장됨)
         TokenResponseDto tokenDto = authTokenService.issueLoginTokens(user);
@@ -93,22 +94,6 @@ public class AuthServiceImpl implements AuthService {
         } catch (RestClientException e) {
             log.warn("카카오 사용자 정보 조회 실패 (액세스 토큰 만료/위조 가능성)", e);
             throw new JiburoException(ErrorCode.OAUTH_PROVIDER_FAILED);
-        }
-    }
-
-    private User findOrCreateUser(OAuthAttributes attributes) {
-        return userRepository.findByOauthId(attributes.oauthId())
-                .map(user -> user.updateProfile(attributes.nickname(), attributes.profileImageUrl()))
-                .orElseGet(() -> saveNewUser(attributes));
-    }
-
-    private User saveNewUser(OAuthAttributes attributes) {
-        try {
-            return userRepository.save(attributes.toEntity());
-        } catch (DataIntegrityViolationException e) {
-            // 동시에 같은 사용자의 로그인 요청이 들어와 이미 가입된 경우 -> 다시 조회해서 반환
-            return userRepository.findByOauthId(attributes.oauthId())
-                    .orElseThrow(() -> new JiburoException(ErrorCode.OAUTH_PROVIDER_FAILED));
         }
     }
 

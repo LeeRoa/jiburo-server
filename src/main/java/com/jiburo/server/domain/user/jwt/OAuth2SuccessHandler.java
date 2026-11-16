@@ -16,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.oauth2.core.user.OAuth2User;
@@ -104,7 +105,12 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
                 .roleCode(RoleType.USER)
                 .build();
 
-        return userRepository.save(newUser);
+        // 이 핸들러는 트랜잭션 밖이라 save()가 그 자리에서 커밋된다 → 동시 가입 충돌을 여기서 잡아 기존 사용자로 처리
+        try {
+            return userRepository.save(newUser);
+        } catch (DataIntegrityViolationException e) {
+            return userRepository.findByOauthId(oauthId).orElseThrow(() -> e);
+        }
     }
 
     private void publishLoginLog(HttpServletRequest request, User user) {
