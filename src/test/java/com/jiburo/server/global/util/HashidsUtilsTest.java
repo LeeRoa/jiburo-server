@@ -31,4 +31,15 @@ class HashidsUtilsTest {
                 .isInstanceOf(JiburoException.class)
                 .satisfies(ex -> assertThat(((JiburoException) ex).getErrorCode()).isEqualTo(ErrorCode.INVALID_IDENTIFIER));
     }
+
+    @Test
+    void 숫자_여러_개를_담은_hash는_첫_값이_같아도_별칭으로_보고_거부한다() {
+        // 같은 salt로 [105, 999]를 담은 hash — 라이브러리상 유효하고 첫 값이 105라 예전에는 105의 별칭으로 통과했다
+        String alias = new org.hashids.Hashids("test-salt", 8).encode(105L, 999L);
+        assertThat(alias).isNotEqualTo(HashidsUtils.encode(105L));
+
+        assertThatThrownBy(() -> HashidsUtils.decode(alias))
+                .isInstanceOf(JiburoException.class)
+                .satisfies(ex -> assertThat(((JiburoException) ex).getErrorCode()).isEqualTo(ErrorCode.INVALID_IDENTIFIER));
+    }
 }

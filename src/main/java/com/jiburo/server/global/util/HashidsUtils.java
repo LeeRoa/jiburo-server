@@ -50,8 +50,15 @@ public class HashidsUtils {
             throw new JiburoException(ErrorCode.INVALID_IDENTIFIER);
         }
 
-        // 복호화에 실패했거나 (잘못된 문자열), 결과가 없는 경우
-        if (decoded.length == 0) {
+        // 복호화에 실패했거나 (잘못된 문자열), 결과가 없거나, 숫자 여러 개를 담은 hash인 경우.
+        // 여러 숫자를 담은 hash([id, x])도 라이브러리상 유효해서 첫 값만 쓰면 같은 ID를 가리키는 다른 문자열(별칭)이 생긴다
+        // → STOMP destination처럼 문자열 자체가 채널 키로 쓰이는 곳에서 어긋남. 한 ID = 한 문자열만 허용한다.
+        if (decoded.length != 1) {
+            throw new JiburoException(ErrorCode.INVALID_IDENTIFIER);
+        }
+
+        // 다시 인코딩한 값과 정확히 같은 정규 문자열만 허용 (그 밖의 별칭 형태도 차단)
+        if (!hash.equals(hashids.encode(decoded[0]))) {
             throw new JiburoException(ErrorCode.INVALID_IDENTIFIER);
         }
 
