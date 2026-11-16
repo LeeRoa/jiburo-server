@@ -5,7 +5,7 @@ import com.jiburo.server.domain.admin.domain.AdminMenu;
 import com.jiburo.server.domain.admin.dto.AdminAuditLogDtos;
 import com.jiburo.server.domain.admin.dto.AdminDashboardDtos.*;
 import com.jiburo.server.domain.admin.repository.AdminDashboardQueryRepository;
-import com.jiburo.server.domain.image.repository.ImageMetaRepository;
+import com.jiburo.server.domain.image.service.ImageStorageService;
 import com.jiburo.server.global.setting.AppSettingService;
 import com.jiburo.server.global.setting.SettingKey;
 import lombok.RequiredArgsConstructor;
@@ -31,7 +31,7 @@ public class AdminDashboardService {
     private static final int RECENT_ADMIN_ACTIONS = 5;
 
     private final AdminDashboardQueryRepository dashboardQueryRepository;
-    private final ImageMetaRepository imageMetaRepository;
+    private final ImageStorageService imageStorageService;
     private final AppSettingService appSettingService;
     private final AdminAuditLogService adminAuditLogService;
     private final AdminAuthorizationService adminAuthorizationService;
@@ -70,7 +70,7 @@ public class AdminDashboardService {
 
     /** 업로드 저장소 사용량 (모니터링 화면에서도 사용) */
     public Storage storage() {
-        long used = imageMetaRepository.sumTotalFileSize();
+        long used = imageStorageService.usedBytes();
         long capacity = appSettingService.getInt(SettingKey.UPLOAD_TOTAL_CAPACITY_GB) * GB;
         double percent = capacity == 0 ? 0 : Math.round(used * 1000.0 / capacity) / 10.0;
         return new Storage(used, capacity, percent, percent >= STORAGE_WARNING_PERCENT);

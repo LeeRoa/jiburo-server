@@ -4,6 +4,7 @@ import com.jiburo.server.domain.finder.domain.FinderSession;
 import com.jiburo.server.domain.finder.domain.FinderSessionMedia;
 import com.jiburo.server.domain.finder.domain.enums.FinderSessionStatus;
 import com.jiburo.server.domain.image.domain.UploadTargetType;
+import com.jiburo.server.domain.image.service.UploadedFileValidator;
 import com.jiburo.server.domain.finder.dto.*;
 import com.jiburo.server.domain.finder.repository.FinderSessionMediaRepository;
 import com.jiburo.server.domain.finder.repository.FinderSessionRepository;
@@ -24,6 +25,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -31,11 +33,20 @@ import java.util.UUID;
 @Transactional(readOnly = true)
 public class FinderServiceImpl implements FinderService {
 
+    // 제보 1회 요청에 붙일 수 있는 파일 수 / 세션 1개에 쌓을 수 있는 제보(미디어·텍스트) 수 / 메모 최대 길이
+    static final int MAX_FILES_PER_REQUEST = 10;
+    static final int MAX_MEDIA_PER_SESSION = 100;
+    static final int MAX_MEMO_LENGTH = 1000;
+    // 이동 경로: 1회 기록 지점 수 / 세션 전체 지점 수 (JSON 컬럼 하나에 누적되므로 상한 필요)
+    static final int MAX_ROUTE_POINTS_PER_REQUEST = 500;
+    static final int MAX_ROUTE_POINTS_PER_SESSION = 10_000;
+
     private final FinderSessionRepository finderSessionRepository;
     private final FinderSessionMediaRepository finderSessionMediaRepository;
     private final LostPostRepository lostPostRepository;
     private final UserRepository userRepository;
     private final NotificationRepository notificationRepository;
+    private final UploadedFileValidator uploadedFileValidator;
 
     @Override
     @Transactional
@@ -106,6 +117,18 @@ public class FinderServiceImpl implements FinderService {
         }
         if (hasFiles && dto.mediaType() != UploadTargetType.FINDER_IMAGE && dto.mediaType() != UploadTargetType.FINDER_VIDEO) {
             throw new JiburoException(ErrorCode.INVALID_FILE_CODE);
+        }
+        if (hasMemo && dto.memo().length() > MAX_MEMO_LENGTH) {
+            throw new JiburoException(ErrorCode.FINDER_MEDIA_LIMIT_EXCEEDED);
+        }
+        int adding = hasFiles ? dto.fileKeys().size() : 1;
+        if (adding > MAX_FILES_PER_REQUEST
+                || finderSessionMediaRepository.countBySession_Id(sessionId) + adding > MAX_MEDIA_PER_SESSION) {
+            throw new JiburoException(ErrorCode.FINDER_MEDIA_LIMIT_EXCEEDED);
+        }
+        // 본인이 이 미디어 타입으로 올려 업로드를 마친 파일만 첨부 가능 (외부 URL·남의 파일 차단)
+        if (hasFiles) {
+            uploadedFileValidator.requireOwnedUploads(finderId, dto.fileKeys(), Set.of(dto.mediaType()));
         }
 
         List<FinderSessionMedia> saved;
@@ -189,6 +212,11 @@ public class FinderServiceImpl implements FinderService {
         FinderSession session = findSessionOrThrow(sessionId);
         validateFinder(session, finderId);
         validateActive(session);
+        int existing = session.getRoute() == null ? 0 : session.getRoute().size();
+        if (dto.points().size() > MAX_ROUTE_POINTS_PER_REQUEST
+                || existing + dto.points().size() > MAX_ROUTE_POINTS_PER_SESSION) {
+            throw new JiburoException(ErrorCode.FINDER_ROUTE_LIMIT_EXCEEDED);
+        }
         session.appendRoute(dto.points());
     }
 

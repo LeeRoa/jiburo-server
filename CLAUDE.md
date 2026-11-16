@@ -222,7 +222,7 @@ DB PK(`Long`)는 외부에 절대 그대로 노출하지 않습니다. `global/u
 - 읽음 처리는 그 방의 메시지 ID만 받고, 커서는 앞으로만 움직인다.
 
 ### 이미지 업로드 (Cloudflare R2)
-AWS S3 SDK(`software.amazon.awssdk:s3`)를 R2 엔드포인트에 붙여 사용. 클라이언트는 **presigned PUT URL을 받아 직접 업로드** 후 완료 콜백(`completeUpload`)으로 `ImageStatus`를 `COMPLETED`로 전환합니다. `ImageStorageServiceImpl`이 전체 누적 용량(10GB) 가드를 가짐. 키 구조: `{basePath}/{userId}/{uuid}.{ext}`.
+AWS S3 SDK(`software.amazon.awssdk:s3`)를 R2 엔드포인트에 붙여 사용. 클라이언트는 **presigned PUT URL을 받아 직접 업로드** 후 완료 콜백(`completeUpload`)으로 `ImageStatus`를 `COMPLETED`로 전환합니다. `ImageStorageServiceImpl`이 전체 용량(`UPLOAD_TOTAL_CAPACITY_GB`)·사용자별 진행 중 업로드 수(`UPLOAD_MAX_PENDING_PER_USER`) 가드를 가지며, 방치된 PENDING은 주기적으로 정리. 게시글·채팅·제보에 첨부되는 파일 키는 `UploadedFileValidator`로 "본인이 올려 완료한 해당 용도 파일"인지 확인한 뒤 저장. 키 구조: `{basePath}/{userId}/{uuid}.{ext}`.
 
 ### i18n
 - 문구 출처: `classpath*:i18n/**/messages*.properties`(파일 기본값, 접미사 없는 파일 = ko) + `i18n_messages` 테이블(관리자 수정값). `MessageCatalog`가 둘을 합치고 `CatalogMessageSource`가 MessageSource로 노출합니다.

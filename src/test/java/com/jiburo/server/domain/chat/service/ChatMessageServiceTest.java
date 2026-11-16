@@ -8,6 +8,8 @@ import com.jiburo.server.domain.chat.dto.ChatMessageRequestDto;
 import com.jiburo.server.domain.chat.repository.ChatMessageRepository;
 import com.jiburo.server.domain.chat.repository.ChatParticipantRepository;
 import com.jiburo.server.domain.chat.repository.ChatRoomRepository;
+import com.jiburo.server.domain.image.domain.UploadTargetType;
+import com.jiburo.server.domain.image.service.UploadedFileValidator;
 import com.jiburo.server.domain.user.domain.User;
 import com.jiburo.server.domain.user.domain.enums.RoleType;
 import com.jiburo.server.global.error.ErrorCode;
@@ -40,6 +42,7 @@ class ChatMessageServiceTest {
     @Mock private ChatRoomRepository chatRoomRepository;
     @Mock private ChatParticipantRepository chatParticipantRepository;
     @Mock private org.springframework.context.ApplicationEventPublisher eventPublisher; // 푸시 이벤트
+    @Mock private UploadedFileValidator uploadedFileValidator;
     @org.mockito.Spy private com.jiburo.server.domain.moderation.service.BannedWordFilter bannedWordFilter =
             new com.jiburo.server.domain.moderation.service.BannedWordFilter(org.mockito.Mockito.mock(com.jiburo.server.domain.moderation.repository.BannedWordRepository.class)); // 금지어 없음 = 그대로 통과
     @org.mockito.Spy private com.jiburo.server.global.setting.AppSettingService appSettingService =
@@ -95,6 +98,53 @@ class ChatMessageServiceTest {
                 new ChatMessageRequestDto("chat/images/uuid/abc.png", ChatMsgType.IMAGE));
 
         assertThat(room.getLastMessage()).isEqualTo("[IMAGE]");
+        verify(uploadedFileValidator).requireOwnedUpload(senderId, "chat/images/uuid/abc.png", java.util.Set.of(UploadTargetType.CHAT));
+    }
+
+    @Test
+    void 본인이_올린_채팅_파일이_아니면_이미지_메시지를_보낼_수_없다() {
+        stubRoomAndParticipant();
+        org.mockito.Mockito.doThrow(new JiburoException(ErrorCode.INVALID_UPLOADED_FILE))
+                .when(uploadedFileValidator).requireOwnedUpload(any(), any(), any());
+
+        assertThatThrownBy(() -> chatMessageService.saveMessage(roomId, senderId,
+                new ChatMessageRequestDto("https://evil.example/track.png", ChatMsgType.IMAGE)))
+                .isInstanceOf(JiburoException.class)
+                .satisfies(ex -> assertThat(((JiburoException) ex).getErrorCode()).isEqualTo(ErrorCode.INVALID_UPLOADED_FILE));
+        verify(chatMessageRepository, never()).save(any());
+    }
+
+    @Test
+    void 동영상_메시지는_채팅_동영상_파일만_허용한다() {
+        stubRoomAndParticipant();
+        stubSaveWithId(44L);
+
+        chatMessageService.saveMessage(roomId, senderId,
+                new ChatMessageRequestDto("chat/videos/uuid/a.mp4", ChatMsgType.VIDEO));
+
+        verify(uploadedFileValidator).requireOwnedUpload(senderId, "chat/videos/uuid/a.mp4", java.util.Set.of(UploadTargetType.CHAT_VIDEO));
+    }
+
+    @Test
+    void 클라이언트는_시스템_메시지를_보낼_수_없다() {
+        stubRoomAndParticipant();
+
+        assertThatThrownBy(() -> chatMessageService.saveMessage(roomId, senderId,
+                new ChatMessageRequestDto("chat.msg.deleted_by_admin", ChatMsgType.SYS)))
+                .isInstanceOf(JiburoException.class)
+                .satisfies(ex -> assertThat(((JiburoException) ex).getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT_VALUE));
+        verify(chatMessageRepository, never()).save(any());
+    }
+
+    @Test
+    void 위치_메시지도_최대_길이를_넘으면_거부된다() {
+        stubRoomAndParticipant();
+        String tooLong = "x".repeat(1001); // CHAT_MAX_TEXT_LENGTH 기본값 1000
+
+        assertThatThrownBy(() -> chatMessageService.saveMessage(roomId, senderId,
+                new ChatMessageRequestDto(tooLong, ChatMsgType.MAP)))
+                .isInstanceOf(JiburoException.class)
+                .satisfies(ex -> assertThat(((JiburoException) ex).getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT_VALUE));
     }
 
     @Test

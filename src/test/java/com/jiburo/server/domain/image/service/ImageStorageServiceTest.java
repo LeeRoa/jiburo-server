@@ -73,7 +73,7 @@ class ImageStorageServiceTest {
         PresignedUrlRequestDto request =
                 new PresignedUrlRequestDto(UploadTargetType.POST, "photo.jpg", "jpg", 1024L);
 
-        given(imageMetaRepository.sumTotalFileSize()).willReturn(0L);
+        given(imageMetaRepository.sumUsedFileSize(any())).willReturn(0L);
         given(userRepository.findById(userId)).willReturn(Optional.of(user));
         given(imageMetaRepository.save(any(ImageMeta.class))).willReturn(mock(ImageMeta.class));
 
@@ -111,7 +111,7 @@ class ImageStorageServiceTest {
         PresignedUrlRequestDto request =
                 new PresignedUrlRequestDto(UploadTargetType.POST, "big.jpg", "jpg", 200L);
 
-        given(imageMetaRepository.sumTotalFileSize()).willReturn(nearlyFull);
+        given(imageMetaRepository.sumUsedFileSize(any())).willReturn(nearlyFull);
 
         // when & then
         assertThatThrownBy(() -> imageStorageService.createPresignedUrl(userId, request))
@@ -121,11 +121,44 @@ class ImageStorageServiceTest {
     }
 
     @Test
+    void 완료되지_않은_업로드가_한도에_이르면_URL을_발급하지_않는다() {
+        // given: 기본 한도(UPLOAD_MAX_PENDING_PER_USER=20)만큼 진행 중
+        PresignedUrlRequestDto request =
+                new PresignedUrlRequestDto(UploadTargetType.POST, "photo.jpg", "jpg", 1024L);
+        given(imageMetaRepository.countActivePendingByUser(any(), any())).willReturn(20L);
+
+        // when & then
+        assertThatThrownBy(() -> imageStorageService.createPresignedUrl(userId, request))
+                .isInstanceOf(JiburoException.class)
+                .satisfies(ex -> assertThat(((JiburoException) ex).getErrorCode())
+                        .isEqualTo(ErrorCode.UPLOAD_PENDING_LIMIT_EXCEEDED));
+        then(imageMetaRepository).should(never()).save(any());
+    }
+
+    @Test
+    void 용량_계산과_정리는_URL_만료와_여유시간이_지난_PENDING을_기준으로_한다() {
+        // given: presigned 유효 시간 기본 5분 + 여유 1시간
+        org.mockito.ArgumentCaptor<java.time.LocalDateTime> cutoff =
+                org.mockito.ArgumentCaptor.forClass(java.time.LocalDateTime.class);
+        given(imageMetaRepository.sumUsedFileSize(cutoff.capture())).willReturn(123L);
+
+        java.time.LocalDateTime before = java.time.LocalDateTime.now().minusMinutes(5).minus(ImageStorageServiceImpl.PENDING_GRACE);
+        long used = imageStorageService.usedBytes();
+        java.time.LocalDateTime after = java.time.LocalDateTime.now().minusMinutes(5).minus(ImageStorageServiceImpl.PENDING_GRACE);
+
+        assertThat(used).isEqualTo(123L);
+        assertThat(cutoff.getValue()).isBetween(before, after);
+
+        imageStorageService.cleanupStalePending();
+        then(imageMetaRepository).should().disableStalePending(any());
+    }
+
+    @Test
     void 사용자_없으면_USER_NOT_FOUND() {
         // given
         PresignedUrlRequestDto request =
                 new PresignedUrlRequestDto(UploadTargetType.POST, "photo.jpg", "jpg", 1024L);
-        given(imageMetaRepository.sumTotalFileSize()).willReturn(0L);
+        given(imageMetaRepository.sumUsedFileSize(any())).willReturn(0L);
         given(userRepository.findById(userId)).willReturn(Optional.empty());
 
         // when & then

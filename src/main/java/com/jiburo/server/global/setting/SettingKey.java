@@ -29,6 +29,8 @@ public enum SettingKey {
             "전체 업로드 저장 용량 한도 (초과 시 업로드 차단)"),
     UPLOAD_PRESIGNED_EXPIRATION_MINUTES(UPLOAD, SettingType.INT, "5", 1d, 60d, "분", false,
             "업로드용 presigned URL 유효 시간"),
+    UPLOAD_MAX_PENDING_PER_USER(UPLOAD, SettingType.INT, "20", 1d, 500d, "개", false,
+            "사용자 1명이 동시에 진행할 수 있는 업로드 수 (URL 발급 후 미완료 건)"),
 
     // ── 채팅 ──
     CHAT_MAX_TEXT_LENGTH(CHAT, SettingType.INT, "1000", 1d, 5000d, "자", true,

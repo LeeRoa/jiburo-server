@@ -52,6 +52,7 @@ class FinderServiceTest {
     @Mock private LostPostRepository lostPostRepository;
     @Mock private UserRepository userRepository;
     @Mock private NotificationRepository notificationRepository;
+    @Mock private com.jiburo.server.domain.image.service.UploadedFileValidator uploadedFileValidator;
 
     private UUID finderId;
     private UUID postOwnerId;
@@ -442,6 +443,55 @@ class FinderServiceTest {
         assertThatThrownBy(() -> finderService.cancelSession(finderId, 10L))
                 .isInstanceOf(JiburoException.class)
                 .satisfies(ex -> assertThat(((JiburoException) ex).getErrorCode()).isEqualTo(ErrorCode.FINDER_SESSION_ALREADY_SUBMITTED));
+    }
+
+    @Test
+    void 본인이_업로드를_마친_제보_파일이_아니면_첨부할_수_없다() {
+        FinderMediaAddRequestDto dto = new FinderMediaAddRequestDto(
+                List.of("https://evil.example/a.jpg"), UploadTargetType.FINDER_IMAGE, null, null, null);
+        given(finderSessionRepository.findById(10L)).willReturn(Optional.of(activeSession));
+        org.mockito.Mockito.doThrow(new JiburoException(ErrorCode.INVALID_UPLOADED_FILE))
+                .when(uploadedFileValidator).requireOwnedUploads(finderId, dto.fileKeys(), java.util.Set.of(UploadTargetType.FINDER_IMAGE));
+
+        assertThatThrownBy(() -> finderService.addMedia(finderId, 10L, dto))
+                .isInstanceOf(JiburoException.class)
+                .satisfies(ex -> assertThat(((JiburoException) ex).getErrorCode()).isEqualTo(ErrorCode.INVALID_UPLOADED_FILE));
+        then(finderSessionMediaRepository).should(never()).save(any());
+    }
+
+    @Test
+    void 한_번에_첨부할_수_있는_파일_수를_넘으면_거부된다() {
+        List<String> keys = java.util.stream.IntStream.range(0, FinderServiceImpl.MAX_FILES_PER_REQUEST + 1)
+                .mapToObj(i -> "finder/images/" + i + ".jpg").toList();
+        FinderMediaAddRequestDto dto = new FinderMediaAddRequestDto(keys, UploadTargetType.FINDER_IMAGE, null, null, null);
+        given(finderSessionRepository.findById(10L)).willReturn(Optional.of(activeSession));
+
+        assertThatThrownBy(() -> finderService.addMedia(finderId, 10L, dto))
+                .isInstanceOf(JiburoException.class)
+                .satisfies(ex -> assertThat(((JiburoException) ex).getErrorCode()).isEqualTo(ErrorCode.FINDER_MEDIA_LIMIT_EXCEEDED));
+    }
+
+    @Test
+    void 세션의_제보_수가_상한에_이르면_더_추가할_수_없다() {
+        FinderMediaAddRequestDto dto = new FinderMediaAddRequestDto(null, null, null, null, "목격 메모");
+        given(finderSessionRepository.findById(10L)).willReturn(Optional.of(activeSession));
+        given(finderSessionMediaRepository.countBySession_Id(10L)).willReturn(FinderServiceImpl.MAX_MEDIA_PER_SESSION);
+
+        assertThatThrownBy(() -> finderService.addMedia(finderId, 10L, dto))
+                .isInstanceOf(JiburoException.class)
+                .satisfies(ex -> assertThat(((JiburoException) ex).getErrorCode()).isEqualTo(ErrorCode.FINDER_MEDIA_LIMIT_EXCEEDED));
+    }
+
+    @Test
+    void 경로_지점이_세션_상한을_넘으면_기록하지_않는다() {
+        var point = new FinderRouteRecordRequestDto.RoutePoint(37.5, 127.0, LocalDateTime.of(2026, 7, 5, 10, 0));
+        activeSession.appendRoute(java.util.Collections.nCopies(FinderServiceImpl.MAX_ROUTE_POINTS_PER_SESSION, point));
+        given(finderSessionRepository.findById(10L)).willReturn(Optional.of(activeSession));
+
+        assertThatThrownBy(() -> finderService.recordRoute(finderId, 10L, new FinderRouteRecordRequestDto(List.of(point))))
+                .isInstanceOf(JiburoException.class)
+                .satisfies(ex -> assertThat(((JiburoException) ex).getErrorCode()).isEqualTo(ErrorCode.FINDER_ROUTE_LIMIT_EXCEEDED));
+        assertThat(activeSession.getRoute()).hasSize(FinderServiceImpl.MAX_ROUTE_POINTS_PER_SESSION);
     }
 
     // ───────── recordRoute ─────────

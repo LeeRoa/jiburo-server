@@ -46,6 +46,7 @@ class LostPostServiceTest {
     @org.mockito.Spy private com.jiburo.server.global.setting.AppSettingService appSettingService =
             com.jiburo.server.global.setting.TestSettings.defaults();
     @Mock private LostPostDeleter lostPostDeleter;
+    @Mock private com.jiburo.server.domain.image.service.UploadedFileValidator uploadedFileValidator;
     @org.mockito.Spy private com.jiburo.server.domain.moderation.service.BannedWordFilter bannedWordFilter =
             new com.jiburo.server.domain.moderation.service.BannedWordFilter(org.mockito.Mockito.mock(com.jiburo.server.domain.moderation.repository.BannedWordRepository.class)); // 금지어 없음 = 그대로 통과
 
@@ -133,6 +134,41 @@ class LostPostServiceTest {
                 .isInstanceOf(JiburoException.class)
                 .satisfies(ex -> assertThat(((JiburoException) ex).getErrorCode())
                         .isEqualTo(ErrorCode.USER_NOT_FOUND));
+    }
+
+    @Test
+    void 게시글_생성_시_첨부_이미지는_본인이_올린_게시글용_파일이어야_한다() {
+        LostPostCreateRequestDto request = new LostPostCreateRequestDto(
+                "제목", "내용", CategoryType.ANIMAL, "레이", AnimalType.DOG, null,
+                null, GenderType.MALE, null, null, null, null,
+                List.of("https://evil.example/a.jpg"), 37.5, 127.0, "서울", LocalDate.now(), 0, VisibilityType.PUBLIC
+        );
+        org.mockito.Mockito.doThrow(new JiburoException(ErrorCode.INVALID_UPLOADED_FILE))
+                .when(uploadedFileValidator).requireOwnedUploads(userId, List.of("https://evil.example/a.jpg"),
+                        java.util.Set.of(com.jiburo.server.domain.image.domain.UploadTargetType.POST));
+
+        assertThatThrownBy(() -> lostPostService.create(userId, request))
+                .isInstanceOf(JiburoException.class)
+                .satisfies(ex -> assertThat(((JiburoException) ex).getErrorCode())
+                        .isEqualTo(ErrorCode.INVALID_UPLOADED_FILE));
+        then(lostPostRepository).should(never()).save(any());
+    }
+
+    @Test
+    void 게시글_수정_시_이미_붙어_있던_이미지는_다시_검증하지_않고_새_이미지만_검증한다() {
+        post.updateImages(List.of("post/images/old.jpg"));
+        LostPostUpdateRequestDto request = new LostPostUpdateRequestDto(
+                null, null, List.of("post/images/old.jpg", "post/images/new.jpg"), null,
+                null, null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null
+        );
+        given(lostPostRepository.findByIdAndDeletedFalse(1L)).willReturn(Optional.of(post));
+
+        lostPostService.update(userId, 1L, request);
+
+        then(uploadedFileValidator).should().requireOwnedUploads(userId, List.of("post/images/new.jpg"),
+                java.util.Set.of(com.jiburo.server.domain.image.domain.UploadTargetType.POST));
+        assertThat(post.getImages()).hasSize(2);
     }
 
     // ───────── update ─────────

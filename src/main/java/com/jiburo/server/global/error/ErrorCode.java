@@ -44,6 +44,8 @@ public enum ErrorCode {
     INVALID_FILE_FORMAT(HttpStatus.BAD_REQUEST, "error.file.invalid_format"),
     INVALID_FILE_CODE(HttpStatus.BAD_REQUEST, "error.file.invalid_code"),
     STORAGE_CAPACITY_EXCEEDED(HttpStatus.INSUFFICIENT_STORAGE, "error.file.storage_capacity_exceeded"),
+    UPLOAD_PENDING_LIMIT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "error.file.pending_limit_exceeded"),
+    INVALID_UPLOADED_FILE(HttpStatus.BAD_REQUEST, "error.file.invalid_uploaded_file"),
 
     // [5] Chat & Community
     CHAT_ROOM_NOT_FOUND(HttpStatus.NOT_FOUND, "error.chat.room_not_found"),
@@ -89,6 +91,8 @@ public enum ErrorCode {
     FINDER_SESSION_ALREADY_SUBMITTED(HttpStatus.CONFLICT, "error.finder.session_already_submitted"),
     FINDER_POST_ALREADY_COMPLETE(HttpStatus.BAD_REQUEST, "error.finder.post_already_complete"),
     FINDER_CANNOT_FIND_OWN_POST(HttpStatus.BAD_REQUEST, "error.finder.cannot_find_own_post"),
+    FINDER_MEDIA_LIMIT_EXCEEDED(HttpStatus.BAD_REQUEST, "error.finder.media_limit_exceeded"),
+    FINDER_ROUTE_LIMIT_EXCEEDED(HttpStatus.BAD_REQUEST, "error.finder.route_limit_exceeded"),
 
     // [8] Admin (관리자 역할·권한)
     ADMIN_ROLE_NOT_FOUND(HttpStatus.NOT_FOUND, "error.admin.role_not_found"),

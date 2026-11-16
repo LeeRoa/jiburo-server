@@ -1,6 +1,9 @@
 package com.jiburo.server.domain.post.service;
 
+import com.jiburo.server.domain.image.domain.UploadTargetType;
+import com.jiburo.server.domain.image.service.UploadedFileValidator;
 import com.jiburo.server.domain.post.domain.LostPost;
+import com.jiburo.server.domain.post.domain.LostPostImage;
 import com.jiburo.server.domain.post.domain.PostLike;
 import com.jiburo.server.domain.post.domain.enums.PostStatus;
 import com.jiburo.server.domain.post.dto.*;
@@ -37,6 +40,7 @@ public class LostPostServiceImpl implements LostPostService {
     private final LostPostDeleter lostPostDeleter;
     private final AppSettingService appSettingService;
     private final BannedWordFilter bannedWordFilter;
+    private final UploadedFileValidator uploadedFileValidator;
 
     // 게시글 이미지 최대 장수 (관리자 설정 POST_MAX_IMAGES)
     private void validateImageCount(List<String> imageUrls) {
@@ -45,10 +49,25 @@ public class LostPostServiceImpl implements LostPostService {
         }
     }
 
+    /**
+     * 첨부 이미지는 본인이 게시글용(POST)으로 올려 업로드를 마친 파일 키만 허용 (외부 URL·남의 파일 차단).
+     * alreadyAttached: 수정 시 이미 이 게시글에 붙어 있던 이미지 — 그대로 유지하는 것은 다시 검증하지 않는다.
+     */
+    private void validateImageKeys(UUID userId, List<String> imageUrls, Set<String> alreadyAttached) {
+        if (imageUrls == null || imageUrls.isEmpty()) {
+            return;
+        }
+        List<String> newKeys = imageUrls.stream()
+                .filter(key -> key == null || !alreadyAttached.contains(key))
+                .toList();
+        uploadedFileValidator.requireOwnedUploads(userId, newKeys, Set.of(UploadTargetType.POST));
+    }
+
     @Override
     @Transactional
     public Long create(UUID userId, LostPostCreateRequestDto requestDto) {
         validateImageCount(requestDto.imageUrls());
+        validateImageKeys(userId, requestDto.imageUrls(), Set.of());
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new JiburoException(ErrorCode.USER_NOT_FOUND));
@@ -77,6 +96,9 @@ public class LostPostServiceImpl implements LostPostService {
         LostPost post = findPostByIdOrThrow(postId);
         validateWriter(post, userId);
         validateImageCount(requestDto.imageUrls());
+        validateImageKeys(userId, requestDto.imageUrls(), post.getImages().stream()
+                .map(LostPostImage::getImageUrl)
+                .collect(Collectors.toSet()));
 
         // 엔티티 업데이트 호출 (categoryCode가 없으면 상세정보도 변경하지 않음)
         post.update(

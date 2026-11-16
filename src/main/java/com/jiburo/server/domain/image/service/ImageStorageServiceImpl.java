@@ -12,7 +12,9 @@ import com.jiburo.server.global.error.JiburoException;
 import com.jiburo.server.global.setting.AppSettingService;
 import com.jiburo.server.global.setting.SettingKey;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
@@ -21,8 +23,10 @@ import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequ
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 
 import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ImageStorageServiceImpl implements ImageStorageService {
@@ -34,6 +38,12 @@ public class ImageStorageServiceImpl implements ImageStorageService {
 
     private static final long MB = 1024L * 1024;
     private static final long GB = 1024L * MB;
+
+    /**
+     * presigned URL 만료 후에도 업로드가 진행 중일 수 있는 여유 시간.
+     * 발급 후 (URL 유효 시간 + 이 시간)이 지난 PENDING은 업로드될 수 없는 것으로 보고 용량 계산에서 빼고 정리한다.
+     */
+    static final Duration PENDING_GRACE = Duration.ofHours(1);
 
     @Value("${cloud.cloudflare.r2.bucket}")
     private String bucketName;
@@ -53,14 +63,21 @@ public class ImageStorageServiceImpl implements ImageStorageService {
             throw new JiburoException(ErrorCode.FILE_SIZE_EXCEEDED);
         }
 
-        // 전체 저장 용량 한도 (관리자 설정)
+        long expirationMinutes = appSettingService.getInt(SettingKey.UPLOAD_PRESIGNED_EXPIRATION_MINUTES);
+        LocalDateTime pendingSince = pendingCutoff();
+
+        // 사용자별 진행 중 업로드 수 제한 (URL만 대량 발급받아 용량을 선점하는 것 방지)
+        if (imageMetaRepository.countActivePendingByUser(userId, pendingSince)
+                >= appSettingService.getInt(SettingKey.UPLOAD_MAX_PENDING_PER_USER)) {
+            throw new JiburoException(ErrorCode.UPLOAD_PENDING_LIMIT_EXCEEDED);
+        }
+
+        // 전체 저장 용량 한도 (관리자 설정). 완료 파일 + 아직 업로드될 수 있는 PENDING만 센다
         long capacityBytes = appSettingService.getInt(SettingKey.UPLOAD_TOTAL_CAPACITY_GB) * GB;
-        Long currentTotalSize = imageMetaRepository.sumTotalFileSize();
+        long currentTotalSize = imageMetaRepository.sumUsedFileSize(pendingSince);
         if (currentTotalSize + request.fileSize() > capacityBytes) {
             throw new JiburoException(ErrorCode.STORAGE_CAPACITY_EXCEEDED);
         }
-
-        long expirationMinutes = appSettingService.getInt(SettingKey.UPLOAD_PRESIGNED_EXPIRATION_MINUTES);
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new JiburoException(ErrorCode.USER_NOT_FOUND));
@@ -109,5 +126,27 @@ public class ImageStorageServiceImpl implements ImageStorageService {
 
         // 4. 상태를 COMPLETED로 업데이트
         imageMeta.updateStatus(ImageStatus.COMPLETED);
+    }
+
+    @Override
+    public long usedBytes() {
+        return imageMetaRepository.sumUsedFileSize(pendingCutoff());
+    }
+
+    /** 업로드되지 않고 방치된 PENDING 정리 (use_yn=false). 업로드된 적이 없으므로 R2에서 지울 객체는 없다 */
+    @Scheduled(fixedDelayString = "${app.image.pending-cleanup-interval-ms:600000}",
+            initialDelayString = "${app.image.pending-cleanup-initial-delay-ms:600000}")
+    @Transactional
+    public void cleanupStalePending() {
+        int disabled = imageMetaRepository.disableStalePending(pendingCutoff());
+        if (disabled > 0) {
+            log.info("방치된 업로드(PENDING) {}건 정리", disabled);
+        }
+    }
+
+    // 이 시각 이전에 발급된 PENDING은 URL이 만료돼 더 이상 업로드될 수 없다
+    private LocalDateTime pendingCutoff() {
+        long expirationMinutes = appSettingService.getInt(SettingKey.UPLOAD_PRESIGNED_EXPIRATION_MINUTES);
+        return LocalDateTime.now().minusMinutes(expirationMinutes).minus(PENDING_GRACE);
     }
 }

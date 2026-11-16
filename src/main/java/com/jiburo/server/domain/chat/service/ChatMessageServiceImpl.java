@@ -11,6 +11,8 @@ import com.jiburo.server.domain.chat.repository.ChatMessageRepository;
 import com.jiburo.server.domain.chat.repository.ChatParticipantRepository;
 import com.jiburo.server.domain.chat.repository.ChatRoomRepository;
 import com.jiburo.server.domain.emoticon.service.EmoticonService;
+import com.jiburo.server.domain.image.domain.UploadTargetType;
+import com.jiburo.server.domain.image.service.UploadedFileValidator;
 import com.jiburo.server.domain.moderation.service.BannedWordFilter;
 import com.jiburo.server.global.error.ErrorCode;
 import com.jiburo.server.global.error.JiburoException;
@@ -22,6 +24,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -35,6 +38,7 @@ public class ChatMessageServiceImpl implements ChatMessageService {
     private final AppSettingService appSettingService;
     private final EmoticonService emoticonService;
     private final BannedWordFilter bannedWordFilter;
+    private final UploadedFileValidator uploadedFileValidator;
     private final org.springframework.context.ApplicationEventPublisher eventPublisher;
 
     /**
@@ -56,8 +60,8 @@ public class ChatMessageServiceImpl implements ChatMessageService {
             throw new JiburoException(ErrorCode.USER_SUSPENDED);
         }
 
-        // 3. 입력 검증 (DB 제약 위반으로 500이 나지 않도록 사전 차단)
-        validateMessage(dto);
+        // 3. 입력 검증 (타입·길이·첨부 파일 소유)
+        validateMessage(dto, senderId);
 
         // 3-1. 이모티콘은 ID로 받아 이미지 키로 바꿔 저장 (이후 이모티콘이 삭제·비노출돼도 과거 메시지는 유지)
         if (dto.messageTypeCode() == ChatMsgType.EMOTICON) {
@@ -97,14 +101,38 @@ public class ChatMessageServiceImpl implements ChatMessageService {
         return ChatMessageResponseDto.from(message, unreadCount);
     }
 
-    private void validateMessage(ChatMessageRequestDto dto) {
+    // 파일 키 최대 길이 (image_meta.file_key 컬럼과 동일)
+    private static final int MAX_FILE_KEY_LENGTH = 500;
+
+    private void validateMessage(ChatMessageRequestDto dto, UUID senderId) {
         if (dto == null || dto.messageTypeCode() == null
                 || dto.content() == null || dto.content().isBlank()) {
             throw new JiburoException(ErrorCode.INVALID_INPUT_VALUE);
         }
-        if (dto.messageTypeCode() == ChatMsgType.TALK && dto.content().length() > appSettingService.getInt(SettingKey.CHAT_MAX_TEXT_LENGTH)) { // 관리자 설정
-            throw new JiburoException(ErrorCode.INVALID_INPUT_VALUE);
+        String content = dto.content();
+        switch (dto.messageTypeCode()) {
+            // 텍스트·위치: 관리자 설정 길이 제한
+            case TALK, MAP -> {
+                if (content.length() > appSettingService.getInt(SettingKey.CHAT_MAX_TEXT_LENGTH)) {
+                    throw new JiburoException(ErrorCode.INVALID_INPUT_VALUE);
+                }
+            }
+            // 이미지·동영상: 본인이 채팅용으로 올려 업로드를 마친 파일 키만 허용 (외부 URL·남의 파일 차단)
+            case IMAGE -> validateChatFile(content, senderId, UploadTargetType.CHAT);
+            case VIDEO -> validateChatFile(content, senderId, UploadTargetType.CHAT_VIDEO);
+            // 이모티콘 ID는 이후 resolveImageKey에서 검증
+            case EMOTICON -> {
+            }
+            // 시스템 메시지(SYS)는 서버만 만든다 — 클라이언트가 보내면 '관리자가 삭제한 메시지' 등을 위조할 수 있음
+            default -> throw new JiburoException(ErrorCode.INVALID_INPUT_VALUE);
         }
+    }
+
+    private void validateChatFile(String fileKey, UUID senderId, UploadTargetType type) {
+        if (fileKey.length() > MAX_FILE_KEY_LENGTH) {
+            throw new JiburoException(ErrorCode.INVALID_UPLOADED_FILE);
+        }
+        uploadedFileValidator.requireOwnedUpload(senderId, fileKey, Set.of(type));
     }
 
     @Transactional
