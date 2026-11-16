@@ -127,7 +127,7 @@
 ### 업로드 플로우
 ```
 1. POST /api/v1/images/presigned-url  →  서버가 R2 presigned URL 발급 + ImageMeta(PENDING) 생성
-2. PUT {presignedUrl}                 →  클라이언트가 R2에 직접 업로드
+2. PUT {presignedUrl}                 →  클라이언트가 R2에 직접 업로드 (Content-Type 헤더 = 응답의 contentType, 다르면 403)
 3. POST /api/v1/images/complete       →  서버가 ImageMeta 상태를 PENDING → COMPLETED 로 전환
 ```
 

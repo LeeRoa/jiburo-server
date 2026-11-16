@@ -84,12 +84,21 @@ public class ImageStorageServiceImpl implements ImageStorageService {
 
         String basePath = request.fileCode().getFolderPath();
 
-        String fileKey = UUID.randomUUID() + "." + request.extension();
+        // 확장자는 소문자로 통일 (키·Content-Type 모두 같은 기준)
+        String extension = request.extension().toLowerCase();
+        String fileKey = UUID.randomUUID() + "." + extension;
         String objectKey = basePath + "/" + userId + "/" + fileKey;
+
+        // Content-Type을 서명에 포함 → 클라이언트가 다른 타입(text/html 등)으로 올리면 R2가 거절한다
+        String contentType = request.fileCode().contentTypeOf(extension);
+        if (contentType == null) {
+            throw new JiburoException(ErrorCode.INVALID_FILE_FORMAT);
+        }
 
         PutObjectRequest putObjectRequest = PutObjectRequest.builder()
                 .bucket(bucketName)
                 .key(objectKey)
+                .contentType(contentType)
                 .contentLength(request.fileSize())
                 .build();
 
@@ -104,7 +113,7 @@ public class ImageStorageServiceImpl implements ImageStorageService {
         ImageMeta imageMeta = request.toEntity(user, objectKey);
         imageMetaRepository.save(imageMeta);
 
-        return new PresignedUrlResponseDto(url, objectKey);
+        return new PresignedUrlResponseDto(url, objectKey, contentType);
     }
 
     @Override

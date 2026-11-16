@@ -4,6 +4,7 @@ import com.jiburo.server.global.domain.enums.CommonCodeType;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
+import java.util.Map;
 import java.util.Set;
 
 @Getter
@@ -23,8 +24,30 @@ public enum UploadTargetType implements CommonCodeType {
     private final String folderPath;     // 실제 스토리지(R2/Local)에 저장될 경로
     private final Set<String> allowedExtensions; // 업로드 허용 확장자 (소문자)
 
+    /**
+     * 확장자 → 업로드 시 서명할 Content-Type.
+     * presigned URL에 Content-Type을 서명하지 않으면 클라이언트가 .jpg 키에 text/html 등을 붙여 올릴 수 있고,
+     * R2 공개 URL이 그 타입으로 응답해 저장형 XSS로 이어질 수 있다. 허용 확장자를 추가하면 여기도 함께 추가할 것
+     * (UploadTargetTypeTest가 누락을 잡는다).
+     */
+    private static final Map<String, String> CONTENT_TYPES = Map.of(
+            "jpg", "image/jpeg",
+            "jpeg", "image/jpeg",
+            "png", "image/png",
+            "webp", "image/webp",
+            "gif", "image/gif",
+            "mp4", "video/mp4",
+            "mov", "video/quicktime",
+            "webm", "video/webm"
+    );
+
     public boolean isExtensionAllowed(String extension) {
         return extension != null && allowedExtensions.contains(extension.toLowerCase());
+    }
+
+    /** 허용 확장자의 Content-Type. 허용되지 않은 확장자면 null */
+    public String contentTypeOf(String extension) {
+        return isExtensionAllowed(extension) ? CONTENT_TYPES.get(extension.toLowerCase()) : null;
     }
 
     // 동영상 업로드 대상 여부 (파일 1개 최대 크기 설정을 이미지/동영상으로 구분하는 데 사용)

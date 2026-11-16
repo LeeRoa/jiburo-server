@@ -47,10 +47,10 @@ description: Use when working on jiburo-server image upload — Cloudflare R2 pr
    │  │     basePath = fileCode.getFolderPath()  // "post/images"
    │  ├─ S3Presigner.presignPutObject (서명 만료 = expiration-minutes)
    │  └─ ImageMeta(PENDING, useYn=true) DB 저장
-   └─ Response: { url, objectKey }
+   └─ Response: { presignedUrl, fileKey, contentType }
 
 2) 프론트 → PUT {presignedUrl} (R2로 직접)  ← 서버 거치지 않음
-   Headers: Content-Type 등은 PutObjectRequest builder에서 설정한 것과 일치해야 함
+   Headers: Content-Type = presigned 응답의 contentType (서명에 포함, 다르면 403)
 
 3) 프론트 → POST /api/v1/images/complete
    Body: { fileKey: <objectKey> }
@@ -120,7 +120,7 @@ cloud.cloudflare.r2.presigned.expiration-minutes=${R2_PRESIGNED_EXPIRATION_MINUT
 - ❌ 게시글·채팅·제보에 클라이언트가 보낸 파일 키를 그대로 저장 → 외부 URL·남의 파일 첨부 가능. ✅ `UploadedFileValidator.requireOwnedUpload(s)`로 "본인 + COMPLETED + 용도 일치"를 확인
 - ❌ 한도 초과 시 `IllegalStateException` raw로 던짐 → ✅ `JiburoException(ErrorCode.FILE_SIZE_EXCEEDED)`로 바꾸는 게 일관성 있음 (현재는 raw)
 - ❌ `complete`에서 권한 검증을 빼먹음 → 다른 사용자의 fileKey 알아내면 상태 변경 가능
-- ❌ PUT 요청의 Content-Type을 prensign할 때 지정해놓고 클라이언트가 다른 값으로 PUT → R2가 SignatureDoesNotMatch 거절. 현재는 별도 지정 안 함.
+- Content-Type은 확장자별로 서명에 포함(`UploadTargetType.contentTypeOf`)하고 응답 `contentType`으로 내려준다. 클라이언트가 다른 값으로 PUT하면 R2가 SignatureDoesNotMatch(403)로 거절 — .jpg 키에 text/html을 올리는 저장형 XSS 차단 목적. 허용 확장자를 추가하면 `CONTENT_TYPES`에도 추가할 것.
 - ❌ `extension`에 점 포함 (`.png`) → objectKey가 `....png` 형태. 점 없이 `png`만 받을 것 (입력 검증 추가 권장).
 - ❌ `fileSize`를 클라이언트가 보낸 값 그대로 신뢰 → 한도 우회 가능. 가능하면 R2 응답으로 검증 (현재는 신뢰).
 

@@ -91,6 +91,28 @@ class ImageStorageServiceTest {
     }
 
     @Test
+    void presigned_URL에는_확장자에_맞는_Content_Type이_서명되고_응답에도_내려간다() throws MalformedURLException {
+        // given: 대문자 확장자도 소문자로 통일
+        PresignedUrlRequestDto request =
+                new PresignedUrlRequestDto(UploadTargetType.CHAT_VIDEO, "clip.MOV", "MOV", 1024L);
+        given(imageMetaRepository.sumUsedFileSize(any())).willReturn(0L);
+        given(userRepository.findById(userId)).willReturn(Optional.of(user));
+        PresignedPutObjectRequest presigned = mock(PresignedPutObjectRequest.class);
+        given(presigned.url()).willReturn(URI.create("https://test.r2.cloudflarestorage.com/key").toURL());
+        org.mockito.ArgumentCaptor<PutObjectPresignRequest> captor =
+                org.mockito.ArgumentCaptor.forClass(PutObjectPresignRequest.class);
+        given(s3Presigner.presignPutObject(captor.capture())).willReturn(presigned);
+
+        // when
+        PresignedUrlResponseDto result = imageStorageService.createPresignedUrl(userId, request);
+
+        // then
+        assertThat(captor.getValue().putObjectRequest().contentType()).isEqualTo("video/quicktime");
+        assertThat(result.contentType()).isEqualTo("video/quicktime");
+        assertThat(result.fileKey()).endsWith(".mov");
+    }
+
+    @Test
     void 허용되지_않은_확장자면_INVALID_FILE_FORMAT() {
         // given
         PresignedUrlRequestDto request =
