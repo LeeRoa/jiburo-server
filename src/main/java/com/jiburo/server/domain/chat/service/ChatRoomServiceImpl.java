@@ -76,7 +76,7 @@ public class ChatRoomServiceImpl implements ChatRoomService {
                     chatParticipantRepository.findByChatRoomIdAndUserId(room.getId(), hostId)
                             .filter(ChatParticipant::isExited)
                             .ifPresent(ChatParticipant::rejoin);
-                    return ChatRoomListDto.from(room, guest.getNickname(), 0L);
+                    return ChatRoomListDto.from(room, guest.getNickname(), post.getTitle(), 0L);
                 })
                 .orElseGet(() -> {
                     // 새 방 생성 및 참여자 등록
@@ -86,7 +86,7 @@ public class ChatRoomServiceImpl implements ChatRoomService {
                     chatParticipantRepository.save(new ChatParticipant(newRoom, host));
                     chatParticipantRepository.save(new ChatParticipant(newRoom, guest));
 
-                    return ChatRoomListDto.from(newRoom, guest.getNickname(), 0L);
+                    return ChatRoomListDto.from(newRoom, guest.getNickname(), post.getTitle(), 0L);
                 });
     }
 
