@@ -64,6 +64,8 @@ public class ReportService {
     private Report postReport(User reporter, ReportCreateRequestDto request) {
         LostPost post = lostPostRepository.findById(HashidsUtils.decode(request.targetId()))
                 .filter(p -> !p.isDeleted())
+                // 볼 수 없는 게시글(남의 비공개 글)은 ID를 알아도 신고 불가 — 존재 여부를 노출하지 않도록 같은 에러
+                .filter(p -> p.isVisibleTo(reporter.getId()))
                 .orElseThrow(() -> new JiburoException(ErrorCode.REPORT_TARGET_NOT_FOUND));
         return base(reporter, request)
                 .targetPostId(post.getId())
