@@ -143,6 +143,39 @@ class ImageStorageServiceTest {
     }
 
     @Test
+    void 사용자별_용량을_넘으면_USER_STORAGE_QUOTA_EXCEEDED() {
+        // given: 기본 한도 2048MB 중 2047MB 사용 중에 2MB 요청
+        long mb = 1024L * 1024;
+        PresignedUrlRequestDto request =
+                new PresignedUrlRequestDto(UploadTargetType.POST, "photo.jpg", "jpg", 2 * mb);
+        given(imageMetaRepository.sumUsedFileSizeByUser(org.mockito.ArgumentMatchers.eq(userId), any(), any()))
+                .willReturn(2047 * mb);
+
+        // when & then
+        assertThatThrownBy(() -> imageStorageService.createPresignedUrl(userId, request))
+                .isInstanceOf(JiburoException.class)
+                .satisfies(ex -> assertThat(((JiburoException) ex).getErrorCode())
+                        .isEqualTo(ErrorCode.USER_STORAGE_QUOTA_EXCEEDED));
+        then(imageMetaRepository).should(never()).save(any());
+    }
+
+    @Test
+    void 관리자_전용_업로드는_사용자별_용량에서_제외된다() throws MalformedURLException {
+        // given: 이모티콘(관리자 전용)은 사용자 용량을 검사하지 않는다
+        PresignedUrlRequestDto request =
+                new PresignedUrlRequestDto(UploadTargetType.EMOTICON, "smile.png", "png", 1024L);
+        given(imageMetaRepository.sumUsedFileSize(any())).willReturn(0L);
+        given(userRepository.findById(userId)).willReturn(Optional.of(user));
+        PresignedPutObjectRequest presigned = mock(PresignedPutObjectRequest.class);
+        given(presigned.url()).willReturn(URI.create("https://test.r2.cloudflarestorage.com/key").toURL());
+        given(s3Presigner.presignPutObject(any(PutObjectPresignRequest.class))).willReturn(presigned);
+
+        imageStorageService.createPresignedUrl(userId, request);
+
+        then(imageMetaRepository).should(never()).sumUsedFileSizeByUser(any(), any(), any());
+    }
+
+    @Test
     void 완료되지_않은_업로드가_한도에_이르면_URL을_발급하지_않는다() {
         // given: 기본 한도(UPLOAD_MAX_PENDING_PER_USER=20)만큼 진행 중
         PresignedUrlRequestDto request =

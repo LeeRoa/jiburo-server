@@ -25,6 +25,13 @@ public interface ImageMetaRepository extends JpaRepository<ImageMeta, Long> {
             + "AND (i.statusCode = com.jiburo.server.domain.image.domain.ImageStatus.COMPLETED OR i.createdAt >= :pendingSince)")
     Long sumUsedFileSize(@Param("pendingSince") LocalDateTime pendingSince);
 
+    // 사용자별 사용량 (위와 같은 기준) — 사용자별 용량 한도용. 관리자 전용 업로드 대상(excluded)은 빼고 센다
+    @Query("SELECT COALESCE(SUM(i.fileSize), 0) FROM ImageMeta i WHERE i.user.id = :userId AND i.useYn = true "
+            + "AND i.fileCode NOT IN :excluded "
+            + "AND (i.statusCode = com.jiburo.server.domain.image.domain.ImageStatus.COMPLETED OR i.createdAt >= :pendingSince)")
+    Long sumUsedFileSizeByUser(@Param("userId") UUID userId, @Param("pendingSince") LocalDateTime pendingSince,
+                               @Param("excluded") Collection<com.jiburo.server.domain.image.domain.UploadTargetType> excluded);
+
     // 사용자별 진행 중(최근 발급, 미완료) 업로드 수 — 발급 남용 제한용
     @Query("SELECT COUNT(i) FROM ImageMeta i WHERE i.user.id = :userId AND i.useYn = true "
             + "AND i.statusCode = com.jiburo.server.domain.image.domain.ImageStatus.PENDING AND i.createdAt >= :pendingSince")

@@ -45,6 +45,7 @@ public enum ErrorCode {
     INVALID_FILE_CODE(HttpStatus.BAD_REQUEST, "error.file.invalid_code"),
     STORAGE_CAPACITY_EXCEEDED(HttpStatus.INSUFFICIENT_STORAGE, "error.file.storage_capacity_exceeded"),
     UPLOAD_PENDING_LIMIT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "error.file.pending_limit_exceeded"),
+    USER_STORAGE_QUOTA_EXCEEDED(HttpStatus.INSUFFICIENT_STORAGE, "error.file.user_quota_exceeded"),
     INVALID_UPLOADED_FILE(HttpStatus.BAD_REQUEST, "error.file.invalid_uploaded_file"),
 
     // [5] Chat & Community

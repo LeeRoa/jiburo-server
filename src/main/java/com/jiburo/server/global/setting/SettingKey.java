@@ -27,6 +27,8 @@ public enum SettingKey {
             "동영상 파일 1개의 최대 크기"),
     UPLOAD_TOTAL_CAPACITY_GB(UPLOAD, SettingType.INT, "10", 1d, 100000d, "GB", false,
             "전체 업로드 저장 용량 한도 (초과 시 업로드 차단)"),
+    UPLOAD_USER_CAPACITY_MB(UPLOAD, SettingType.INT, "2048", 10d, 1048576d, "MB", false,
+            "사용자 1명이 올릴 수 있는 총 용량 (업로드 완료 + 진행 중 합계, 관리자 전용 업로드는 제외)"),
     UPLOAD_PRESIGNED_EXPIRATION_MINUTES(UPLOAD, SettingType.INT, "5", 1d, 60d, "분", false,
             "업로드용 presigned URL 유효 시간"),
     UPLOAD_MAX_PENDING_PER_USER(UPLOAD, SettingType.INT, "20", 1d, 500d, "개", false,

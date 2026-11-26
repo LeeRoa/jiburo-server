@@ -2,6 +2,7 @@ package com.jiburo.server.domain.image.service;
 
 import com.jiburo.server.domain.image.domain.ImageMeta;
 import com.jiburo.server.domain.image.domain.ImageStatus;
+import com.jiburo.server.domain.image.domain.UploadTargetType;
 import com.jiburo.server.domain.image.dto.PresignedUrlRequestDto;
 import com.jiburo.server.domain.image.dto.PresignedUrlResponseDto;
 import com.jiburo.server.domain.image.repository.ImageMetaRepository;
@@ -45,6 +46,10 @@ public class ImageStorageServiceImpl implements ImageStorageService {
      */
     static final Duration PENDING_GRACE = Duration.ofHours(1);
 
+    // 사용자별 용량 계산에서 빼는 대상 (관리자 전용 업로드)
+    private static final java.util.List<UploadTargetType> ADMIN_ONLY_TARGETS =
+            java.util.Arrays.stream(UploadTargetType.values()).filter(UploadTargetType::isAdminOnly).toList();
+
     @Value("${cloud.cloudflare.r2.bucket}")
     private String bucketName;
 
@@ -70,6 +75,15 @@ public class ImageStorageServiceImpl implements ImageStorageService {
         if (imageMetaRepository.countActivePendingByUser(userId, pendingSince)
                 >= appSettingService.getInt(SettingKey.UPLOAD_MAX_PENDING_PER_USER)) {
             throw new JiburoException(ErrorCode.UPLOAD_PENDING_LIMIT_EXCEEDED);
+        }
+
+        // 사용자별 용량 한도 (관리자 설정). 이모티콘처럼 관리자 전용 업로드는 운영 자산이라 제외
+        if (!request.fileCode().isAdminOnly()) {
+            long userCapacity = appSettingService.getInt(SettingKey.UPLOAD_USER_CAPACITY_MB) * MB;
+            long userUsed = imageMetaRepository.sumUsedFileSizeByUser(userId, pendingSince, ADMIN_ONLY_TARGETS);
+            if (userUsed + request.fileSize() > userCapacity) {
+                throw new JiburoException(ErrorCode.USER_STORAGE_QUOTA_EXCEEDED);
+            }
         }
 
         // 전체 저장 용량 한도 (관리자 설정). 완료 파일 + 아직 업로드될 수 있는 PENDING만 센다
