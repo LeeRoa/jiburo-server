@@ -142,11 +142,22 @@ public class JwtTokenProvider {
         return parseUserId(claims);
     }
 
+    // 유효한 토큰의 발급 시각(epoch ms — JWT iat는 초 단위라 1초 미만은 내림). 무효면 empty
+    public Optional<Long> getIssuedAtMillis(String token) {
+        return parseValidClaims(token)
+                .map(Claims::getIssuedAt)
+                .map(Date::getTime);
+    }
+
     // 남은 유효시간(ms). 이미 만료/무효면 0
     public long getRemainingValidityMillis(String token) {
         return parseValidClaims(token)
                 .map(c -> Math.max(0L, c.getExpiration().getTime() - System.currentTimeMillis()))
                 .orElse(0L);
+    }
+
+    public long getAccessTokenValidityTime() {
+        return accessTokenValidityTime;
     }
 
     public long getRefreshTokenValidityTime() {

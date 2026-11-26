@@ -23,6 +23,7 @@ import java.security.SecureRandom;
 import java.time.Duration;
 import java.util.Base64;
 import java.util.Collections;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -56,7 +57,8 @@ public class AuthTokenService {
         return issueTokens(user);
     }
 
-    public TokenResponseDto issueTokens(User user) {
+    // 토큰 쌍 생성 (Redis 저장은 호출 측: 로그인 = 저장, 재발급 = 원자적 교체)
+    private IssuedTokens createTokens(User user) {
         // 로그인·재발급 모두 여기를 지나므로 정지 계정은 한 곳에서 막는다
         if (user.isSuspended()) {
             throw new JiburoException(ErrorCode.USER_SUSPENDED);
@@ -70,11 +72,19 @@ public class AuthTokenService {
         );
 
         long accessTtl = Duration.ofMinutes(appSettingService.getInt(SettingKey.ACCESS_TOKEN_TTL_MINUTES)).toMillis();
-        long refreshTtl = Duration.ofDays(appSettingService.getInt(SettingKey.REFRESH_TOKEN_TTL_DAYS)).toMillis();
+        return new IssuedTokens(jwtTokenProvider.generateTokenDto(authentication, accessTtl, refreshTtl()), refreshTtl());
+    }
 
-        TokenResponseDto tokenDto = jwtTokenProvider.generateTokenDto(authentication, accessTtl, refreshTtl);
-        authTokenRedisRepository.saveRefreshToken(user.getId(), tokenDto.refreshToken(), refreshTtl);
-        return tokenDto;
+    private record IssuedTokens(TokenResponseDto dto, long refreshTtl) {}
+
+    public TokenResponseDto issueTokens(User user) {
+        IssuedTokens issued = createTokens(user);
+        authTokenRedisRepository.saveRefreshToken(user.getId(), issued.dto().refreshToken(), issued.refreshTtl());
+        return issued.dto();
+    }
+
+    private long refreshTtl() {
+        return Duration.ofDays(appSettingService.getInt(SettingKey.REFRESH_TOKEN_TTL_DAYS)).toMillis();
     }
 
     public TokenResponseDto reissue(String refreshToken) {
@@ -83,21 +93,32 @@ public class AuthTokenService {
             throw new JiburoException(ErrorCode.INVALID_REFRESH_TOKEN);
         }
 
-        // 2. Redis에 저장된 현재 RT와 일치하는지 확인 (이미 교체/로그아웃된 RT 재사용 차단)
+        // 2. 최신 권한·정지 여부를 반영하기 위해 DB에서 사용자 조회 후 새 토큰 쌍 생성 (정지 계정은 여기서 거부)
         UUID userId = jwtTokenProvider.getUserId(refreshToken);
-        String savedToken = authTokenRedisRepository.findRefreshToken(userId)
-                .orElseThrow(() -> new JiburoException(ErrorCode.INVALID_REFRESH_TOKEN));
-
-        if (!savedToken.equals(refreshToken)) {
-            // 교체된 RT가 다시 쓰였다 = 탈취 가능성 -> 해당 사용자 RT를 폐기해 재로그인 유도
-            authTokenRedisRepository.deleteRefreshToken(userId);
-            throw new JiburoException(ErrorCode.INVALID_REFRESH_TOKEN);
-        }
-
-        // 3. 최신 권한을 반영하기 위해 DB에서 사용자 조회 후 새 토큰 쌍 발급 (RT 교체)
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new JiburoException(ErrorCode.INVALID_REFRESH_TOKEN));
-        return issueTokens(user);
+        IssuedTokens issued = createTokens(user);
+
+        // 3. Redis의 현재 RT와 비교·교체를 원자적으로 (같은 RT로 동시에 재발급해도 하나만 성공)
+        return switch (authTokenRedisRepository.rotateRefreshToken(
+                userId, refreshToken, issued.dto().refreshToken(), issued.refreshTtl())) {
+            case ROTATED -> issued.dto();
+            // 로그아웃·정지로 RT가 없음, 또는 이미 교체된 RT가 다시 쓰임(탈취 의심 → 저장 RT는 스크립트가 폐기)
+            case MISSING, MISMATCH -> throw new JiburoException(ErrorCode.INVALID_REFRESH_TOKEN);
+        };
+    }
+
+    /**
+     * 사용자의 모든 토큰을 즉시 무효화 (계정 정지).
+     * Refresh Token을 지워 재발급을 끊고, 지금까지 발급된 Access Token도 남은 유효 시간과 상관없이 거부되게 한다.
+     */
+    public void revokeAllTokens(UUID userId) {
+        authTokenRedisRepository.deleteRefreshToken(userId);
+        // 표시는 Access Token이 가질 수 있는 최대 유효 시간 동안만 유지하면 된다 (그 뒤엔 전부 만료)
+        long maxAccessTtl = Math.max(
+                Duration.ofMinutes(SettingKey.ACCESS_TOKEN_TTL_MINUTES.getMax().longValue()).toMillis(),
+                jwtTokenProvider.getAccessTokenValidityTime());
+        authTokenRedisRepository.revokeTokensIssuedBefore(userId, System.currentTimeMillis(), maxAccessTtl + Duration.ofMinutes(5).toMillis());
     }
 
     public void logout(UUID userId, String accessToken) {
@@ -142,7 +163,22 @@ public class AuthTokenService {
         return jwtTokenProvider.getUserId(token);
     }
 
-    public boolean isBlacklisted(String accessToken) {
-        return authTokenRedisRepository.isBlacklisted(accessToken);
+    /**
+     * 서명·만료는 유효하지만 쓰면 안 되는 Access Token인지 — 로그아웃(블랙리스트)됐거나,
+     * 계정 정지 등으로 사용자 토큰이 일괄 무효화된 시각 이전에 발급됐으면 true.
+     * 무효한 토큰이면 true (호출 측은 validateAccessToken을 먼저 확인한다).
+     */
+    public boolean isRevoked(String accessToken) {
+        Optional<Long> issuedAt = jwtTokenProvider.getIssuedAtMillis(accessToken);
+        if (issuedAt.isEmpty()) {
+            return true;
+        }
+        AuthTokenRedisRepository.Revocation revocation =
+                authTokenRedisRepository.findRevocation(accessToken, jwtTokenProvider.getUserId(accessToken));
+        if (revocation.blacklisted()) {
+            return true;
+        }
+        // iat는 초 단위(내림)라 무효화와 같은 초에 발급된 토큰도 무효로 본다 (정지 이후엔 발급 자체가 막혀 있음)
+        return revocation.revokedBefore() != null && issuedAt.get() <= revocation.revokedBefore();
     }
 }

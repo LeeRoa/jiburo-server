@@ -78,7 +78,7 @@ class StompHandlerTest {
         StompHeaderAccessor accessor = StompHeaderAccessor.create(StompCommand.CONNECT);
         accessor.addNativeHeader("Authorization", "Bearer logged.out.token");
         given(jwtTokenProvider.validateAccessToken("logged.out.token")).willReturn(true);
-        given(authTokenService.isBlacklisted("logged.out.token")).willReturn(true);
+        given(authTokenService.isRevoked("logged.out.token")).willReturn(true);
 
         assertError(message(accessor), ErrorCode.INVALID_TOKEN);
     }
@@ -88,7 +88,7 @@ class StompHandlerTest {
         StompHeaderAccessor accessor = StompHeaderAccessor.create(StompCommand.CONNECT);
         accessor.addNativeHeader("Authorization", "Bearer good.token");
         given(jwtTokenProvider.validateAccessToken("good.token")).willReturn(true);
-        given(authTokenService.isBlacklisted("good.token")).willReturn(false);
+        given(authTokenService.isRevoked("good.token")).willReturn(false);
         given(jwtTokenProvider.getAuthentication("good.token")).willReturn(authentication);
 
         stompHandler.preSend(message(accessor), channel);
@@ -167,7 +167,7 @@ class StompHandlerTest {
 
     @Test
     void 유효한_세션은_pub으로_SEND할_수_있다() {
-        given(authTokenService.isBlacklisted("t")).willReturn(false);
+        given(authTokenService.isRevoked("t")).willReturn(false);
 
         assertThatNoException().isThrownBy(() ->
                 stompHandler.preSend(message(send("/pub/chat/rooms/" + HashidsUtils.encode(10L), liveSession("t"))), channel));
@@ -183,7 +183,7 @@ class StompHandlerTest {
 
     @Test
     void 로그아웃한_토큰의_세션은_SEND가_INVALID_TOKEN() {
-        given(authTokenService.isBlacklisted("t")).willReturn(true);
+        given(authTokenService.isRevoked("t")).willReturn(true);
 
         assertError(message(send("/pub/chat/rooms/" + HashidsUtils.encode(10L), liveSession("t"))), ErrorCode.INVALID_TOKEN);
     }
@@ -195,7 +195,7 @@ class StompHandlerTest {
         Map<String, Object> session = new HashMap<>();
         accessor.setSessionAttributes(session);
         given(jwtTokenProvider.validateAccessToken("good.token")).willReturn(true);
-        given(authTokenService.isBlacklisted("good.token")).willReturn(false);
+        given(authTokenService.isRevoked("good.token")).willReturn(false);
         given(jwtTokenProvider.getAuthentication("good.token")).willReturn(authentication);
         given(jwtTokenProvider.getRemainingValidityMillis("good.token")).willReturn(60_000L);
 

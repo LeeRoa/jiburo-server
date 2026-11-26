@@ -1,6 +1,5 @@
 package com.jiburo.server.domain.user.service;
 
-import com.jiburo.server.domain.user.dao.AuthTokenRedisRepository;
 import com.jiburo.server.domain.user.dao.UserRepository;
 import com.jiburo.server.domain.user.domain.User;
 import com.jiburo.server.domain.user.domain.enums.RoleType;
@@ -16,7 +15,7 @@ import java.util.UUID;
 /**
  * 계정 정지 / 해제.
  * - 정지되면 로그인·토큰 재발급이 막힌다 (AuthTokenService.issueTokens).
- * - Refresh Token을 지워 재발급을 즉시 끊는다. 이미 받은 Access Token은 만료(운영 설정 ACCESS_TOKEN_TTL_MINUTES)까지 유효.
+ * - Refresh Token을 지우고 이미 받은 Access Token도 즉시 무효화한다 (AuthTokenService.revokeAllTokens).
  * - 관리자 계정은 정지할 수 없다 (먼저 관리자 역할을 회수해야 함).
  */
 @Service
@@ -24,7 +23,7 @@ import java.util.UUID;
 public class UserSuspensionService {
 
     private final UserRepository userRepository;
-    private final AuthTokenRedisRepository authTokenRedisRepository;
+    private final AuthTokenService authTokenService;
 
     /** days가 null이면 영구 정지. 반환값은 정지 만료 시각 */
     @Transactional
@@ -43,7 +42,8 @@ public class UserSuspensionService {
             until = user.getSuspendedUntil();
         }
         user.suspend(until, reason);
-        authTokenRedisRepository.deleteRefreshToken(userId);
+        // 재발급을 끊고, 이미 받은 Access Token도 즉시 무효화 (REST·STOMP 모두 다음 요청부터 거부)
+        authTokenService.revokeAllTokens(userId);
         return until;
     }
 

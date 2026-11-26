@@ -30,11 +30,11 @@ public class JwtFilter extends OncePerRequestFilter {
 
         String jwt = resolveToken(request);
 
-        // 유효한 Access Token(typ=access)이고 로그아웃(블랙리스트)되지 않았을 때만 인증 정보를 채운다.
+        // 유효한 Access Token(typ=access)이고 폐기(로그아웃·계정 정지)되지 않았을 때만 인증 정보를 채운다.
         // 실패해도 예외를 던지지 않고 체인을 계속 진행 -> 인증이 필요한 URL이면 EntryPoint가 401 응답.
         if (StringUtils.hasText(jwt)) {
             try {
-                if (jwtTokenProvider.validateAccessToken(jwt) && !authTokenService.isBlacklisted(jwt)) {
+                if (jwtTokenProvider.validateAccessToken(jwt) && !authTokenService.isRevoked(jwt)) {
                     Authentication authentication = jwtTokenProvider.getAuthentication(jwt);
                     SecurityContextHolder.getContext().setAuthentication(authentication);
                     log.debug("Security Context에 '{}' 인증 정보를 저장했습니다, uri: {}", authentication.getName(), request.getRequestURI());

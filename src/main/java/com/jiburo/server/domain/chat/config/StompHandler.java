@@ -74,7 +74,7 @@ public class StompHandler implements ChannelInterceptor {
         }
 
         String token = header.substring(JwtFilter.BEARER_PREFIX.length());
-        if (!jwtTokenProvider.validateAccessToken(token) || authTokenService.isBlacklisted(token)) {
+        if (!jwtTokenProvider.validateAccessToken(token) || authTokenService.isRevoked(token)) {
             log.warn("STOMP 인증 실패: 유효하지 않은 JWT 토큰");
             throw new JiburoException(ErrorCode.INVALID_TOKEN);
         }
@@ -124,8 +124,8 @@ public class StompHandler implements ChannelInterceptor {
             log.debug("STOMP 발행 거부: 연결 토큰 만료 userId={}", userId);
             throw new JiburoException(ErrorCode.INVALID_TOKEN);
         }
-        if (session.get(SESSION_ACCESS_TOKEN) instanceof String token && authTokenService.isBlacklisted(token)) {
-            log.debug("STOMP 발행 거부: 로그아웃된 토큰 userId={}", userId);
+        if (session.get(SESSION_ACCESS_TOKEN) instanceof String token && authTokenService.isRevoked(token)) {
+            log.debug("STOMP 발행 거부: 폐기된 토큰(로그아웃·정지) userId={}", userId);
             throw new JiburoException(ErrorCode.INVALID_TOKEN);
         }
     }
