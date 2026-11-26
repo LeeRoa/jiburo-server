@@ -37,6 +37,9 @@ docker compose -f compose-prod.yaml up --build -d
 ```
 프로덕션은 환경변수(`DB_PASSWORD`, `JWT_SECRET`, `*_CLIENT_ID/SECRET`, `R2_*`) 주입이 필수입니다.
 
+### 환경변수 (.env)
+`cp .env.example .env` 후 값을 채우면 로컬 `./gradlew bootRun`(build.gradle이 읽음)과 운영 `compose-prod.yaml`(`env_file`로 컨테이너에 전달) 모두 같은 파일을 씁니다. `.env`는 커밋되지 않습니다. 빈 값(`KEY=`)은 bootRun에서 무시되어 설정 기본값이 쓰입니다. IntelliJ에서 메인 클래스를 바로 실행하면 `.env`를 읽지 않으니 `bootRun`을 쓰세요.
+
 ## 프로젝트 구조
 
 ### 전체 트리
@@ -94,7 +97,7 @@ domain/{모듈명}/
 - **emoticon** — 진입점 `EmoticonController` (`GET /api/v1/chat/emoticons`). 핵심 엔티티 `EmoticonPack`, `Emoticon`. 관리자가 등록한 무료 이모티콘(png / 움직이는 gif·webp). 노출 묶음 목록은 메모리 캐시(`EmoticonService.invalidateCatalog`, 60초 주기). 채팅 `EMOTICON` 메시지는 이모티콘 ID로 받아 **이미지 키로 저장** → 이모티콘을 지워도 과거 메시지 유지. 관리 API는 `AdminEmoticonController`.
 - **moderation** — 금지어. 핵심 엔티티 `BannedWord`, 핵심 컴포넌트 `BannedWordFilter`(`mask` / `contains`). 채팅 텍스트(TALK)·게시글 제목/내용은 **`***`로 가린 값을 저장**(원문 미저장). 대소문자 무시, 글자 사이 기호까지 매칭, 공백은 오탐 때문에 미허용. 메모리 캐시(`invalidate`, 60초 주기). 관리 API는 `AdminBannedWordController`. 닉네임은 가리지 않고 거부(`NICKNAME_CONTAINS_BANNED_WORD`) — 닉네임 변경 API(mypage 브랜치) 머지 후 연결 필요.
 - **report** — 진입점 `ReportController` (`POST /api/v1/reports`). 핵심 엔티티 `Report`. 게시글·채팅 메시지·사용자 신고, `target_key`로 같은 대상 묶음(중복 신고 차단·일괄 처리), 신고 당시 내용 스냅샷. 처리는 `AdminReportController`(콘텐츠 삭제 / 정지 / 기각 + 신고자 알림 `REPORT_HANDLED`).
-- **계정 정지** — `User.suspendedUntil`(9999-12-31 = 영구). `UserSuspensionService`가 정지 + Refresh Token 삭제, `AuthTokenService.issueTokens`가 정지 계정의 로그인·재발급을 `USER_SUSPENDED`로 막음 (웹 OAuth는 `?error=USER_SUSPENDED` 리다이렉트). 이미 받은 Access Token은 만료까지 유효. 관리자 계정은 정지 불가.
+- **계정 정지** — `User.suspendedUntil`(9999-12-31 = 영구). `UserSuspensionService`가 정지 + `AuthTokenService.revokeAllTokens`(Refresh Token 삭제 + Redis `auth:revoked-before:{userId}`에 정지 시각 기록 → 그 전에 발급된 Access Token은 `JwtFilter`·`StompHandler`가 즉시 거부). 로그인·재발급은 `USER_SUSPENDED`로 막음 (웹 OAuth는 `?error=USER_SUSPENDED` 리다이렉트). 관리자 계정은 정지 불가.
 - **push** — 진입점 `PushDeviceController` (`/api/v1/push/devices`). 핵심 엔티티 `PushDevice`(FCM 토큰·플랫폼·문구 언어). `PushService`가 기기 언어별 문구로 발송, `PushSender` 구현은 FCM(`FcmPushSender`) 또는 키가 없을 때 로그 전용. **알림은 `notificationRepository.save()`만 하면 자동으로 푸시**(`Notification` @DomainEvents → `UserPushListener` AFTER_COMMIT 비동기), 채팅은 `ChatMessageServiceImpl`이 이벤트 발행. 새 알림 typeCode를 만들면 `i18n/push/messages*.properties`에 `push.noti.{TYPE}.title/body`를 추가(없으면 기본 문구).
 - **운영자 푸시** — `AdminAlertMonitor`(1분 주기)가 DB·Redis 장애, 5분간 500 오류 급증(시작·복구 1번씩), 저장소 80%/95%(넘을 때 1번)를 `AdminAlertService`로 발송. 수신 = 관리자 + MONITORING 노출 권한 + `admin_push_preferences` 켜짐(기본 켜짐). 서버 간 중복은 `AlertDeduplicator`(Redis), DB 장애 중엔 마지막으로 확인한 기기로 발송.
 - **notification** — 진입점 `NotificationController` (`/api/v1/notifications`). 핵심 엔티티 `Notification`. 알림 목록 / 안 읽음 카운트. `typeCode` + `args`(콤마 구분 가변인자) + `targetId` 패턴 — 메시지 본문은 프론트가 다국어 키로 조립.
@@ -217,12 +220,13 @@ DB PK(`Long`)는 외부에 절대 그대로 노출하지 않습니다. `global/u
 - 구독 prefix `/sub`, 발행 prefix `/pub`.
 - `StompHandler`가 인바운드 채널 인터셉터로 STOMP CONNECT 시 JWT 검증.
 - SEND는 `/pub/**`만 허용. `/sub/**`로 직접 SEND하면 SimpleBroker가 검증 없이 구독자에게 뿌리므로 반드시 막는다.
-- 소켓은 연결 후 계속 살아 있으므로 SEND마다 CONNECT 때 세션에 남긴 토큰의 만료·로그아웃(블랙리스트)을 다시 확인하고, 정지 계정은 `ChatMessageService`가 `USER_SUSPENDED`로 거부.
+- 소켓은 연결 후 계속 살아 있으므로 SEND마다 CONNECT 때 세션에 남긴 토큰의 만료·폐기(로그아웃 블랙리스트·계정 정지 일괄 무효화, `AuthTokenService.isRevoked`)를 다시 확인하고, 정지 계정은 `ChatMessageService`도 `USER_SUSPENDED`로 거부.
+- 허용 origin은 REST CORS와 같은 `app.cors.allowed-origins`(운영 `CORS_ALLOWED_ORIGINS`). Origin 헤더가 없는 모바일 앱과 same-origin 페이지는 항상 허용.
 - 구독 권한은 SUBSCRIBE 시점에만 검사하므로, 방을 나가면 `ChatSubscriptionRevoker`가 커밋 후 해당 방 구독을 브로커에서 지운다. 새로 "방에서 빠지는" 경로를 만들면 같이 호출할 것.
 - 읽음 처리는 그 방의 메시지 ID만 받고, 커서는 앞으로만 움직인다.
 
 ### 이미지 업로드 (Cloudflare R2)
-AWS S3 SDK(`software.amazon.awssdk:s3`)를 R2 엔드포인트에 붙여 사용. 클라이언트는 **presigned PUT URL을 받아 직접 업로드** 후 완료 콜백(`completeUpload`)으로 `ImageStatus`를 `COMPLETED`로 전환합니다. `ImageStorageServiceImpl`이 전체 용량(`UPLOAD_TOTAL_CAPACITY_GB`)·사용자별 진행 중 업로드 수(`UPLOAD_MAX_PENDING_PER_USER`) 가드를 가지며, 방치된 PENDING은 주기적으로 정리. 게시글·채팅·제보에 첨부되는 파일 키는 `UploadedFileValidator`로 "본인이 올려 완료한 해당 용도 파일"인지 확인한 뒤 저장. 키 구조: `{basePath}/{userId}/{uuid}.{ext}`.
+AWS S3 SDK(`software.amazon.awssdk:s3`)를 R2 엔드포인트에 붙여 사용. 클라이언트는 **presigned PUT URL을 받아 직접 업로드** 후 완료 콜백(`completeUpload`)으로 `ImageStatus`를 `COMPLETED`로 전환합니다. `ImageStorageServiceImpl`이 전체 용량(`UPLOAD_TOTAL_CAPACITY_GB`)·사용자별 용량(`UPLOAD_USER_CAPACITY_MB`, 관리자 전용 업로드 제외)·사용자별 진행 중 업로드 수(`UPLOAD_MAX_PENDING_PER_USER`) 가드를 가지며, 방치된 PENDING은 주기적으로 정리. 게시글·채팅·제보에 첨부되는 파일 키는 `UploadedFileValidator`로 "본인이 올려 완료한 해당 용도 파일"인지 확인한 뒤 저장. 키 구조: `{basePath}/{userId}/{uuid}.{ext}`.
 
 ### i18n
 - 문구 출처: `classpath*:i18n/**/messages*.properties`(파일 기본값, 접미사 없는 파일 = ko) + `i18n_messages` 테이블(관리자 수정값). `MessageCatalog`가 둘을 합치고 `CatalogMessageSource`가 MessageSource로 노출합니다.
