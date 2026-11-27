@@ -37,6 +37,9 @@ docker compose -f compose-prod.yaml up --build -d
 ```
 프로덕션은 환경변수(`DB_PASSWORD`, `JWT_SECRET`, `*_CLIENT_ID/SECRET`, `R2_*`) 주입이 필수입니다.
 
+### 환경변수 (.env)
+`cp .env.example .env` 후 값을 채우면 로컬 `./gradlew bootRun`(build.gradle이 읽음)과 운영 `compose-prod.yaml`(`env_file`로 컨테이너에 전달) 모두 같은 파일을 씁니다. `.env`는 커밋되지 않습니다. 빈 값(`KEY=`)은 bootRun에서 무시되어 설정 기본값이 쓰입니다. IntelliJ에서 메인 클래스를 바로 실행하면 `.env`를 읽지 않으니 `bootRun`을 쓰세요.
+
 ## 프로젝트 구조
 
 ### 전체 트리
@@ -44,7 +47,7 @@ docker compose -f compose-prod.yaml up --build -d
 src/main/
 ├── java/com/jiburo/server/
 │   ├── JiburoServerApplication.java         # @SpringBootApplication, @EnableJpaAuditing, @EnableSpringDataWebSupport(VIA_DTO)
-│   ├── domain/                              # 비즈니스 도메인 모듈 (chat / image / notification / post / user)
+│   ├── domain/                              # 비즈니스 도메인 모듈 (admin / chat / emoticon / image / moderation / notification / post / push / report / user 등)
 │   └── global/                              # 횡단 관심사 (config / error / response / log / cache / util / domain / controller / repository / dto)
 └── resources/
     ├── application.properties               # spring.profiles.include=oauth,jwt,db,r2
@@ -91,6 +94,12 @@ domain/{모듈명}/
 - **post** — 진입점 `LostPostController` (`/api/v1/posts`). 핵심 엔티티 `LostPost`, `LostPostImage`. 분실/제보 게시글 CRUD + 지도 기반 조회. `detail` 필드는 카테고리에 따라 구조가 바뀌는 JSON 컬럼(`@JdbcTypeCode(SqlTypes.JSON)`). 반경 조회는 QueryDSL + MySQL Haversine 식.
 - **chat** — 진입점 두 개: REST `ChatRoomController` (`/api/v1/chat/rooms`)와 STOMP `ChatController` (`@MessageMapping("/chat/rooms/{roomId}")`). 핵심 엔티티 `ChatRoom`, `ChatMessage`, `ChatParticipant`. 게시글 단위 1:N 채팅방, 실시간 전송 + 읽음 처리. `lastChatAt`로 목록 정렬, `idx_chat_room_created` 인덱스로 메시지 페이징 최적화.
 - **image** — 진입점 `ImageController` (`/api/v1/images`). 핵심 엔티티 `ImageMeta`. Cloudflare R2 presigned PUT URL 발급 → 클라이언트 직접 업로드 → `/complete` 콜백으로 `ImageStatus` 전환. 전체 누적 10GB 가드.
+- **emoticon** — 진입점 `EmoticonController` (`GET /api/v1/chat/emoticons`). 핵심 엔티티 `EmoticonPack`, `Emoticon`. 관리자가 등록한 무료 이모티콘(png / 움직이는 gif·webp). 노출 묶음 목록은 메모리 캐시(`EmoticonService.invalidateCatalog`, 60초 주기). 채팅 `EMOTICON` 메시지는 이모티콘 ID로 받아 **이미지 키로 저장** → 이모티콘을 지워도 과거 메시지 유지. 관리 API는 `AdminEmoticonController`.
+- **moderation** — 금지어. 핵심 엔티티 `BannedWord`, 핵심 컴포넌트 `BannedWordFilter`(`mask` / `contains`). 채팅 텍스트(TALK)·게시글 제목/내용은 **`***`로 가린 값을 저장**(원문 미저장). 대소문자 무시, 글자 사이 기호까지 매칭, 공백은 오탐 때문에 미허용. 메모리 캐시(`invalidate`, 60초 주기). 관리 API는 `AdminBannedWordController`. 닉네임은 가리지 않고 거부(`NICKNAME_CONTAINS_BANNED_WORD`) — 닉네임 변경 API(mypage 브랜치) 머지 후 연결 필요.
+- **report** — 진입점 `ReportController` (`POST /api/v1/reports`). 핵심 엔티티 `Report`. 게시글·채팅 메시지·사용자 신고, `target_key`로 같은 대상 묶음(중복 신고 차단·일괄 처리), 신고 당시 내용 스냅샷. 처리는 `AdminReportController`(콘텐츠 삭제 / 정지 / 기각 + 신고자 알림 `REPORT_HANDLED`).
+- **계정 정지** — `User.suspendedUntil`(9999-12-31 = 영구). `UserSuspensionService`가 정지 + `AuthTokenService.revokeAllTokens`(Refresh Token 삭제 + Redis `auth:revoked-before:{userId}`에 정지 시각 기록 → 그 전에 발급된 Access Token은 `JwtFilter`·`StompHandler`가 즉시 거부). 로그인·재발급은 `USER_SUSPENDED`로 막음 (웹 OAuth는 `?error=USER_SUSPENDED` 리다이렉트). 관리자 계정은 정지 불가.
+- **push** — 진입점 `PushDeviceController` (`/api/v1/push/devices`). 핵심 엔티티 `PushDevice`(FCM 토큰·플랫폼·문구 언어). `PushService`가 기기 언어별 문구로 발송, `PushSender` 구현은 FCM(`FcmPushSender`) 또는 키가 없을 때 로그 전용. **알림은 `notificationRepository.save()`만 하면 자동으로 푸시**(`Notification` @DomainEvents → `UserPushListener` AFTER_COMMIT 비동기), 채팅은 `ChatMessageServiceImpl`이 이벤트 발행. 새 알림 typeCode를 만들면 `i18n/push/messages*.properties`에 `push.noti.{TYPE}.title/body`를 추가(없으면 기본 문구).
+- **운영자 푸시** — `AdminAlertMonitor`(1분 주기)가 DB·Redis 장애, 5분간 500 오류 급증(시작·복구 1번씩), 저장소 80%/95%(넘을 때 1번)를 `AdminAlertService`로 발송. 수신 = 관리자 + MONITORING 노출 권한 + `admin_push_preferences` 켜짐(기본 켜짐). 서버 간 중복은 `AlertDeduplicator`(Redis), DB 장애 중엔 마지막으로 확인한 기기로 발송.
 - **notification** — 진입점 `NotificationController` (`/api/v1/notifications`). 핵심 엔티티 `Notification`. 알림 목록 / 안 읽음 카운트. `typeCode` + `args`(콤마 구분 가변인자) + `targetId` 패턴 — 메시지 본문은 프론트가 다국어 키로 조립.
 
 ### 주요 엔티티 관계
@@ -133,17 +142,23 @@ global/
 
 permitAll (인증 불필요):
 - `/api/v1/auth/**` → `AuthController` (토큰 재발급)
-- `/api/v1/posts/**` → `LostPostController` (조회 중심, 작성/수정도 permitAll이지만 내부에서 `@AuthenticationPrincipal` 사용)
-- `/api/v1/common-codes/**` → `CommonCodeController` (앱 시작 시 1회 호출)
+- `GET /api/v1/posts/**` → `LostPostController` (조회만 permitAll. 작성/수정/삭제는 인증 필요. 로그인 전용 GET(`/liked`, `/search/history` 등)은 컨트롤러에서 `user == null`이면 `UNAUTHORIZED`)
+- `/api/v1/common-codes/**` → `CommonCodeController` (앱 시작 시 1회 호출, 각 코드에 요청 언어 `label` 포함)
 - `/ws-jiburo` → STOMP 엔드포인트 (CONNECT 시 `StompHandler`가 JWT 검증)
 - `/swagger-ui.html`, `/v3/api-docs/**` → Springdoc Swagger UI
 - `/oauth2/authorization/**`, `/login/oauth2/code/**` → Spring Security OAuth2 콜백
-- `/h2-console/**`, `/favicon.ico`, `/error`
+- `/favicon.ico`, `/error`
 
 인증 필요 (`@AuthenticationPrincipal CustomOAuth2User user`):
 - `/api/v1/chat/rooms/**` → `ChatRoomController`
+- `/api/v1/chat/emoticons` → `EmoticonController` (채팅 이모티콘 목록)
+- `/api/v1/reports` → `ReportController` (신고 접수)
+- `/api/v1/push/devices/**` → `PushDeviceController` (푸시 기기 등록·해제)
 - `/api/v1/notifications/**` → `NotificationController`
 - `/api/v1/images/**` → `ImageController`
+
+관리자 전용 (`ROLE_ADMIN`, 경로 단위 보호):
+- `/api/v1/admin/**` → `domain/admin/controller/Admin*Controller` (아래 "관리자 API" 참고)
 
 STOMP 채널:
 - 발행 (클라 → 서버): `/pub/chat/rooms/{roomId}` (메시지 전송), `/pub/chat/rooms/{roomId}/read` (읽음 처리)
@@ -175,6 +190,24 @@ DB PK(`Long`)는 외부에 절대 그대로 노출하지 않습니다. `global/u
 
 ### 감사 로그 (AOP)
 변경 작업이 있는 컨트롤러 메서드에 `@AuditLog(action = LogActionType.XXX)`를 붙이면 `AuditLogAspect`가 `@AfterReturning`으로 가로채 `ApplicationEventPublisher`로 이벤트 발행 → 리스너가 비동기로 DB 저장. **컨트롤러 메서드에서 직접 로그를 남기지 말고 어노테이션을 사용**하세요. 새 액션은 `LogActionType` enum에 추가.
+- `audit_logs.user_id`는 NOT NULL이라 비로그인 요청은 AOP가 기록을 건너뜁니다. 로그인/토큰 재발급처럼 인증 전 시점의 작업은 서비스에서 userId를 채워 `AuditLogEvent`를 직접 발행합니다.
+- `targetData`에는 로그인 사용자/요청 객체를 제외한 메서드 인자(경로 변수, 요청 DTO)가 기록됩니다. 민감 정보가 있는 DTO는 `toString()`을 마스킹하세요 (예: `TokenRequestDto`).
+
+### 관리자 API (`domain/admin`)
+- 모든 관리자 컨트롤러는 `AdminApi.BASE_PATH`(`/api/v1/admin`) 아래에 매핑합니다. `SecurityConfig`가 이 경로를 `hasRole("ADMIN")`으로 1차 보호합니다 (ADMIN = 관리자 역할 1개 이상 보유 계정).
+- **권한 모델**: 메뉴(`AdminMenu` enum, 코드 고정) × 접근 수준(READ=노출·조회, WRITE=편집·변경). 역할(`admin_roles`)은 메뉴 권한의 묶음으로 관리자 웹에서 관리하고, 계정에 여러 개 부여합니다(`user_admin_roles`). `SUPER_ADMIN`은 시스템 역할로 모든 메뉴 WRITE.
+- **엔드포인트마다 메뉴 권한을 반드시 선언**: `@PreAuthorize("@adminAccess.read('SETTING')")`(GET) / `@PreAuthorize("@adminAccess.write('SETTING')")`(변경) / `@PreAuthorize("@adminAccess.any()")`(역할만 있으면). 누락·오타·변경 API에 read 사용은 `AdminControllerSecurityConventionTest`가 실패시킵니다.
+- 권한은 JWT가 아니라 `AdminAuthorizationService`(메모리 캐시, 60초 주기 비우기)로 매 요청 확인 → 회수가 즉시 반영됩니다. 역할/메뉴 권한을 바꾸는 코드는 반드시 `invalidate`를 호출하세요.
+- 새 관리자 기능 = `AdminMenu`에 메뉴 추가 + API에 `@PreAuthorize`. 새 메뉴는 SUPER_ADMIN 외 어떤 역할에도 자동으로 열리지 않습니다.
+- 초기 관리자: 환경변수 `ADMIN_OAUTH_IDS`(예: `kakao_123`)에 적힌 계정은 로그인 시 SUPER_ADMIN을 자동으로 받습니다 (`AdminBootstrapService`).
+- 권한 부족은 403 `ApiResponse`(`ACCESS_DENIED`)로 응답합니다 (경로 단계: `JwtAccessDeniedHandler`, 메서드 단계: `GlobalExceptionHandler`).
+- `@EnableMethodSecurity(proxyTargetClass = true)`는 유지하세요. 컨트롤러가 Docs 인터페이스를 구현하므로 인터페이스 프록시가 되면 매핑이 사라져 404가 납니다.
+- 관리자 컨트롤러는 `domain/admin/controller`, 관리자 전용 로직은 `domain/admin/service`에 두고, 각 도메인의 서비스/리포지토리를 재사용합니다.
+- 상태를 바꾸는 관리자 API에는 `@AuditLog(action = LogActionType.ADMIN_XXX)`를 반드시 붙입니다.
+- 현재 메뉴: 대시보드, 운영 설정, 공통코드, 다국어 문구(`AdminI18nController`), 사용자(정지·해제 포함), 게시글, 신고(`AdminReportController`), 이모티콘(`AdminEmoticonController`), 금지어(`AdminBannedWordController`), 감사 로그, 시스템 모니터링(`AdminMonitoringController`), 역할·권한.
+- 시스템 모니터링은 요청을 받은 서버 기준 값(DB·Redis 응답, JVM, 저장소, 최근 500 오류). 최근 오류는 `ServerErrorRecorder`가 `GlobalExceptionHandler`의 500을 메모리에 50건 보관 — 재시작 시 비워짐.
+- 이모티콘 업로드: `POST /api/v1/admin/emoticons/presigned-url` → R2 PUT → `/api/v1/images/complete` → `POST /packs/{packId}/emoticons`. `UploadTargetType.EMOTICON`은 `isAdminOnly()`라 일반 업로드 API에서 거부됩니다.
+- 테스트는 `AdminControllerTestSupport`를 상속하면 보안 설정과 `withAdmin()`/`withUser()` 헬퍼를 그대로 쓸 수 있습니다.
 
 ### 영속성 (JPA + QueryDSL)
 - 모든 엔티티는 `BaseTimeEntity`(JPA Auditing, `createdAt`/`updatedAt` 자동) 상속.
@@ -186,13 +219,21 @@ DB PK(`Long`)는 외부에 절대 그대로 노출하지 않습니다. `global/u
 - 엔드포인트: `/ws-jiburo` (SecurityConfig에서 permitAll).
 - 구독 prefix `/sub`, 발행 prefix `/pub`.
 - `StompHandler`가 인바운드 채널 인터셉터로 STOMP CONNECT 시 JWT 검증.
+- SEND는 `/pub/**`만 허용. `/sub/**`로 직접 SEND하면 SimpleBroker가 검증 없이 구독자에게 뿌리므로 반드시 막는다.
+- 소켓은 연결 후 계속 살아 있으므로 SEND마다 CONNECT 때 세션에 남긴 토큰의 만료·폐기(로그아웃 블랙리스트·계정 정지 일괄 무효화, `AuthTokenService.isRevoked`)를 다시 확인하고, 정지 계정은 `ChatMessageService`도 `USER_SUSPENDED`로 거부.
+- 허용 origin은 REST CORS와 같은 `app.cors.allowed-origins`(운영 `CORS_ALLOWED_ORIGINS`). Origin 헤더가 없는 모바일 앱과 same-origin 페이지는 항상 허용.
+- 구독 권한은 SUBSCRIBE 시점에만 검사하므로, 방을 나가면 `ChatSubscriptionRevoker`가 커밋 후 해당 방 구독을 브로커에서 지운다. 새로 "방에서 빠지는" 경로를 만들면 같이 호출할 것.
+- 읽음 처리는 그 방의 메시지 ID만 받고, 커서는 앞으로만 움직인다.
 
 ### 이미지 업로드 (Cloudflare R2)
-AWS S3 SDK(`software.amazon.awssdk:s3`)를 R2 엔드포인트에 붙여 사용. 클라이언트는 **presigned PUT URL을 받아 직접 업로드** 후 완료 콜백(`completeUpload`)으로 `ImageStatus`를 `COMPLETED`로 전환합니다. `ImageStorageServiceImpl`이 전체 누적 용량(10GB) 가드를 가짐. 키 구조: `{basePath}/{userId}/{uuid}.{ext}`.
+AWS S3 SDK(`software.amazon.awssdk:s3`)를 R2 엔드포인트에 붙여 사용. 클라이언트는 **presigned PUT URL을 받아 직접 업로드** 후 완료 콜백(`completeUpload`)으로 `ImageStatus`를 `COMPLETED`로 전환합니다. `ImageStorageServiceImpl`이 전체 용량(`UPLOAD_TOTAL_CAPACITY_GB`)·사용자별 용량(`UPLOAD_USER_CAPACITY_MB`, 관리자 전용 업로드 제외)·사용자별 진행 중 업로드 수(`UPLOAD_MAX_PENDING_PER_USER`) 가드를 가지며, 방치된 PENDING은 주기적으로 정리. 게시글·채팅·제보에 첨부되는 파일 키는 `UploadedFileValidator`로 "본인이 올려 완료한 해당 용도 파일"인지 확인한 뒤 저장. 키 구조: `{basePath}/{userId}/{uuid}.{ext}`.
 
 ### i18n
-- 메시지 번들: `i18n/error/messages*`, `i18n/validation/messages*` (`MessageSourceConfig`에 등록).
+- 문구 출처: `classpath*:i18n/**/messages*.properties`(파일 기본값, 접미사 없는 파일 = ko) + `i18n_messages` 테이블(관리자 수정값). `MessageCatalog`가 둘을 합치고 `CatalogMessageSource`가 MessageSource로 노출합니다.
+- 조회 순서(요청 언어 L): DB[L] → 파일[L] → DB[ko] → 파일[ko]. `zh-CN` → `zh` 순 대체.
+- 관리자 수정은 `AdminI18nService` → 저장 후 `I18nMessageCache.reload()` (다른 서버는 60초 주기). 모든 문구가 MessageFormat으로 처리되므로 작은따옴표는 `''`로 씁니다.
 - 코드에서는 `MessageUtils.getMessage(key)` 또는 `getMessage(key, args)` 사용. 메시지를 못 찾으면 키 자체를 반환하므로 안전.
+- 화면 라벨처럼 "없으면 비워야 하는" 값은 `LabelResolver.resolve(key)` (없으면 null).
 - 로케일은 `LocaleContextHolder`(요청 단위)에서 결정.
 
 ### 설정 프로파일
@@ -201,6 +242,7 @@ AWS S3 SDK(`software.amazon.awssdk:s3`)를 R2 엔드포인트에 붙여 사용. 
 - `application-jwt.properties` — JWT secret/만료
 - `application-oauth.properties` — Google/Kakao/Naver client id/secret
 - `application-r2.properties` — Cloudflare R2 자격증명/버킷 (모두 `${...}` 환경변수)
+- 푸시: `FIREBASE_CREDENTIALS_JSON`(서비스 계정 키 JSON 내용) 또는 `FIREBASE_CREDENTIALS_PATH`. 없으면 푸시는 로그로만 남음
 
 ## 작업 시 주의사항
 

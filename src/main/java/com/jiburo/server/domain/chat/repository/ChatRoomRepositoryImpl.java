@@ -49,11 +49,14 @@ public class ChatRoomRepositoryImpl implements ChatRoomRepositoryCustom {
                 .select(
                         chatRoom,
                         otherPart.user.nickname,
-                        // 서브쿼리: 내 마지막 읽은 시점 이후의 메시지 개수
+                        // 게시글 제목 (컬럼 함께 조회, 방별 post 프록시 개별 로딩 N+1 방지)
+                        chatRoom.post.title,
+                        // 서브쿼리: 내 마지막 읽은 시점 이후, 상대방이 보낸 메시지 개수 (내 메시지는 제외)
                         JPAExpressions.select(message.count())
                                 .from(message)
                                 .where(message.chatRoom.id.eq(chatRoom.id)
-                                        .and(message.id.gt(myPart.lastReadMessageId)))
+                                        .and(message.id.gt(myPart.lastReadMessageId))
+                                        .and(message.sender.id.ne(userId)))
                 )
                 .from(chatRoom)
                 .join(chatRoom.participants, myPart)
@@ -69,13 +72,14 @@ public class ChatRoomRepositoryImpl implements ChatRoomRepositoryCustom {
         return results.stream().map(tuple -> {
             ChatRoom room = tuple.get(chatRoom);
             String otherNickname = tuple.get(otherPart.user.nickname);
+            String postTitle = tuple.get(chatRoom.post.title);
 
             // NPE 방어 로직: 널 체크 후 기본값 0L 할당
-            Long unreadCountRaw = tuple.get(2, Long.class);
+            Long unreadCountRaw = tuple.get(3, Long.class);
             long unreadCount = (unreadCountRaw != null) ? unreadCountRaw : 0L;
 
             // DTO의 from 메서드로 넘기기 (Hashids 처리 포함)
-            return ChatRoomListDto.from(Objects.requireNonNull(room), otherNickname, unreadCount);
+            return ChatRoomListDto.from(Objects.requireNonNull(room), otherNickname, postTitle, unreadCount);
         }).toList();
     }
 }

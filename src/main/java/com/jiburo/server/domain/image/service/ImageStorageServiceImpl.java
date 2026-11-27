@@ -2,6 +2,7 @@ package com.jiburo.server.domain.image.service;
 
 import com.jiburo.server.domain.image.domain.ImageMeta;
 import com.jiburo.server.domain.image.domain.ImageStatus;
+import com.jiburo.server.domain.image.domain.UploadTargetType;
 import com.jiburo.server.domain.image.dto.PresignedUrlRequestDto;
 import com.jiburo.server.domain.image.dto.PresignedUrlResponseDto;
 import com.jiburo.server.domain.image.repository.ImageMetaRepository;
@@ -9,8 +10,12 @@ import com.jiburo.server.domain.user.dao.UserRepository;
 import com.jiburo.server.domain.user.domain.User;
 import com.jiburo.server.global.error.ErrorCode;
 import com.jiburo.server.global.error.JiburoException;
+import com.jiburo.server.global.setting.AppSettingService;
+import com.jiburo.server.global.setting.SettingKey;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
@@ -19,8 +24,10 @@ import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequ
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 
 import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ImageStorageServiceImpl implements ImageStorageService {
@@ -28,13 +35,23 @@ public class ImageStorageServiceImpl implements ImageStorageService {
     private final S3Presigner s3Presigner;
     private final ImageMetaRepository imageMetaRepository;
     private final UserRepository userRepository;
-    private static final long MAX_CAPACITY_BYTES = 10L * 1024 * 1024 * 1024; // 10GB
+    private final AppSettingService appSettingService;
+
+    private static final long MB = 1024L * 1024;
+    private static final long GB = 1024L * MB;
+
+    /**
+     * presigned URL 만료 후에도 업로드가 진행 중일 수 있는 여유 시간.
+     * 발급 후 (URL 유효 시간 + 이 시간)이 지난 PENDING은 업로드될 수 없는 것으로 보고 용량 계산에서 빼고 정리한다.
+     */
+    static final Duration PENDING_GRACE = Duration.ofHours(1);
+
+    // 사용자별 용량 계산에서 빼는 대상 (관리자 전용 업로드)
+    private static final java.util.List<UploadTargetType> ADMIN_ONLY_TARGETS =
+            java.util.Arrays.stream(UploadTargetType.values()).filter(UploadTargetType::isAdminOnly).toList();
 
     @Value("${cloud.cloudflare.r2.bucket}")
     private String bucketName;
-
-    @Value("${cloud.cloudflare.r2.presigned.expiration-minutes}")
-    private long expirationMinutes;
 
     @Override
     public PresignedUrlResponseDto createPresignedUrl(UUID userId, PresignedUrlRequestDto request) {
@@ -43,9 +60,37 @@ public class ImageStorageServiceImpl implements ImageStorageService {
             throw new JiburoException(ErrorCode.INVALID_FILE_FORMAT);
         }
 
-        Long currentTotalSize = imageMetaRepository.sumTotalFileSize();
-        if (currentTotalSize + request.fileSize() > MAX_CAPACITY_BYTES) {
-            throw new IllegalStateException("스토리지 전체 무료 용량(10GB)을 초과할 수 없습니다.");
+        // 파일 1개 최대 크기 (관리자 설정: 이미지/동영상 별도)
+        SettingKey maxSizeKey = request.fileCode().isVideo()
+                ? SettingKey.UPLOAD_MAX_VIDEO_SIZE_MB
+                : SettingKey.UPLOAD_MAX_IMAGE_SIZE_MB;
+        if (request.fileSize() > appSettingService.getInt(maxSizeKey) * MB) {
+            throw new JiburoException(ErrorCode.FILE_SIZE_EXCEEDED);
+        }
+
+        long expirationMinutes = appSettingService.getInt(SettingKey.UPLOAD_PRESIGNED_EXPIRATION_MINUTES);
+        LocalDateTime pendingSince = pendingCutoff();
+
+        // 사용자별 진행 중 업로드 수 제한 (URL만 대량 발급받아 용량을 선점하는 것 방지)
+        if (imageMetaRepository.countActivePendingByUser(userId, pendingSince)
+                >= appSettingService.getInt(SettingKey.UPLOAD_MAX_PENDING_PER_USER)) {
+            throw new JiburoException(ErrorCode.UPLOAD_PENDING_LIMIT_EXCEEDED);
+        }
+
+        // 사용자별 용량 한도 (관리자 설정). 이모티콘처럼 관리자 전용 업로드는 운영 자산이라 제외
+        if (!request.fileCode().isAdminOnly()) {
+            long userCapacity = appSettingService.getInt(SettingKey.UPLOAD_USER_CAPACITY_MB) * MB;
+            long userUsed = imageMetaRepository.sumUsedFileSizeByUser(userId, pendingSince, ADMIN_ONLY_TARGETS);
+            if (userUsed + request.fileSize() > userCapacity) {
+                throw new JiburoException(ErrorCode.USER_STORAGE_QUOTA_EXCEEDED);
+            }
+        }
+
+        // 전체 저장 용량 한도 (관리자 설정). 완료 파일 + 아직 업로드될 수 있는 PENDING만 센다
+        long capacityBytes = appSettingService.getInt(SettingKey.UPLOAD_TOTAL_CAPACITY_GB) * GB;
+        long currentTotalSize = imageMetaRepository.sumUsedFileSize(pendingSince);
+        if (currentTotalSize + request.fileSize() > capacityBytes) {
+            throw new JiburoException(ErrorCode.STORAGE_CAPACITY_EXCEEDED);
         }
 
         User user = userRepository.findById(userId)
@@ -53,12 +98,21 @@ public class ImageStorageServiceImpl implements ImageStorageService {
 
         String basePath = request.fileCode().getFolderPath();
 
-        String fileKey = UUID.randomUUID() + "." + request.extension();
+        // 확장자는 소문자로 통일 (키·Content-Type 모두 같은 기준)
+        String extension = request.extension().toLowerCase();
+        String fileKey = UUID.randomUUID() + "." + extension;
         String objectKey = basePath + "/" + userId + "/" + fileKey;
+
+        // Content-Type을 서명에 포함 → 클라이언트가 다른 타입(text/html 등)으로 올리면 R2가 거절한다
+        String contentType = request.fileCode().contentTypeOf(extension);
+        if (contentType == null) {
+            throw new JiburoException(ErrorCode.INVALID_FILE_FORMAT);
+        }
 
         PutObjectRequest putObjectRequest = PutObjectRequest.builder()
                 .bucket(bucketName)
                 .key(objectKey)
+                .contentType(contentType)
                 .contentLength(request.fileSize())
                 .build();
 
@@ -73,7 +127,7 @@ public class ImageStorageServiceImpl implements ImageStorageService {
         ImageMeta imageMeta = request.toEntity(user, objectKey);
         imageMetaRepository.save(imageMeta);
 
-        return new PresignedUrlResponseDto(url, objectKey);
+        return new PresignedUrlResponseDto(url, objectKey, contentType);
     }
 
     @Override
@@ -95,5 +149,27 @@ public class ImageStorageServiceImpl implements ImageStorageService {
 
         // 4. 상태를 COMPLETED로 업데이트
         imageMeta.updateStatus(ImageStatus.COMPLETED);
+    }
+
+    @Override
+    public long usedBytes() {
+        return imageMetaRepository.sumUsedFileSize(pendingCutoff());
+    }
+
+    /** 업로드되지 않고 방치된 PENDING 정리 (use_yn=false). 업로드된 적이 없으므로 R2에서 지울 객체는 없다 */
+    @Scheduled(fixedDelayString = "${app.image.pending-cleanup-interval-ms:600000}",
+            initialDelayString = "${app.image.pending-cleanup-initial-delay-ms:600000}")
+    @Transactional
+    public void cleanupStalePending() {
+        int disabled = imageMetaRepository.disableStalePending(pendingCutoff());
+        if (disabled > 0) {
+            log.info("방치된 업로드(PENDING) {}건 정리", disabled);
+        }
+    }
+
+    // 이 시각 이전에 발급된 PENDING은 URL이 만료돼 더 이상 업로드될 수 없다
+    private LocalDateTime pendingCutoff() {
+        long expirationMinutes = appSettingService.getInt(SettingKey.UPLOAD_PRESIGNED_EXPIRATION_MINUTES);
+        return LocalDateTime.now().minusMinutes(expirationMinutes).minus(PENDING_GRACE);
     }
 }

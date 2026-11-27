@@ -1,12 +1,10 @@
 package com.jiburo.server.domain.user.service;
 
-import com.jiburo.server.domain.user.dao.UserRepository;
 import com.jiburo.server.domain.user.domain.User;
 import com.jiburo.server.domain.user.domain.enums.RoleType;
 import com.jiburo.server.domain.user.dto.KakaoLoginRequestDto;
 import com.jiburo.server.domain.user.dto.TokenRequestDto;
 import com.jiburo.server.domain.user.dto.TokenResponseDto;
-import com.jiburo.server.domain.user.jwt.JwtTokenProvider;
 import com.jiburo.server.global.error.ErrorCode;
 import com.jiburo.server.global.error.JiburoException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -18,7 +16,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.security.core.Authentication;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
@@ -31,6 +28,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.mock;
 import static org.mockito.Mockito.never;
@@ -42,8 +40,8 @@ class AuthServiceTest {
 
     @InjectMocks private AuthServiceImpl authService;
 
-    @Mock private JwtTokenProvider jwtTokenProvider;
-    @Mock private UserRepository userRepository;
+    @Mock private AuthTokenService authTokenService;
+    @Mock private OAuthUserService oAuthUserService;
     @Mock private ApplicationEventPublisher eventPublisher;
     @Mock private HttpServletRequest request;
     @Mock private RestClient kakaoRestClient;
@@ -59,46 +57,61 @@ class AuthServiceTest {
         responseSpec = mock(RestClient.ResponseSpec.class);
     }
 
+    private TokenResponseDto tokens(String access, String refresh) {
+        return TokenResponseDto.builder()
+                .grantType("Bearer")
+                .accessToken(access)
+                .refreshToken(refresh)
+                .accessTokenExpiresIn(3600000L)
+                .build();
+    }
+
     // ───────── reissue ─────────
 
     @Test
-    void 토큰_재발급_성공() {
-        // given
-        TokenRequestDto request = new TokenRequestDto("valid.access.token", "valid.refresh.token");
-
-        Authentication authentication = mock(Authentication.class);
-        TokenResponseDto newTokens = TokenResponseDto.builder()
-                .grantType("Bearer")
-                .accessToken("new.access.token")
-                .refreshToken("new.refresh.token")
-                .accessTokenExpiresIn(3600000L)
-                .build();
-
-        given(jwtTokenProvider.validateToken("valid.refresh.token")).willReturn(true);
-        given(jwtTokenProvider.getAuthentication("valid.access.token")).willReturn(authentication);
-        given(jwtTokenProvider.generateTokenDto(authentication)).willReturn(newTokens);
+    void 토큰_재발급은_RefreshToken만으로_AuthTokenService에_위임() {
+        // given: accessToken 필드는 무시되고 refreshToken만 사용된다
+        TokenRequestDto requestDto = new TokenRequestDto("ignored.access.token", "valid.refresh.token");
+        UUID userId = UUID.randomUUID();
+        given(authTokenService.reissue("valid.refresh.token")).willReturn(tokens("new.access", "new.refresh"));
+        given(authTokenService.getUserId("new.access")).willReturn(userId);
 
         // when
-        TokenResponseDto result = authService.reissue(request);
+        TokenResponseDto result = authService.reissue(requestDto);
 
         // then
-        assertThat(result.grantType()).isEqualTo("Bearer");
-        assertThat(result.accessToken()).isEqualTo("new.access.token");
-        assertThat(result.refreshToken()).isEqualTo("new.refresh.token");
-        assertThat(result.accessTokenExpiresIn()).isEqualTo(3600000L);
+        assertThat(result.accessToken()).isEqualTo("new.access");
+        assertThat(result.refreshToken()).isEqualTo("new.refresh");
+        // 재발급 감사 로그는 userId를 채워서 발행되어야 함 (audit_logs.user_id NOT NULL)
+        verify(eventPublisher).publishEvent(org.mockito.ArgumentMatchers.<Object>argThat(event ->
+                event instanceof com.jiburo.server.global.log.event.AuditLogEvent e
+                        && userId.equals(e.getUserId())
+                        && e.getAction() == com.jiburo.server.global.domain.enums.LogActionType.AUTH_REISSUE));
     }
 
     @Test
-    void 유효하지_않은_리프레시_토큰이면_INVALID_TOKEN() {
+    void 유효하지_않은_리프레시_토큰이면_INVALID_REFRESH_TOKEN() {
         // given
-        TokenRequestDto request = new TokenRequestDto("expired.access.token", "invalid.refresh.token");
-        given(jwtTokenProvider.validateToken("invalid.refresh.token")).willReturn(false);
+        TokenRequestDto requestDto = new TokenRequestDto(null, "invalid.refresh.token");
+        given(authTokenService.reissue("invalid.refresh.token"))
+                .willThrow(new JiburoException(ErrorCode.INVALID_REFRESH_TOKEN));
 
         // when & then
-        assertThatThrownBy(() -> authService.reissue(request))
+        assertThatThrownBy(() -> authService.reissue(requestDto))
                 .isInstanceOf(JiburoException.class)
                 .satisfies(ex -> assertThat(((JiburoException) ex).getErrorCode())
-                        .isEqualTo(ErrorCode.INVALID_TOKEN));
+                        .isEqualTo(ErrorCode.INVALID_REFRESH_TOKEN));
+    }
+
+    // ───────── logout ─────────
+
+    @Test
+    void 로그아웃은_AuthTokenService에_위임() {
+        UUID userId = UUID.randomUUID();
+
+        authService.logout(userId, "access.token");
+
+        verify(authTokenService).logout(userId, "access.token");
     }
 
     // ───────── kakaoLogin ─────────
@@ -137,7 +150,6 @@ class AuthServiceTest {
         // given
         stubKakaoUserInfo(kakaoUserInfoResponse(12345L, "테스터"));
 
-        UUID userId = UUID.randomUUID();
         User existingUser = User.builder()
                 .oauthId("kakao_12345")
                 .nickname("테스터")
@@ -145,24 +157,16 @@ class AuthServiceTest {
                 .profileImageUrl("https://kakao.com/profile.png")
                 .roleCode(RoleType.USER)
                 .build();
-        ReflectionTestUtils.setField(existingUser, "id", userId);
+        ReflectionTestUtils.setField(existingUser, "id", UUID.randomUUID());
 
-        given(userRepository.findByOauthId("kakao_12345")).willReturn(Optional.of(existingUser));
-
-        TokenResponseDto tokens = TokenResponseDto.builder()
-                .grantType("Bearer")
-                .accessToken("access.token")
-                .refreshToken("refresh.token")
-                .accessTokenExpiresIn(3600000L)
-                .build();
-        given(jwtTokenProvider.generateTokenDto(any(Authentication.class))).willReturn(tokens);
+        given(oAuthUserService.findOrCreate(argThat(a -> a.oauthId().equals("kakao_12345")))).willReturn(existingUser);
+        given(authTokenService.issueLoginTokens(existingUser)).willReturn(tokens("access.token", "refresh.token"));
 
         // when
         TokenResponseDto result = authService.kakaoLogin(new KakaoLoginRequestDto("kakao-access-token"));
 
         // then
         assertThat(result.accessToken()).isEqualTo("access.token");
-        verify(userRepository, never()).save(any());
     }
 
     @Test
@@ -170,7 +174,6 @@ class AuthServiceTest {
         // given
         stubKakaoUserInfo(kakaoUserInfoResponse(99999L, "신규유저"));
 
-        given(userRepository.findByOauthId("kakao_99999")).willReturn(Optional.empty());
 
         User savedUser = User.builder()
                 .oauthId("kakao_99999")
@@ -180,22 +183,14 @@ class AuthServiceTest {
                 .roleCode(RoleType.USER)
                 .build();
         ReflectionTestUtils.setField(savedUser, "id", UUID.randomUUID());
-        given(userRepository.save(any(User.class))).willReturn(savedUser);
-
-        TokenResponseDto tokens = TokenResponseDto.builder()
-                .grantType("Bearer")
-                .accessToken("new.access.token")
-                .refreshToken("new.refresh.token")
-                .accessTokenExpiresIn(3600000L)
-                .build();
-        given(jwtTokenProvider.generateTokenDto(any(Authentication.class))).willReturn(tokens);
+        given(oAuthUserService.findOrCreate(argThat(a -> a.oauthId().equals("kakao_99999")))).willReturn(savedUser);
+        given(authTokenService.issueLoginTokens(savedUser)).willReturn(tokens("new.access.token", "new.refresh.token"));
 
         // when
         TokenResponseDto result = authService.kakaoLogin(new KakaoLoginRequestDto("kakao-access-token"));
 
         // then
         assertThat(result.accessToken()).isEqualTo("new.access.token");
-        verify(userRepository).save(any(User.class));
     }
 
     @Test

@@ -22,7 +22,4 @@ public interface CommonCodeControllerDocs {
     @Operation(summary = "특정 그룹의 코드 목록 조회", description = "특정 그룹의 코드 목록 조회 (드롭다운 등 개별 용도)")
     ApiResponse<List<CommonCodeResponseDto>> getCodesByGroup(
             @Parameter(description = "공통코드 그룹명 (예: CATEGORY, STATUS, GENDER 등)") String group);
-
-    @Operation(summary = "공통코드 캐시 수동 리로드", description = "공통코드 캐시 수동 리로드 (DB에서 운영 설정값 수정 후 호출)")
-    ApiResponse<Void> reload();
 }

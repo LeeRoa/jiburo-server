@@ -53,6 +53,9 @@ public class Notification extends BaseTimeEntity {
     @Comment("알림 읽음 여부 (true: 읽음, false: 안읽음)")
     private boolean isRead;
 
+    @Transient
+    private boolean newlyCreated;
+
     @Builder
     public Notification(User receiver, User sender, String typeCode, String args, Long targetId) {
         this.receiver = receiver;
@@ -61,6 +64,25 @@ public class Notification extends BaseTimeEntity {
         this.args = args;
         this.targetId = targetId;
         this.isRead = false;
+        this.newlyCreated = true;
+    }
+
+    /**
+     * notificationRepository.save() 시 Spring Data가 발행 → 커밋 후 푸시 발송.
+     * 알림을 만드는 곳마다 푸시 코드를 넣지 않아도 되도록 엔티티에서 발행한다.
+     */
+    @org.springframework.data.domain.DomainEvents
+    java.util.List<Object> domainEvents() {
+        if (!newlyCreated || id == null || receiver == null) {
+            return java.util.List.of();
+        }
+        return java.util.List.of(new NotificationCreatedEvent(id, receiver.getId(), typeCode, args, targetId));
+    }
+
+    // 새로 만든 알림의 첫 저장에서만 발행 (DB에서 읽어 다시 저장할 때는 발행하지 않음)
+    @org.springframework.data.domain.AfterDomainEventPublication
+    void clearDomainEvents() {
+        this.newlyCreated = false;
     }
 
     // --- 비즈니스 로직 ---

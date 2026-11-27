@@ -1,13 +1,10 @@
 package com.jiburo.server.domain.user.service;
 
-import com.jiburo.server.domain.user.dao.UserRepository;
 import com.jiburo.server.domain.user.domain.User;
-import com.jiburo.server.domain.user.dto.CustomOAuth2User;
 import com.jiburo.server.domain.user.dto.KakaoLoginRequestDto;
 import com.jiburo.server.domain.user.dto.OAuthAttributes;
 import com.jiburo.server.domain.user.dto.TokenRequestDto;
 import com.jiburo.server.domain.user.dto.TokenResponseDto;
-import com.jiburo.server.domain.user.jwt.JwtTokenProvider;
 import com.jiburo.server.global.domain.enums.LogActionType;
 import com.jiburo.server.global.error.ErrorCode;
 import com.jiburo.server.global.error.JiburoException;
@@ -17,18 +14,14 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpHeaders;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
-import java.util.Collections;
 import java.util.Map;
+import java.util.UUID;
 
 @Slf4j
 @Service
@@ -39,67 +32,54 @@ public class AuthServiceImpl implements AuthService {
     private static final String KAKAO_REGISTRATION_ID = "kakao";
     private static final String KAKAO_USER_NAME_ATTRIBUTE = "id";
 
-    private final JwtTokenProvider jwtTokenProvider;
-    private final UserRepository userRepository;
+    private final AuthTokenService authTokenService;
+    private final OAuthUserService oAuthUserService;
     private final ApplicationEventPublisher eventPublisher;
     private final HttpServletRequest request;
     private final RestClient kakaoRestClient;
 
     @Override
-    @Transactional
+    @Transactional(readOnly = true)
     public TokenResponseDto reissue(TokenRequestDto requestDto) {
-        // 1. Refresh Token 검증
-        // (만료되었거나 조작된 토큰이면 여기서 false가 반환됨 -> 예외 발생)
-        if (!jwtTokenProvider.validateToken(requestDto.refreshToken())) {
-            throw new JiburoException(ErrorCode.INVALID_TOKEN);
-        }
+        // Refresh Token만으로 사용자를 식별하고, Redis 저장값과 비교 후 새 토큰 쌍으로 교체한다.
+        // (이전 버전처럼 만료된 Access Token의 클레임을 신뢰하지 않음)
+        TokenResponseDto tokenDto = authTokenService.reissue(requestDto.refreshToken());
 
-        // 2. Access Token에서 Authentication(유저 정보) 가져오기
-        // *중요*: Access Token이 만료되었어도, jwtTokenProvider.getAuthentication() 내부에서
-        // claims를 강제로 꺼내오도록 구현했기 때문에 정상적으로 동작합니다.
-        Authentication authentication = jwtTokenProvider.getAuthentication(requestDto.accessToken());
-
-        // 3. (선택사항) Redis나 DB에 저장된 Refresh Token이 있다면 여기서 비교
-        // String savedToken = redisRepository.findById(authentication.getName());
-        // if (!savedToken.equals(requestDto.refreshToken())) throw new BusinessException(...);
-
-        // 4. 새로운 토큰 생성
-        TokenResponseDto responseDto = jwtTokenProvider.generateTokenDto(authentication);
-
-        return TokenResponseDto.builder()
-                .grantType(responseDto.grantType())
-                .accessToken(responseDto.accessToken())
-                .refreshToken(responseDto.refreshToken())
-                .accessTokenExpiresIn(responseDto.accessTokenExpiresIn())
-                .build();
+        // 재발급 요청은 인증 전 시점이라 @AuditLog AOP가 userId를 알 수 없음 -> 새 토큰에서 꺼내 직접 발행
+        publishAuthLog(authTokenService.getUserId(tokenDto.accessToken()), LogActionType.AUTH_REISSUE, "Token Reissue");
+        return tokenDto;
     }
 
+    /**
+     * 트랜잭션을 걸지 않는다: 사용자 조회·가입은 OAuthUserService가 자체 트랜잭션으로 처리하고
+     * (동시 첫 로그인 충돌 시 새 트랜잭션에서 재조회해야 하므로), 이후 토큰 발급은 웹 OAuth 로그인과 같은 경로를 탄다.
+     */
     @Override
-    @Transactional
     public TokenResponseDto kakaoLogin(KakaoLoginRequestDto requestDto) {
         // 1. 안드로이드 Kakao SDK 액세스 토큰으로 카카오 서버에서 사용자 정보 조회
         Map<String, Object> kakaoUserInfo = fetchKakaoUserInfo(requestDto.accessToken());
         OAuthAttributes attributes = OAuthAttributes.of(KAKAO_REGISTRATION_ID, KAKAO_USER_NAME_ATTRIBUTE, kakaoUserInfo);
 
         // 2. 최초 로그인이면 신규 가입, 아니면 프로필 갱신
-        User user = findOrCreateUser(attributes);
+        User user = oAuthUserService.findOrCreate(attributes);
 
-        // 3. 웹 OAuth2 로그인과 동일한 형태의 Authentication 구성 (JWT sub = UUID)
-        CustomOAuth2User principal = new CustomOAuth2User(
-                user.getId(),
-                Collections.singleton(new SimpleGrantedAuthority(user.getRoleKey()))
-        );
-        Authentication authentication = new UsernamePasswordAuthenticationToken(
-                principal, null, principal.getAuthorities()
-        );
+        // 3. 토큰 발급 (Refresh Token은 Redis에 저장됨)
+        TokenResponseDto tokenDto = authTokenService.issueLoginTokens(user);
 
-        // 4. 토큰 발급
-        TokenResponseDto tokenDto = jwtTokenProvider.generateTokenDto(authentication);
-
-        // 5. 로그인 감사 로그 발행 (@AuditLog AOP가 잡을 수 없는 로그인 시점이라 직접 발행)
+        // 4. 로그인 감사 로그 발행 (@AuditLog AOP가 잡을 수 없는 로그인 시점이라 직접 발행)
         publishLoginLog(user);
 
         return tokenDto;
+    }
+
+    @Override
+    public TokenResponseDto exchangeLoginCode(String code) {
+        return authTokenService.exchangeLoginCode(code);
+    }
+
+    @Override
+    public void logout(UUID userId, String accessToken) {
+        authTokenService.logout(userId, accessToken);
     }
 
     @SuppressWarnings("unchecked")
@@ -117,29 +97,17 @@ public class AuthServiceImpl implements AuthService {
         }
     }
 
-    private User findOrCreateUser(OAuthAttributes attributes) {
-        return userRepository.findByOauthId(attributes.oauthId())
-                .map(user -> user.updateProfile(attributes.nickname(), attributes.profileImageUrl()))
-                .orElseGet(() -> saveNewUser(attributes));
-    }
-
-    private User saveNewUser(OAuthAttributes attributes) {
-        try {
-            return userRepository.save(attributes.toEntity());
-        } catch (DataIntegrityViolationException e) {
-            // 동시에 같은 사용자의 로그인 요청이 들어와 이미 가입된 경우 -> 다시 조회해서 반환
-            return userRepository.findByOauthId(attributes.oauthId())
-                    .orElseThrow(() -> new JiburoException(ErrorCode.OAUTH_PROVIDER_FAILED));
-        }
-    }
-
     private void publishLoginLog(User user) {
+        publishAuthLog(user.getId(), LogActionType.AUTH_LOGIN, "Login(Kakao App): " + user.getNickname());
+    }
+
+    private void publishAuthLog(UUID userId, LogActionType action, String targetData) {
         try {
             eventPublisher.publishEvent(AuditLogEvent.builder()
-                    .userId(user.getId())
-                    .action(LogActionType.AUTH_LOGIN)
+                    .userId(userId)
+                    .action(action)
                     .clientIp(request.getRemoteAddr())
-                    .targetData("Login(Kakao App): " + user.getNickname())
+                    .targetData(targetData)
                     .build());
         } catch (Exception e) {
             log.error("로그 발행 실패", e);

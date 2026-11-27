@@ -15,6 +15,10 @@ public enum ErrorCode {
     INVALID_TYPE_VALUE(HttpStatus.BAD_REQUEST, "error.global.invalid_type"),
     FEATURE_NOT_READY(HttpStatus.NOT_IMPLEMENTED, "error.global.feature.not_ready"),
     INVALID_IDENTIFIER(HttpStatus.BAD_REQUEST, "error.global.invalid_identifier"),
+    RESOURCE_NOT_FOUND(HttpStatus.NOT_FOUND, "error.global.not_found"),
+    UNSUPPORTED_MEDIA_TYPE(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "error.global.unsupported_media_type"),
+    SETTING_NOT_FOUND(HttpStatus.NOT_FOUND, "error.setting.not_found"),
+    INVALID_SETTING_VALUE(HttpStatus.BAD_REQUEST, "error.setting.invalid_value"),
 
     // [2] Auth & User (인증 및 사용자)
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "error.auth.unauthorized"),
@@ -27,6 +31,7 @@ public enum ErrorCode {
     INVALID_TOKEN(HttpStatus.UNAUTHORIZED, "error.token.invalid"),
     EXPIRED_TOKEN(HttpStatus.UNAUTHORIZED, "error.token.expired"),
     INVALID_REFRESH_TOKEN(HttpStatus.UNAUTHORIZED, "error.token.refresh_invalid"),
+    INVALID_AUTH_CODE(HttpStatus.UNAUTHORIZED, "error.auth.invalid_code"),
 
     // [3] Animal & Map (유기동물 및 지도)
     ANIMAL_NOT_FOUND(HttpStatus.NOT_FOUND, "error.animal.not_found"),
@@ -38,6 +43,10 @@ public enum ErrorCode {
     FILE_UPLOAD_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "error.file.upload_failed"),
     INVALID_FILE_FORMAT(HttpStatus.BAD_REQUEST, "error.file.invalid_format"),
     INVALID_FILE_CODE(HttpStatus.BAD_REQUEST, "error.file.invalid_code"),
+    STORAGE_CAPACITY_EXCEEDED(HttpStatus.INSUFFICIENT_STORAGE, "error.file.storage_capacity_exceeded"),
+    UPLOAD_PENDING_LIMIT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "error.file.pending_limit_exceeded"),
+    USER_STORAGE_QUOTA_EXCEEDED(HttpStatus.INSUFFICIENT_STORAGE, "error.file.user_quota_exceeded"),
+    INVALID_UPLOADED_FILE(HttpStatus.BAD_REQUEST, "error.file.invalid_uploaded_file"),
 
     // [5] Chat & Community
     CHAT_ROOM_NOT_FOUND(HttpStatus.NOT_FOUND, "error.chat.room_not_found"),
@@ -46,11 +55,35 @@ public enum ErrorCode {
     BADGE_NOT_FOUND(HttpStatus.NOT_FOUND, "error.badge.not_found"),
     NOT_CHAT_PARTICIPANT(HttpStatus.FORBIDDEN, "error.chat.not_chat_participant"),
     PARTNER_NOT_FOUND(HttpStatus.NOT_FOUND, "error.chat.partner_not_found"),
+    EMOTICON_NOT_FOUND(HttpStatus.NOT_FOUND, "error.emoticon.not_found"),
+    EMOTICON_PACK_NOT_FOUND(HttpStatus.NOT_FOUND, "error.emoticon.pack_not_found"),
+    INVALID_EMOTICON_IMAGE(HttpStatus.BAD_REQUEST, "error.emoticon.invalid_image"),
+    INVALID_EMOTICON_ORDER(HttpStatus.BAD_REQUEST, "error.emoticon.invalid_order"),
+
+    // [7] i18n (관리자 다국어 문구)
+    INVALID_I18N_KEY(HttpStatus.BAD_REQUEST, "error.i18n.invalid_key"),
+    INVALID_I18N_LOCALE(HttpStatus.BAD_REQUEST, "error.i18n.invalid_locale"),
+    INVALID_I18N_MESSAGE_FORMAT(HttpStatus.BAD_REQUEST, "error.i18n.invalid_format"),
+    I18N_MESSAGE_NOT_FOUND(HttpStatus.NOT_FOUND, "error.i18n.not_found"),
+
+    // [8] Moderation (금지어)
+    BANNED_WORD_NOT_FOUND(HttpStatus.NOT_FOUND, "error.banned_word.not_found"),
+    BANNED_WORD_DUPLICATED(HttpStatus.CONFLICT, "error.banned_word.duplicated"),
+    NICKNAME_CONTAINS_BANNED_WORD(HttpStatus.BAD_REQUEST, "error.banned_word.nickname"),
+
+    // [9] Report (신고) / 정지
+    REPORT_NOT_FOUND(HttpStatus.NOT_FOUND, "error.report.not_found"),
+    REPORT_TARGET_NOT_FOUND(HttpStatus.NOT_FOUND, "error.report.target_not_found"),
+    ALREADY_REPORTED(HttpStatus.CONFLICT, "error.report.already_reported"),
+    CANNOT_REPORT_SELF(HttpStatus.BAD_REQUEST, "error.report.cannot_report_self"),
+    REPORT_ALREADY_HANDLED(HttpStatus.CONFLICT, "error.report.already_handled"),
+    USER_SUSPENDED(HttpStatus.FORBIDDEN, "error.user.suspended"),
 
     // [6] Post (게시글 - 분실물/목격 제보) [추가된 부분]
     POST_NOT_FOUND(HttpStatus.NOT_FOUND, "error.post.not_found"), // 게시글 없음
     POST_ACCESS_DENIED(HttpStatus.FORBIDDEN, "error.post.access_denied"), // 작성자 불일치 (수정/삭제 권한 없음)
     POST_CATEGORY_INVALID(HttpStatus.BAD_REQUEST, "error.post.category_invalid"),
+    POST_IMAGE_LIMIT_EXCEEDED(HttpStatus.BAD_REQUEST, "error.post.image_limit_exceeded"),
 
     // [7] Finder Session (파인더 탐색 세션)
     FINDER_SESSION_NOT_FOUND(HttpStatus.NOT_FOUND, "error.finder.session_not_found"),
@@ -58,7 +91,20 @@ public enum ErrorCode {
     FINDER_SESSION_ALREADY_EXISTS(HttpStatus.CONFLICT, "error.finder.session_already_exists"),
     FINDER_SESSION_ALREADY_SUBMITTED(HttpStatus.CONFLICT, "error.finder.session_already_submitted"),
     FINDER_POST_ALREADY_COMPLETE(HttpStatus.BAD_REQUEST, "error.finder.post_already_complete"),
-    FINDER_CANNOT_FIND_OWN_POST(HttpStatus.BAD_REQUEST, "error.finder.cannot_find_own_post");
+    FINDER_CANNOT_FIND_OWN_POST(HttpStatus.BAD_REQUEST, "error.finder.cannot_find_own_post"),
+    FINDER_MEDIA_LIMIT_EXCEEDED(HttpStatus.BAD_REQUEST, "error.finder.media_limit_exceeded"),
+    FINDER_ROUTE_LIMIT_EXCEEDED(HttpStatus.BAD_REQUEST, "error.finder.route_limit_exceeded"),
+
+    // [8] Admin (관리자 역할·권한)
+    ADMIN_ROLE_NOT_FOUND(HttpStatus.NOT_FOUND, "error.admin.role_not_found"),
+    ADMIN_ROLE_CODE_DUPLICATE(HttpStatus.CONFLICT, "error.admin.role_code_duplicate"),
+    ADMIN_ROLE_CODE_INVALID(HttpStatus.BAD_REQUEST, "error.admin.role_code_invalid"),
+    ADMIN_SYSTEM_ROLE_IMMUTABLE(HttpStatus.BAD_REQUEST, "error.admin.system_role_immutable"),
+    ADMIN_MENU_NOT_GRANTABLE(HttpStatus.BAD_REQUEST, "error.admin.menu_not_grantable"),
+    ADMIN_CANNOT_CHANGE_OWN_ROLES(HttpStatus.BAD_REQUEST, "error.admin.cannot_change_own_roles"),
+    ADMIN_SUPER_ADMIN_ONLY(HttpStatus.FORBIDDEN, "error.admin.super_admin_only"),
+    ADMIN_ROLE_EXCEEDS_OWN_PERMISSION(HttpStatus.FORBIDDEN, "error.admin.role_exceeds_own_permission"),
+    ADMIN_LAST_SUPER_ADMIN(HttpStatus.CONFLICT, "error.admin.last_super_admin");
 
     private final HttpStatus status;
     private final String messageKey;

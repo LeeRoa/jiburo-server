@@ -1,0 +1,273 @@
+package com.jiburo.server.domain.user.service;
+
+import com.jiburo.server.domain.user.dao.AuthTokenRedisRepository;
+import com.jiburo.server.domain.user.dao.AuthTokenRedisRepository.Revocation;
+import com.jiburo.server.domain.user.dao.AuthTokenRedisRepository.RotationResult;
+import com.jiburo.server.domain.user.dao.UserRepository;
+import com.jiburo.server.domain.user.domain.User;
+import com.jiburo.server.domain.user.domain.enums.RoleType;
+import com.jiburo.server.domain.user.dto.TokenResponseDto;
+import com.jiburo.server.domain.user.jwt.JwtTokenProvider;
+import com.jiburo.server.global.error.ErrorCode;
+import com.jiburo.server.global.error.JiburoException;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
+
+import java.util.Base64;
+import java.util.Optional;
+import java.util.UUID;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+
+/**
+ * 실제 JwtTokenProvider(서명/만료/typ 검증)와 Mock Redis 저장소를 조합해 토큰 수명주기를 검증한다.
+ */
+class AuthTokenServiceTest {
+
+    private static final String SECRET = Base64.getEncoder()
+            .encodeToString("jiburo-test-secret-key-must-be-32-bytes-or-more!!".getBytes());
+
+    private JwtTokenProvider jwtTokenProvider;
+    private AuthTokenRedisRepository redisRepository;
+    private UserRepository userRepository;
+    private AuthTokenService authTokenService;
+
+    private User user;
+    private UUID userId;
+
+    private com.jiburo.server.global.setting.AppSettingService settings;
+
+    @Test
+    void 토큰_유효시간은_운영_설정을_따른다() {
+        com.jiburo.server.global.setting.TestSettings.with(settings,
+                com.jiburo.server.global.setting.SettingKey.ACCESS_TOKEN_TTL_MINUTES, "10");
+        com.jiburo.server.global.setting.TestSettings.with(settings,
+                com.jiburo.server.global.setting.SettingKey.REFRESH_TOKEN_TTL_DAYS, "7");
+        long before = System.currentTimeMillis();
+
+        TokenResponseDto tokens = authTokenService.issueTokens(user);
+
+        assertThat(tokens.accessTokenExpiresIn() - before)
+                .isBetween(10 * 60_000L - 5_000L, 10 * 60_000L + 5_000L);
+        verify(redisRepository).saveRefreshToken(eq(userId), eq(tokens.refreshToken()), eq(7L * 24 * 60 * 60 * 1000));
+    }
+
+    @BeforeEach
+    void setUp() {
+        jwtTokenProvider = new JwtTokenProvider(SECRET, 1_800_000L, 1_209_600_000L);
+        redisRepository = mock(AuthTokenRedisRepository.class);
+        userRepository = mock(UserRepository.class);
+        settings = com.jiburo.server.global.setting.TestSettings.defaults();
+        authTokenService = new AuthTokenService(jwtTokenProvider, redisRepository, userRepository,
+                mock(com.jiburo.server.domain.admin.service.AdminBootstrapService.class), settings);
+
+        userId = UUID.randomUUID();
+        user = User.builder()
+                .oauthId("kakao_1")
+                .nickname("tester")
+                .email("t@t.com")
+                .profileImageUrl("img")
+                .roleCode(RoleType.USER)
+                .build();
+        ReflectionTestUtils.setField(user, "id", userId);
+    }
+
+    @Test
+    void 발급된_토큰은_typ으로_구분되고_RT는_Redis에_저장된다() {
+        TokenResponseDto tokens = authTokenService.issueTokens(user);
+
+        assertThat(jwtTokenProvider.validateAccessToken(tokens.accessToken())).isTrue();
+        assertThat(jwtTokenProvider.validateRefreshToken(tokens.accessToken())).isFalse();
+        assertThat(jwtTokenProvider.validateRefreshToken(tokens.refreshToken())).isTrue();
+        assertThat(jwtTokenProvider.validateAccessToken(tokens.refreshToken())).isFalse();
+        assertThat(jwtTokenProvider.getUserId(tokens.refreshToken())).isEqualTo(userId);
+        verify(redisRepository).saveRefreshToken(eq(userId), eq(tokens.refreshToken()), anyLong());
+    }
+
+    @Test
+    void RefreshToken을_AccessToken으로_쓰면_인증_정보를_만들_수_없다() {
+        TokenResponseDto tokens = authTokenService.issueTokens(user);
+
+        assertThatThrownBy(() -> jwtTokenProvider.getAuthentication(tokens.refreshToken()))
+                .isInstanceOf(JiburoException.class)
+                .satisfies(ex -> assertThat(((JiburoException) ex).getErrorCode()).isEqualTo(ErrorCode.INVALID_TOKEN));
+    }
+
+    @Test
+    void 재발급_성공시_새_RT로_원자적으로_교체된다() {
+        TokenResponseDto first = authTokenService.issueTokens(user);
+        given(userRepository.findById(userId)).willReturn(Optional.of(user));
+        given(redisRepository.rotateRefreshToken(eq(userId), eq(first.refreshToken()), anyString(), anyLong()))
+                .willReturn(RotationResult.ROTATED);
+
+        TokenResponseDto second = authTokenService.reissue(first.refreshToken());
+
+        assertThat(second.refreshToken()).isNotEqualTo(first.refreshToken());
+        // 비교와 교체가 한 번의 원자적 연산으로 — 새 RT가 그대로 저장 요청된다
+        verify(redisRepository).rotateRefreshToken(eq(userId), eq(first.refreshToken()), eq(second.refreshToken()), anyLong());
+    }
+
+    @Test
+    void 이미_교체된_RT가_다시_쓰이면_INVALID_REFRESH_TOKEN() {
+        // 같은 RT로 동시에 두 번 재발급하면 Redis 스크립트에서 하나만 ROTATED, 나머지는 MISMATCH(저장 RT 폐기)
+        TokenResponseDto stolen = authTokenService.issueTokens(user);
+        given(userRepository.findById(userId)).willReturn(Optional.of(user));
+        given(redisRepository.rotateRefreshToken(eq(userId), eq(stolen.refreshToken()), anyString(), anyLong()))
+                .willReturn(RotationResult.MISMATCH);
+
+        assertThatThrownBy(() -> authTokenService.reissue(stolen.refreshToken()))
+                .isInstanceOf(JiburoException.class)
+                .satisfies(ex -> assertThat(((JiburoException) ex).getErrorCode()).isEqualTo(ErrorCode.INVALID_REFRESH_TOKEN));
+    }
+
+    @Test
+    void 로그아웃된_사용자의_RT로는_재발급_불가() {
+        TokenResponseDto tokens = authTokenService.issueTokens(user);
+        given(userRepository.findById(userId)).willReturn(Optional.of(user));
+        given(redisRepository.rotateRefreshToken(eq(userId), eq(tokens.refreshToken()), anyString(), anyLong()))
+                .willReturn(RotationResult.MISSING);
+
+        assertThatThrownBy(() -> authTokenService.reissue(tokens.refreshToken()))
+                .isInstanceOf(JiburoException.class)
+                .satisfies(ex -> assertThat(((JiburoException) ex).getErrorCode()).isEqualTo(ErrorCode.INVALID_REFRESH_TOKEN));
+    }
+
+    @Test
+    void 정지된_계정은_재발급_전에_거부되고_RT도_교체하지_않는다() {
+        TokenResponseDto tokens = authTokenService.issueTokens(user);
+        user.suspend(java.time.LocalDateTime.now().plusDays(1), "spam");
+        given(userRepository.findById(userId)).willReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> authTokenService.reissue(tokens.refreshToken()))
+                .isInstanceOf(JiburoException.class)
+                .satisfies(ex -> assertThat(((JiburoException) ex).getErrorCode()).isEqualTo(ErrorCode.USER_SUSPENDED));
+        verify(redisRepository, never()).rotateRefreshToken(any(), anyString(), anyString(), anyLong());
+    }
+
+    @Test
+    void AccessToken으로_재발급을_시도하면_INVALID_REFRESH_TOKEN() {
+        TokenResponseDto tokens = authTokenService.issueTokens(user);
+
+        assertThatThrownBy(() -> authTokenService.reissue(tokens.accessToken()))
+                .isInstanceOf(JiburoException.class)
+                .satisfies(ex -> assertThat(((JiburoException) ex).getErrorCode()).isEqualTo(ErrorCode.INVALID_REFRESH_TOKEN));
+        verify(redisRepository, never()).rotateRefreshToken(any(), anyString(), anyString(), anyLong());
+    }
+
+    // ───────── 토큰 폐기 (로그아웃·계정 정지) ─────────
+
+    @Test
+    void 폐기_표시가_없으면_사용_가능한_토큰이다() {
+        TokenResponseDto tokens = authTokenService.issueTokens(user);
+        given(redisRepository.findRevocation(tokens.accessToken(), userId)).willReturn(new Revocation(false, null));
+
+        assertThat(authTokenService.isRevoked(tokens.accessToken())).isFalse();
+    }
+
+    @Test
+    void 로그아웃으로_블랙리스트된_토큰은_폐기된_것이다() {
+        TokenResponseDto tokens = authTokenService.issueTokens(user);
+        given(redisRepository.findRevocation(tokens.accessToken(), userId)).willReturn(new Revocation(true, null));
+
+        assertThat(authTokenService.isRevoked(tokens.accessToken())).isTrue();
+    }
+
+    @Test
+    void 계정_정지_시각_이전에_발급된_토큰은_만료_전이라도_폐기된_것이다() {
+        TokenResponseDto tokens = authTokenService.issueTokens(user);
+        long suspendedAt = System.currentTimeMillis() + 1_000; // 토큰 발급 후 정지
+        given(redisRepository.findRevocation(tokens.accessToken(), userId)).willReturn(new Revocation(false, suspendedAt));
+
+        assertThat(authTokenService.isRevoked(tokens.accessToken())).isTrue();
+    }
+
+    @Test
+    void 일괄_무효화_이후에_발급된_토큰은_쓸_수_있다() {
+        TokenResponseDto tokens = authTokenService.issueTokens(user);
+        long revokedLongAgo = System.currentTimeMillis() - 60_000; // 예전 정지(해제 후 새로 로그인)
+        given(redisRepository.findRevocation(tokens.accessToken(), userId)).willReturn(new Revocation(false, revokedLongAgo));
+
+        assertThat(authTokenService.isRevoked(tokens.accessToken())).isFalse();
+    }
+
+    @Test
+    void 위조되었거나_만료된_토큰은_폐기된_것으로_본다() {
+        assertThat(authTokenService.isRevoked("not.a.jwt")).isTrue();
+    }
+
+    @Test
+    void 전체_토큰_무효화는_RT를_지우고_AT_최대_유효시간_이상_무효화_표시를_남긴다() {
+        long before = System.currentTimeMillis();
+
+        authTokenService.revokeAllTokens(userId);
+
+        verify(redisRepository).deleteRefreshToken(userId);
+        org.mockito.ArgumentCaptor<Long> at = org.mockito.ArgumentCaptor.forClass(Long.class);
+        org.mockito.ArgumentCaptor<Long> ttl = org.mockito.ArgumentCaptor.forClass(Long.class);
+        verify(redisRepository).revokeTokensIssuedBefore(eq(userId), at.capture(), ttl.capture());
+        assertThat(at.getValue()).isBetween(before, System.currentTimeMillis());
+        // ACCESS_TOKEN_TTL_MINUTES 최대값(1440분)보다 길게 유지
+        assertThat(ttl.getValue()).isGreaterThanOrEqualTo(1440L * 60_000);
+    }
+
+    @Test
+    void 로그아웃시_RT_삭제_및_AT_블랙리스트_등록() {
+        TokenResponseDto tokens = authTokenService.issueTokens(user);
+
+        authTokenService.logout(userId, tokens.accessToken());
+
+        verify(redisRepository).deleteRefreshToken(userId);
+        verify(redisRepository).blacklistAccessToken(eq(tokens.accessToken()), anyLong());
+    }
+
+    @Test
+    void 로그인_code는_추측_불가한_값이고_토큰은_Redis에만_저장된다() {
+        TokenResponseDto tokens = authTokenService.issueTokens(user);
+
+        String code = authTokenService.createLoginCode(tokens);
+
+        assertThat(code).hasSizeGreaterThanOrEqualTo(43) // 32바이트 base64url
+                .doesNotContain(tokens.accessToken())
+                .doesNotContain(tokens.refreshToken());
+        verify(redisRepository).saveLoginCode(eq(code), org.mockito.ArgumentMatchers.contains(tokens.accessToken()), anyLong());
+    }
+
+    @Test
+    void 로그인_code를_토큰으로_교환한다() throws Exception {
+        TokenResponseDto tokens = authTokenService.issueTokens(user);
+        String json = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(tokens);
+        given(redisRepository.consumeLoginCode("the-code")).willReturn(Optional.of(json));
+
+        TokenResponseDto result = authTokenService.exchangeLoginCode("the-code");
+
+        assertThat(result.accessToken()).isEqualTo(tokens.accessToken());
+        assertThat(result.refreshToken()).isEqualTo(tokens.refreshToken());
+    }
+
+    @Test
+    void 만료되었거나_이미_사용된_code는_INVALID_AUTH_CODE() {
+        given(redisRepository.consumeLoginCode("used-code")).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> authTokenService.exchangeLoginCode("used-code"))
+                .isInstanceOf(JiburoException.class)
+                .satisfies(ex -> assertThat(((JiburoException) ex).getErrorCode()).isEqualTo(ErrorCode.INVALID_AUTH_CODE));
+    }
+
+    @Test
+    void 로그아웃시_AT가_없으면_블랙리스트_등록은_생략() {
+        authTokenService.logout(userId, null);
+
+        verify(redisRepository).deleteRefreshToken(userId);
+        verify(redisRepository, never()).blacklistAccessToken(anyString(), anyLong());
+    }
+}

@@ -22,9 +22,10 @@ public interface LostPostService {
 
     Page<LostPostResponseDto> search(LostPostSearchCondition condition, Pageable pageable, UUID userId);
 
-    List<LostPostResponseDto> getPostsForMap(LostPostMapRequestDto request);
+    // viewerId: 비로그인이면 null (공개 범위 필터링용)
+    List<LostPostResponseDto> getPostsForMap(LostPostMapRequestDto request, UUID viewerId);
 
-    Slice<LostPostResponseDto> getPostsForList(LostPostNearbyRequestDto request);
+    Slice<LostPostResponseDto> getPostsForList(LostPostNearbyRequestDto request, UUID viewerId);
 
     // 좋아요 토글 (좋아요면 true, 취소면 false 반환)
     boolean toggleLike(UUID userId, Long postId);

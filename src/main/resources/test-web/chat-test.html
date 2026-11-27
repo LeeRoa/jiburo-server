@@ -196,10 +196,10 @@
             const status = document.getElementById('uploadStatus');
             try {
                 status.textContent = `[1/3] presigned URL 발급 중... (${file.name})`;
-                const { presignedUrl, fileKey } = await this.requestPresignedUrl(file, kind);
+                const { presignedUrl, fileKey, contentType } = await this.requestPresignedUrl(file, kind);
 
                 status.textContent = `[2/3] R2 업로드 중... (${(file.size / 1024).toFixed(1)} KB)`;
-                await this.putToR2(presignedUrl, file);
+                await this.putToR2(presignedUrl, file, contentType);
 
                 status.textContent = `[3/3] 업로드 완료 처리 중...`;
                 await this.completeUpload(fileKey);
@@ -250,8 +250,9 @@
             return json.data;
         },
 
-        putToR2: async function(url, file) {
-            const res = await fetch(url, { method: 'PUT', body: file });
+        // Content-Type은 서명에 포함되므로 presigned 응답의 값을 그대로 보내야 한다 (다르면 403)
+        putToR2: async function(url, file, contentType) {
+            const res = await fetch(url, { method: 'PUT', headers: { 'Content-Type': contentType }, body: file });
             if (!res.ok) throw new Error(`R2 PUT ${res.status}`);
         },
 

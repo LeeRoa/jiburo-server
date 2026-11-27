@@ -1,5 +1,6 @@
 package com.jiburo.server.domain.chat.service;
 
+import com.jiburo.server.domain.chat.config.ChatSubscriptionRevoker;
 import com.jiburo.server.domain.chat.domain.ChatMessage;
 import com.jiburo.server.domain.chat.domain.ChatParticipant;
 import com.jiburo.server.domain.chat.domain.ChatRoom;
@@ -35,6 +36,7 @@ public class ChatRoomServiceImpl implements ChatRoomService {
     private final LostPostRepository lostPostRepository;
     private final UserRepository userRepository;
     private final SimpMessagingTemplate messagingTemplate;
+    private final ChatSubscriptionRevoker chatSubscriptionRevoker;
 
     /**
      * [채팅방 생성]
@@ -48,8 +50,12 @@ public class ChatRoomServiceImpl implements ChatRoomService {
         // postId 디코딩
         Long postId = dto.getDecodedPostId();
 
-        // id 기반 게시글 조회
-        LostPost post = lostPostRepository.findById(postId)
+        // id 기반 게시글 조회 + 게시글 행 잠금
+        // 같은 게시글로 동시에 방을 만들면 둘 다 "기존 방 없음"으로 보고 방이 두 개 생긴다 → 게시글 단위로 직렬화.
+        // 이 메서드의 첫 DB 조회여야 한다 (잠금 이후의 일반 조회가 먼저 들어온 요청이 커밋한 방을 보도록).
+        // 삭제되었거나 볼 권한이 없는 게시글이면 존재하지 않는 것으로 처리
+        LostPost post = lostPostRepository.findByIdAndDeletedFalseForUpdate(postId)
+                .filter(p -> p.isVisibleTo(hostId))
                 .orElseThrow(() -> new JiburoException(ErrorCode.POST_NOT_FOUND));
 
         // 채팅 요청자
@@ -65,7 +71,13 @@ public class ChatRoomServiceImpl implements ChatRoomService {
 
         // 기존 방 존재 여부 확인
         return chatRoomRepository.findExistedRoom(postId, hostId, guest.getId())
-                .map(room -> ChatRoomListDto.from(room, guest.getNickname(), 0L))
+                .map(room -> {
+                    // 요청자가 예전에 나갔던 방이면 재입장 처리 (안 하면 목록/구독에서 영구히 제외됨)
+                    chatParticipantRepository.findByChatRoomIdAndUserId(room.getId(), hostId)
+                            .filter(ChatParticipant::isExited)
+                            .ifPresent(ChatParticipant::rejoin);
+                    return ChatRoomListDto.from(room, guest.getNickname(), post.getTitle(), 0L);
+                })
                 .orElseGet(() -> {
                     // 새 방 생성 및 참여자 등록
                     ChatRoom newRoom = chatRoomRepository.save(dto.toEntity(post, host));
@@ -74,7 +86,7 @@ public class ChatRoomServiceImpl implements ChatRoomService {
                     chatParticipantRepository.save(new ChatParticipant(newRoom, host));
                     chatParticipantRepository.save(new ChatParticipant(newRoom, guest));
 
-                    return ChatRoomListDto.from(newRoom, guest.getNickname(), 0L);
+                    return ChatRoomListDto.from(newRoom, guest.getNickname(), post.getTitle(), 0L);
                 });
     }
 
@@ -96,6 +108,7 @@ public class ChatRoomServiceImpl implements ChatRoomService {
         // 2. 내 정보와 상대방 정보 추출 (한 번의 순회로 최적화 가능하지만, 2명이라 가독성 위주로 작성)
         ChatParticipant myPart = participants.stream()
                 .filter(p -> p.getUser().getId().equals(userId))
+                .filter(p -> !p.isExited())
                 .findFirst()
                 .orElseThrow(() -> new JiburoException(ErrorCode.NOT_CHAT_PARTICIPANT));
 
@@ -109,15 +122,23 @@ public class ChatRoomServiceImpl implements ChatRoomService {
 
         // 4. 읽음 커서 갱신 및 상대방에게 실시간 알림 발송
         if (messages.hasContent()) {
-            Long latestMessageId = messages.getContent().get(0).getId(); // 최신 메시지 ID (DESC 정렬 기준)
+            // 이번에 조회한 메시지 중 가장 최신(ID 최대) 메시지까지 읽음 처리.
+            // 정렬 방향(기본 createdAt ASC / 클라이언트 지정 DESC)과 무관하게 동작해야 하므로 get(0) 대신 max 사용
+            Long latestMessageId = messages.getContent().stream()
+                    .mapToLong(ChatMessage::getId)
+                    .max()
+                    .getAsLong();
 
-            // 내 커서 업데이트
+            // 내 커서 업데이트 (앞으로만 움직임 — 예전 페이지를 조회하면 그대로)
+            Long previousCursor = myPart.getLastReadMessageId();
             myPart.updateLastRead(latestMessageId);
 
-            // 상대방 화면의 '안 읽음'을 '읽음'으로 바꾸기 위한 실시간 전송
+            // 커서가 실제로 앞으로 갔을 때만 상대방에게 읽음 알림 (예전 페이지 스크롤마다 보내지 않음)
             // 상대방은 이 메시지를 받고 자신의 화면에 떠 있는 내 메시지들의 상태를 바꿉니다.
-            ChatReadDto.Response readReceipt = new ChatReadDto.Response(userId, latestMessageId);
-            messagingTemplate.convertAndSend("/sub/chat/rooms/" + HashidsUtils.encode(roomId) + "/read", readReceipt);
+            if (!java.util.Objects.equals(previousCursor, myPart.getLastReadMessageId())) {
+                ChatReadDto.Response readReceipt = new ChatReadDto.Response(userId, myPart.getLastReadMessageId());
+                messagingTemplate.convertAndSend("/sub/chat/rooms/" + HashidsUtils.encode(roomId) + "/read", readReceipt);
+            }
         }
 
         // 5. DTO 반환 (내 메시지 옆에 '읽음/안 읽음'을 표시하기 위해 상대방의 커서 위치를 넘김)
@@ -130,12 +151,14 @@ public class ChatRoomServiceImpl implements ChatRoomService {
         ChatParticipant participant = chatParticipantRepository.findByChatRoomIdAndUserId(roomId, userId)
                 .orElseThrow(() -> new JiburoException(ErrorCode.NOT_CHAT_PARTICIPANT));
         participant.exit();
+        // 나간 뒤에도 기존 구독으로 메시지를 계속 받지 않도록 커밋 후 구독 회수
+        chatSubscriptionRevoker.revokeRoomAfterCommit(userId, roomId);
     }
 
     @Override
     public Slice<ChatMessageResponseDto> searchChatMessages(Long roomId, ChatMessageSearchCondition condition, UUID userId, Pageable pageable) {
         // 1. 권한 체크 (참여자가 아니면 예외 발생)
-        if (!chatParticipantRepository.existsByChatRoomIdAndUserId(roomId, userId)) {
+        if (!chatParticipantRepository.existsByChatRoomIdAndUserIdAndIsExitedFalse(roomId, userId)) {
             throw new JiburoException(ErrorCode.NOT_CHAT_PARTICIPANT);
         }
 

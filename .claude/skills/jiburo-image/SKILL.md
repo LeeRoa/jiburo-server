@@ -41,15 +41,16 @@ description: Use when working on jiburo-server image upload — Cloudflare R2 pr
 1) 프론트 → POST /api/v1/images/presigned-url
    Body: { fileCode: "POST", extension: "png", fileSize: 12345, originalFileName: "..." }
    ├─ ImageStorageServiceImpl.createPresignedUrl
-   │  ├─ sumTotalFileSize() + fileSize > 10GB → IllegalStateException
+   │  ├─ 사용자별 진행 중 PENDING ≥ UPLOAD_MAX_PENDING_PER_USER → UPLOAD_PENDING_LIMIT_EXCEEDED
+   │  ├─ sumUsedFileSize(cutoff) + fileSize > UPLOAD_TOTAL_CAPACITY_GB → STORAGE_CAPACITY_EXCEEDED
    │  ├─ objectKey = "{basePath}/{userId}/{uuid}.{ext}"
    │  │     basePath = fileCode.getFolderPath()  // "post/images"
    │  ├─ S3Presigner.presignPutObject (서명 만료 = expiration-minutes)
    │  └─ ImageMeta(PENDING, useYn=true) DB 저장
-   └─ Response: { url, objectKey }
+   └─ Response: { presignedUrl, fileKey, contentType }
 
 2) 프론트 → PUT {presignedUrl} (R2로 직접)  ← 서버 거치지 않음
-   Headers: Content-Type 등은 PutObjectRequest builder에서 설정한 것과 일치해야 함
+   Headers: Content-Type = presigned 응답의 contentType (서명에 포함, 다르면 403)
 
 3) 프론트 → POST /api/v1/images/complete
    Body: { fileKey: <objectKey> }
@@ -73,7 +74,7 @@ ImageMeta (PK Long)
  └── use_yn (boolean) ← 논리 삭제
 ```
 
-10GB 한도: `MAX_CAPACITY_BYTES = 10L * 1024 * 1024 * 1024`. 합산은 `imageMetaRepository.sumTotalFileSize()`.
+용량 한도: 운영 설정 `UPLOAD_TOTAL_CAPACITY_GB`. 합산은 `ImageStorageService.usedBytes()` = COMPLETED + 아직 업로드될 수 있는 PENDING(발급 후 URL 유효 시간 + `PENDING_GRACE` 1시간 이내). 오래된 PENDING은 용량에 넣지 않는다 — URL만 반복 발급해 전체 용량을 채우는 공격 방지.
 
 ## R2 설정 (application-r2.properties)
 
@@ -95,8 +96,10 @@ cloud.cloudflare.r2.presigned.expiration-minutes=${R2_PRESIGNED_EXPIRATION_MINUT
 | `CHAT` | `chat/images` |
 | `POST` | `post/images` |
 | `PROFILE` | `profile/images` |
+| `CHAT_VIDEO` / `FINDER_IMAGE` / `FINDER_VIDEO` | `chat/videos` / `finder/images` / `finder/videos` |
+| `EMOTICON` | `emoticon/images` — `isAdminOnly()`: `ImageController`가 거부, `AdminEmoticonService.presign`으로만 발급 |
 
-새 타입 추가: enum에 항목 추가 + `data.sql`의 `common_codes` (group `UPLOAD_TARGET`) INSERT — [[jiburo-conventions]] §5.
+새 타입 추가: enum에 항목(허용 확장자 포함) 추가 — 공통코드는 `CommonCodeSyncer`가 기동 시 자동 upsert. 관리자만 쓰는 대상이면 `isAdminOnly()`에 포함.
 
 최종 objectKey: `{folderPath}/{userId-UUID}/{random-uuid}.{ext}` — 폴더 단위로 user별 분리.
 
@@ -104,7 +107,7 @@ cloud.cloudflare.r2.presigned.expiration-minutes=${R2_PRESIGNED_EXPIRATION_MINUT
 
 1. **서버는 파일 바이트를 받지 않는다** — 항상 presigned URL 방식. multipart upload 컨트롤러를 추가하지 말 것.
 2. **`fileKey` = `objectKey`** — DB 컬럼 이름은 `file_key`지만 의미는 R2 객체 키 전체 경로.
-3. **`complete` 호출 전엔 PENDING** — 클라이언트가 PUT 실패하면 PENDING이 남음. 정기 청소(미구현)로 일정 기간 후 PENDING + `use_yn=false` 처리 필요.
+3. **`complete` 호출 전엔 PENDING** — 클라이언트가 PUT 실패하면 PENDING이 남음. `ImageStorageServiceImpl.cleanupStalePending`(10분 주기)이 URL 유효 시간 + 1시간이 지난 PENDING을 `use_yn=false`로 정리.
 4. **권한 검증** — `complete`에서 발급자 본인 확인. 다른 사용자가 fileKey만 알아도 상태 변경 못 함.
 5. **idempotent complete** — 같은 fileKey로 두 번 호출돼도 두 번째는 그냥 종료.
 6. **삭제는 논리 삭제 (`use_yn=false`)** — 물리 삭제와 R2 객체 삭제는 별도 작업 (미구현).
@@ -114,9 +117,10 @@ cloud.cloudflare.r2.presigned.expiration-minutes=${R2_PRESIGNED_EXPIRATION_MINUT
 
 - ❌ `createPresignedUrl`에 `@Transactional` 빠짐 — `ImageMeta` save가 외부 호출(presign)과 한 단위가 아니라서 일관성 깨질 수 있음. 필요 시 추가.
 - ❌ 10GB 한도 검사를 빼고 presign 발급 → 무제한 업로드 가능 → 비용 폭주
+- ❌ 게시글·채팅·제보에 클라이언트가 보낸 파일 키를 그대로 저장 → 외부 URL·남의 파일 첨부 가능. ✅ `UploadedFileValidator.requireOwnedUpload(s)`로 "본인 + COMPLETED + 용도 일치"를 확인
 - ❌ 한도 초과 시 `IllegalStateException` raw로 던짐 → ✅ `JiburoException(ErrorCode.FILE_SIZE_EXCEEDED)`로 바꾸는 게 일관성 있음 (현재는 raw)
 - ❌ `complete`에서 권한 검증을 빼먹음 → 다른 사용자의 fileKey 알아내면 상태 변경 가능
-- ❌ PUT 요청의 Content-Type을 prensign할 때 지정해놓고 클라이언트가 다른 값으로 PUT → R2가 SignatureDoesNotMatch 거절. 현재는 별도 지정 안 함.
+- Content-Type은 확장자별로 서명에 포함(`UploadTargetType.contentTypeOf`)하고 응답 `contentType`으로 내려준다. 클라이언트가 다른 값으로 PUT하면 R2가 SignatureDoesNotMatch(403)로 거절 — .jpg 키에 text/html을 올리는 저장형 XSS 차단 목적. 허용 확장자를 추가하면 `CONTENT_TYPES`에도 추가할 것.
 - ❌ `extension`에 점 포함 (`.png`) → objectKey가 `....png` 형태. 점 없이 `png`만 받을 것 (입력 검증 추가 권장).
 - ❌ `fileSize`를 클라이언트가 보낸 값 그대로 신뢰 → 한도 우회 가능. 가능하면 R2 응답으로 검증 (현재는 신뢰).
 

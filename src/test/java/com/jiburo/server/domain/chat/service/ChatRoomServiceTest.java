@@ -35,6 +35,7 @@ class ChatRoomServiceTest {
     @Mock private com.jiburo.server.domain.post.repository.LostPostRepository lostPostRepository;
     @Mock private com.jiburo.server.domain.user.dao.UserRepository userRepository;
     @Mock private org.springframework.messaging.simp.SimpMessagingTemplate messagingTemplate;
+    @Mock private com.jiburo.server.domain.chat.config.ChatSubscriptionRevoker chatSubscriptionRevoker;
 
     private UUID userId;
     private Long roomId;
@@ -60,6 +61,7 @@ class ChatRoomServiceTest {
 
         // then
         then(participant).should().exit();
+        then(chatSubscriptionRevoker).should().revokeRoomAfterCommit(userId, roomId); // 기존 구독도 회수
     }
 
     @Test

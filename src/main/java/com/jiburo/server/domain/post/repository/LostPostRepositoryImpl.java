@@ -4,6 +4,7 @@ import com.jiburo.server.domain.post.domain.LostPost;
 import com.jiburo.server.domain.post.domain.enums.CategoryType;
 import com.jiburo.server.domain.post.domain.enums.NearbySortType;
 import com.jiburo.server.domain.post.domain.enums.PostStatus;
+import com.jiburo.server.domain.post.domain.enums.VisibilityType;
 import com.jiburo.server.domain.post.dto.LostPostMapRequestDto;
 import com.jiburo.server.domain.post.dto.LostPostNearbyRequestDto;
 import com.jiburo.server.domain.post.dto.LostPostSearchCondition;
@@ -60,10 +61,16 @@ public class LostPostRepositoryImpl implements LostPostRepositoryCustom {
      * - Count 쿼리 최적화 적용 (PageableExecutionUtils)
      */
     @Override
-    public Page<LostPost> search(LostPostSearchCondition condition, Pageable pageable, UUID writerId) {
-        // 1) 검색 조건 생성
-        BooleanBuilder predicates = getSearchPredicates(condition);
-        predicates.and(eqWriter(writerId));
+    public Page<LostPost> search(LostPostSearchCondition condition, Pageable pageable, UUID viewerId) {
+        // 1) 검색 조건 생성 (삭제 제외 + 공개 범위 + 사용자 필터)
+        BooleanBuilder predicates = new BooleanBuilder()
+                .and(notDeleted())
+                .and(visibleTo(viewerId))
+                .and(getSearchPredicates(condition));
+        // 마이페이지 '내 게시물': 로그인한 사용자가 작성한 게시글로 한정
+        if (condition != null && Boolean.TRUE.equals(condition.mineOnly())) {
+            predicates.and(eqWriter(viewerId));
+        }
 
         // 2) 컨텐츠 조회
         List<LostPost> content = queryFactory
@@ -91,10 +98,12 @@ public class LostPostRepositoryImpl implements LostPostRepositoryCustom {
      * - 마커 렌더링 성능을 위해 limit 적용
      */
     @Override
-    public List<LostPost> searchByViewport(LostPostMapRequestDto request) {
+    public List<LostPost> searchByViewport(LostPostMapRequestDto request, UUID viewerId) {
         return queryFactory
                 .selectFrom(lostPost)
                 .where(
+                        notDeleted(),
+                        visibleTo(viewerId),
                         latitudeBetween(request.minLat(), request.maxLat()),
                         longitudeBetween(request.minLng(), request.maxLng())
                 )
@@ -110,17 +119,16 @@ public class LostPostRepositoryImpl implements LostPostRepositoryCustom {
      * - 성능 최적화 3: Slice 방식 (Limit + 1)으로 Count 쿼리 제거
      */
     @Override
-    public Slice<LostPost> searchByRadius(LostPostNearbyRequestDto request) {
+    public Slice<LostPost> searchByRadius(LostPostNearbyRequestDto request, UUID viewerId) {
         // 1. 페이징 정보 생성 (page, size)
         Pageable pageable = PageRequest.of(request.page(), request.size());
 
         // 2. [최적화] 반경 기반 Bounding Box 생성 (인덱스 태우기용)
-        // 위도 1도 ≒ 111km (근사치 적용하여 1차 필터링 범위 설정)
-        double radiusInDegree = request.radius() / 111.0;
-        Double minLat = request.centerLat() - radiusInDegree;
-        Double maxLat = request.centerLat() + radiusInDegree;
-        Double minLng = request.centerLng() - radiusInDegree;
-        Double maxLng = request.centerLng() + radiusInDegree;
+        BoundingBox box = BoundingBox.of(request.centerLat(), request.centerLng(), request.radius());
+        Double minLat = box.minLat();
+        Double maxLat = box.maxLat();
+        Double minLng = box.minLng();
+        Double maxLng = box.maxLng();
 
         // 3. Haversine 거리 계산 표현식 생성
         NumberExpression<Double> distanceExpression = getDistanceExpression(request.centerLat(), request.centerLng());
@@ -134,6 +142,8 @@ public class LostPostRepositoryImpl implements LostPostRepositoryCustom {
         List<LostPost> content = queryFactory
                 .selectFrom(lostPost)
                 .where(
+                        notDeleted(),
+                        visibleTo(viewerId),
                         latitudeBetween(minLat, maxLat),
                         longitudeBetween(minLng, maxLng),
                         distanceExpression.loe(request.radius())
@@ -174,6 +184,24 @@ public class LostPostRepositoryImpl implements LostPostRepositoryCustom {
         return result.length > 0 ? result : new OrderSpecifier[]{DEFAULT_ORDER};
     }
 
+    // Soft Delete 된 게시글 제외
+    private BooleanExpression notDeleted() {
+        return lostPost.deleted.isFalse();
+    }
+
+    /**
+     * 공개 범위 조건 (LostPost.isVisibleTo와 동일 규칙)
+     * - 비로그인: PUBLIC 만
+     * - 로그인: PUBLIC + PROTECTED + 본인 글(PRIVATE 포함)
+     */
+    private BooleanExpression visibleTo(UUID viewerId) {
+        if (viewerId == null) {
+            return lostPost.visibilityCode.eq(VisibilityType.PUBLIC);
+        }
+        return lostPost.visibilityCode.in(VisibilityType.PUBLIC, VisibilityType.PROTECTED)
+                .or(lostPost.user.id.eq(viewerId));
+    }
+
     private BooleanExpression latitudeBetween(Double min, Double max) {
         return min != null && max != null ? lostPost.latitude.between(min, max) : null;
     }
@@ -186,11 +214,31 @@ public class LostPostRepositoryImpl implements LostPostRepositoryCustom {
      * Haversine 공식을 이용한 거리 계산 표현식 (MySQL 호환)
      * - 6371: 지구 반지름 (km)
      * - 결과 단위: km
+     * - 같은 좌표처럼 부동소수 오차로 acos 인자가 1을 살짝 넘으면 NaN이 되므로 least(1.0, ...)로 보정
      */
     private NumberExpression<Double> getDistanceExpression(Double lat, Double lng) {
         return Expressions.numberTemplate(Double.class,
-                "6371 * acos(cos(radians({0})) * cos(radians({1})) * cos(radians({2}) - radians({3})) + sin(radians({0})) * sin(radians({1})))",
+                "6371 * acos(least(1.0, cos(radians({0})) * cos(radians({1})) * cos(radians({2}) - radians({3})) + sin(radians({0})) * sin(radians({1}))))",
                 lat, lostPost.latitude, lostPost.longitude, lng, lat, lostPost.latitude);
+    }
+
+    /**
+     * 반경(km)을 감싸는 위경도 사각형.
+     * - 위도 1도 ≒ 111km (어디서나 거의 동일)
+     * - 경도 1도 ≒ 111km × cos(위도) — 위도가 높을수록 좁아지므로 보정하지 않으면
+     *   사각형이 반경보다 좁아져 반경 안의 게시글이 누락된다 (서울 위도 37.5도에서 약 21% 축소)
+     */
+    record BoundingBox(double minLat, double maxLat, double minLng, double maxLng) {
+        private static final double KM_PER_DEGREE = 111.0;
+        private static final double MIN_COS = 0.01; // 극지방 근처에서 0으로 나누는 것 방지
+
+        static BoundingBox of(double centerLat, double centerLng, double radiusKm) {
+            double latDelta = radiusKm / KM_PER_DEGREE;
+            double cosLat = Math.max(MIN_COS, Math.cos(Math.toRadians(centerLat)));
+            double lngDelta = radiusKm / (KM_PER_DEGREE * cosLat);
+            return new BoundingBox(centerLat - latDelta, centerLat + latDelta,
+                    centerLng - lngDelta, centerLng + lngDelta);
+        }
     }
 
     private BooleanBuilder getSearchPredicates(LostPostSearchCondition condition) {

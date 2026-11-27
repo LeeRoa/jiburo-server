@@ -48,4 +48,16 @@ public class ChatMessage extends BaseTimeEntity {
         this.content = content;
         this.messageTypeCode = messageTypeCode;
     }
+
+    /** 신고 처리로 관리자가 지운 메시지 — SYS 타입 + 고정 키로 바꿔 원문을 남기지 않는다 (프론트가 다국어 문구로 표시) */
+    public static final String DELETED_BY_ADMIN = "chat.msg.deleted_by_admin";
+
+    public void deleteByAdmin() {
+        this.content = DELETED_BY_ADMIN;
+        this.messageTypeCode = ChatMsgType.SYS;
+    }
+
+    public boolean isDeletedByAdmin() {
+        return messageTypeCode == ChatMsgType.SYS && DELETED_BY_ADMIN.equals(content);
+    }
 }

@@ -42,3 +42,7 @@ mysql_data/
 
 # 로컬 환경변수 (절대 커밋 금지)
 .env
+
+# Firebase 서비스 계정 키 파일 (FIREBASE_CREDENTIALS_PATH로 지정)
+firebase-key.json
+*-firebase-adminsdk-*.json

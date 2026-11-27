@@ -34,9 +34,11 @@ public class ChatController {
     ) {
         CustomOAuth2User user = (CustomOAuth2User) authentication.getPrincipal();
         // DB에 메시지 저장 및 방의 마지막 대화 정보 갱신
-        ChatMessageResponseDto responseDto = chatMessageService.saveMessage(HashidsUtils.decode(roomId), user.getUserId(), requestDto);
+        Long decodedRoomId = HashidsUtils.decode(roomId);
+        ChatMessageResponseDto responseDto = chatMessageService.saveMessage(decodedRoomId, user.getUserId(), requestDto);
         // 해당 방을 구독(/sub/chat/rooms/{roomId})하고 있는 모든 클라이언트에게 메시지 전송
-        messagingTemplate.convertAndSend("/sub/chat/rooms/" + roomId, responseDto);
+        // 클라이언트가 보낸 문자열이 아니라 서버가 다시 인코딩한 정규 ID로 채널을 정한다 (구독 채널과 항상 일치)
+        messagingTemplate.convertAndSend(roomTopic(decodedRoomId), responseDto);
     }
 
     @MessageMapping("/chat/rooms/{roomId}/read")
@@ -55,6 +57,10 @@ public class ChatController {
         );
 
         // 2. 해당 방의 읽음 채널(/sub/chat/rooms/{roomId}/read)을 구독 중인 클라이언트들에게 전송
-        messagingTemplate.convertAndSend("/sub/chat/rooms/" + roomId + "/read", responseDto);
+        messagingTemplate.convertAndSend(roomTopic(HashidsUtils.decode(roomId)) + "/read", responseDto);
+    }
+
+    private static String roomTopic(Long roomId) {
+        return "/sub/chat/rooms/" + HashidsUtils.encode(roomId);
     }
 }

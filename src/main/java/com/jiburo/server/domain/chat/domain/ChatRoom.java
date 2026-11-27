@@ -1,5 +1,6 @@
 package com.jiburo.server.domain.chat.domain;
 
+import com.jiburo.server.domain.chat.domain.enums.ChatMsgType;
 import com.jiburo.server.domain.post.domain.LostPost;
 import com.jiburo.server.domain.user.domain.User;
 import com.jiburo.server.global.domain.BaseTimeEntity;
@@ -22,6 +23,9 @@ import java.util.List;
         @Index(name = "idx_chatroom_last_chat", columnList = "last_chat_at") // 최신순 정렬 최적화
 })
 public class ChatRoom extends BaseTimeEntity {
+
+    private static final int LAST_MESSAGE_MAX_LENGTH = 1000;
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Comment("채팅방 고유 식별자 (외부 노출 시 Hashids로 인코딩)")
@@ -57,9 +61,24 @@ public class ChatRoom extends BaseTimeEntity {
     /**
      * 새로운 메시지가 발생했을 때 방의 상태(마지막 메시지, 시간)를 최신화합니다.
      */
-    public void updateLastChat(String message) {
-        this.lastMessage = message;
+    public void updateLastChat(ChatMsgType type, String content) {
+        this.lastMessage = toPreview(type, content);
         this.lastChatAt = LocalDateTime.now();
+    }
+
+    /**
+     * 목록 미리보기용 문자열
+     * - TALK: 본문 (컬럼 길이 1000자에 맞춰 자름)
+     * - IMAGE/VIDEO/MAP/SYS: 파일 키 같은 내부 값 대신 "[IMAGE]" 형태의 타입 표기 (프론트에서 다국어 문구로 치환)
+     */
+    private static String toPreview(ChatMsgType type, String content) {
+        if (type != null && type != ChatMsgType.TALK) {
+            return "[" + type.getCode() + "]";
+        }
+        if (content == null) {
+            return null;
+        }
+        return content.length() > LAST_MESSAGE_MAX_LENGTH ? content.substring(0, LAST_MESSAGE_MAX_LENGTH) : content;
     }
 
     /**

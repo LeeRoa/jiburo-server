@@ -1,6 +1,8 @@
 package com.jiburo.server.domain.post.service;
 
 import com.jiburo.server.domain.post.dto.LocationHistoryResponseDto;
+import com.jiburo.server.global.setting.AppSettingService;
+import com.jiburo.server.global.setting.SettingKey;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -16,7 +18,6 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class SearchHistoryServiceImpl implements SearchHistoryService {
 
-    private static final int MAX_HISTORY = 10;
     private static final String KEYWORD_PREFIX = "search:keyword:";
     private static final String LOCATION_PREFIX = "search:location:";
     private static final String LOCATION_PLACE_PREFIX = "search:location-place:";
@@ -24,6 +25,7 @@ public class SearchHistoryServiceImpl implements SearchHistoryService {
     private static final String HISTORY_ENABLED_PREFIX = "search:history:enabled:";
 
     private final RedisTemplate<String, Object> redisTemplate;
+    private final AppSettingService appSettingService;
 
     // ───────────────────────────────────────────────────
     // 키워드 검색 기록
@@ -151,9 +153,10 @@ public class SearchHistoryServiceImpl implements SearchHistoryService {
 
     private void trimZSet(String zSetKey, String... hashKeys) {
         Long size = redisTemplate.opsForZSet().size(zSetKey);
-        if (size == null || size <= MAX_HISTORY) return;
+        int maxHistory = appSettingService.getInt(SettingKey.SEARCH_HISTORY_MAX); // 관리자 설정
+        if (size == null || size <= maxHistory) return;
 
-        Set<Object> toRemove = redisTemplate.opsForZSet().range(zSetKey, 0, size - MAX_HISTORY - 1);
+        Set<Object> toRemove = redisTemplate.opsForZSet().range(zSetKey, 0, size - maxHistory - 1);
         if (toRemove == null || toRemove.isEmpty()) return;
 
         redisTemplate.opsForZSet().remove(zSetKey, toRemove.toArray());
@@ -165,6 +168,6 @@ public class SearchHistoryServiceImpl implements SearchHistoryService {
     }
 
     private String locationKey(Double lat, Double lng, Double radius) {
-        return String.format("%.4f_%.4f_%.1f", lat, lng, radius != null ? radius : 3.0);
+        return String.format("%.4f_%.4f_%.1f", lat, lng, radius != null ? radius : appSettingService.getDouble(SettingKey.NEARBY_DEFAULT_RADIUS_KM));
     }
 }

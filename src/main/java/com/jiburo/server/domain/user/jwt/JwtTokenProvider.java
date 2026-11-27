@@ -2,8 +2,8 @@ package com.jiburo.server.domain.user.jwt;
 
 import com.jiburo.server.domain.user.dto.CustomOAuth2User;
 import com.jiburo.server.domain.user.dto.TokenResponseDto;
-import com.jiburo.server.global.error.JiburoException;
 import com.jiburo.server.global.error.ErrorCode;
+import com.jiburo.server.global.error.JiburoException;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
@@ -19,6 +19,7 @@ import java.security.Key;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Date;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -27,13 +28,16 @@ import java.util.stream.Collectors;
 public class JwtTokenProvider {
 
     private static final String AUTHORITIES_KEY = "auth";
+    private static final String TOKEN_TYPE_KEY = "typ";
+    private static final String TOKEN_TYPE_ACCESS = "access";
+    private static final String TOKEN_TYPE_REFRESH = "refresh";
     private static final String BEARER_TYPE = "Bearer";
 
     private final Key key;
     private final long accessTokenValidityTime;
     private final long refreshTokenValidityTime;
 
-    // application.properties에서 값을 읽어와서 초기화
+    // application.properties에서 값을 읽어와서 초기화 (프로퍼티 이름과 달리 단위는 ms)
     public JwtTokenProvider(
             @Value("${jwt.secret}") String secretKey,
             @Value("${jwt.access-token-validity-in-seconds}") long accessTokenValidityTime,
@@ -45,27 +49,42 @@ public class JwtTokenProvider {
         this.refreshTokenValidityTime = refreshTokenValidityTime;
     }
 
-    // 1. 토큰 생성 (로그인 성공 시 호출)
+    /**
+     * Access/Refresh 토큰 쌍 생성.
+     * - 두 토큰 모두 sub = userId(UUID 문자열), typ 클레임으로 용도를 구분한다.
+     * - Refresh Token에는 jti(랜덤 UUID)를 넣어 같은 시각에 발급돼도 값이 달라지도록 한다 (Rotation 비교용).
+     */
     public TokenResponseDto generateTokenDto(Authentication authentication) {
-        // 권한들 가져오기 (ROLE_USER 등)
+        return generateTokenDto(authentication, accessTokenValidityTime, refreshTokenValidityTime);
+    }
+
+    /**
+     * 유효 시간(ms)을 지정해 발급 — 운영 설정(ACCESS_TOKEN_TTL_MINUTES 등)을 쓰는 AuthTokenService에서 사용.
+     * 프로퍼티(jwt.*-validity)는 설정을 쓰지 않는 경로의 기본값으로만 남는다.
+     */
+    public TokenResponseDto generateTokenDto(Authentication authentication, long accessTtlMillis, long refreshTtlMillis) {
         String authorities = authentication.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
                 .collect(Collectors.joining(","));
 
-        long now = (new Date()).getTime();
+        long now = System.currentTimeMillis();
+        Date accessTokenExpiresIn = new Date(now + accessTtlMillis);
 
-        // Access Token 생성
-        Date accessTokenExpiresIn = new Date(now + accessTokenValidityTime);
         String accessToken = Jwts.builder()
-                .setSubject(authentication.getName())       // payload "sub": "kakao_12345"
-                .claim(AUTHORITIES_KEY, authorities)        // payload "auth": "ROLE_USER"
-                .setExpiration(accessTokenExpiresIn)        // payload "exp": 1516239022 (예시)
-                .signWith(key, SignatureAlgorithm.HS256)    // header "alg": "HS256"
+                .setSubject(authentication.getName())
+                .claim(AUTHORITIES_KEY, authorities)
+                .claim(TOKEN_TYPE_KEY, TOKEN_TYPE_ACCESS)
+                .setIssuedAt(new Date(now))
+                .setExpiration(accessTokenExpiresIn)
+                .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
 
-        // Refresh Token 생성 (만료일자만 설정)
         String refreshToken = Jwts.builder()
-                .setExpiration(new Date(now + refreshTokenValidityTime))
+                .setSubject(authentication.getName())
+                .claim(TOKEN_TYPE_KEY, TOKEN_TYPE_REFRESH)
+                .setId(UUID.randomUUID().toString())
+                .setIssuedAt(new Date(now))
+                .setExpiration(new Date(now + refreshTtlMillis))
                 .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
 
@@ -77,54 +96,97 @@ public class JwtTokenProvider {
                 .build();
     }
 
-    // 2. 토큰에서 인증 정보(Authentication) 꺼내기
-    // 필터에서 Access Token이 유효한지 검증 후, SecurityContext에 저장할 객체를 만듦
+    /**
+     * 유효한 Access Token에서 인증 정보(Authentication)를 꺼낸다.
+     * Refresh Token이나 typ 클레임이 없는 구버전 토큰은 거부한다.
+     */
     public Authentication getAuthentication(String accessToken) {
-        // 토큰 복호화
-        Claims claims = parseClaims(accessToken);
-
-        if (claims.get(AUTHORITIES_KEY) == null) {
-            throw new JiburoException(ErrorCode.INVALID_INPUT_VALUE); // 권한 정보가 없는 토큰 예외 처리
-        }
+        Claims claims = parseValidClaims(accessToken)
+                .filter(c -> TOKEN_TYPE_ACCESS.equals(c.get(TOKEN_TYPE_KEY)))
+                .filter(c -> c.get(AUTHORITIES_KEY) != null)
+                .orElseThrow(() -> new JiburoException(ErrorCode.INVALID_TOKEN));
 
         Collection<? extends GrantedAuthority> authorities =
-                Arrays.stream(claims.get("auth").toString().split(","))
+                Arrays.stream(claims.get(AUTHORITIES_KEY).toString().split(","))
                         .map(SimpleGrantedAuthority::new)
                         .collect(Collectors.toList());
 
-        // 2. [핵심] sub에 담긴 UUID 문자열을 다시 UUID 객체로 변환
-        // 만약 토큰의 sub가 UUID 형식이 아니면 여기서 터지거나 null이 될 수 있음
-        UUID userId = UUID.fromString(claims.getSubject());
-
-        // 3. CustomOAuth2User 생성 (UUID를 받는 생성자 호출 확인!)
+        UUID userId = parseUserId(claims);
         CustomOAuth2User principal = new CustomOAuth2User(userId, authorities);
-
         return new UsernamePasswordAuthenticationToken(principal, "", authorities);
     }
 
-    // 3. 토큰 검증
+    // 서명/만료 검증
     public boolean validateToken(String token) {
+        return parseValidClaims(token).isPresent();
+    }
+
+    // 서명/만료 검증 + Access Token 용도 확인
+    public boolean validateAccessToken(String token) {
+        return parseValidClaims(token)
+                .map(c -> TOKEN_TYPE_ACCESS.equals(c.get(TOKEN_TYPE_KEY)))
+                .orElse(false);
+    }
+
+    // 서명/만료 검증 + Refresh Token 용도 확인
+    public boolean validateRefreshToken(String token) {
+        return parseValidClaims(token)
+                .map(c -> TOKEN_TYPE_REFRESH.equals(c.get(TOKEN_TYPE_KEY)))
+                .orElse(false);
+    }
+
+    // 유효한 토큰의 sub(userId) 추출
+    public UUID getUserId(String token) {
+        Claims claims = parseValidClaims(token)
+                .orElseThrow(() -> new JiburoException(ErrorCode.INVALID_TOKEN));
+        return parseUserId(claims);
+    }
+
+    // 유효한 토큰의 발급 시각(epoch ms — JWT iat는 초 단위라 1초 미만은 내림). 무효면 empty
+    public Optional<Long> getIssuedAtMillis(String token) {
+        return parseValidClaims(token)
+                .map(Claims::getIssuedAt)
+                .map(Date::getTime);
+    }
+
+    // 남은 유효시간(ms). 이미 만료/무효면 0
+    public long getRemainingValidityMillis(String token) {
+        return parseValidClaims(token)
+                .map(c -> Math.max(0L, c.getExpiration().getTime() - System.currentTimeMillis()))
+                .orElse(0L);
+    }
+
+    public long getAccessTokenValidityTime() {
+        return accessTokenValidityTime;
+    }
+
+    public long getRefreshTokenValidityTime() {
+        return refreshTokenValidityTime;
+    }
+
+    private UUID parseUserId(Claims claims) {
         try {
-            Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(token);
-            return true;
+            return UUID.fromString(claims.getSubject());
+        } catch (IllegalArgumentException | NullPointerException e) {
+            throw new JiburoException(ErrorCode.INVALID_TOKEN);
+        }
+    }
+
+    private Optional<Claims> parseValidClaims(String token) {
+        if (token == null || token.isBlank()) {
+            return Optional.empty();
+        }
+        try {
+            return Optional.of(Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(token).getBody());
         } catch (io.jsonwebtoken.security.SecurityException | MalformedJwtException e) {
             log.warn("잘못된 JWT 서명입니다.");
         } catch (ExpiredJwtException e) {
-            log.warn("만료된 JWT 토큰입니다.");
+            log.debug("만료된 JWT 토큰입니다.");
         } catch (UnsupportedJwtException e) {
             log.warn("지원되지 않는 JWT 토큰입니다.");
         } catch (IllegalArgumentException e) {
             log.warn("JWT 토큰이 잘못되었습니다.");
         }
-        return false;
-    }
-
-    // 토큰 파싱 헬퍼 메서드
-    private Claims parseClaims(String accessToken) {
-        try {
-            return Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(accessToken).getBody();
-        } catch (ExpiredJwtException e) {
-            return e.getClaims(); // 만료된 토큰이어도 클레임은 꺼내서 보여줌
-        }
+        return Optional.empty();
     }
 }

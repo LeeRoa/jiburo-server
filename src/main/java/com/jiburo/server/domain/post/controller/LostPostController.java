@@ -107,7 +107,7 @@ public class LostPostController implements LostPostControllerDocs {
     public ApiResponse<Void> updatePost(
             @AuthenticationPrincipal CustomOAuth2User user,
             @PathVariable String id,
-            @RequestBody LostPostUpdateRequestDto requestDto
+            @Valid @RequestBody LostPostUpdateRequestDto requestDto
     ) {
         Long realId = HashidsUtils.decode(id);
         lostPostService.update(user.getUserId(), realId, requestDto);
@@ -144,8 +144,12 @@ public class LostPostController implements LostPostControllerDocs {
     // 지도 이동 시 호출 (마커용)
     @Override
     @GetMapping("/map")
-    public ApiResponse<List<LostPostResponseDto>> getMapPosts(@ModelAttribute LostPostMapRequestDto request) {
-        return ApiResponse.success(lostPostService.getPostsForMap(request));
+    public ApiResponse<List<LostPostResponseDto>> getMapPosts(
+            @ModelAttribute LostPostMapRequestDto request,
+            @AuthenticationPrincipal CustomOAuth2User user
+    ) {
+        UUID viewerId = user != null ? user.getUserId() : null;
+        return ApiResponse.success(lostPostService.getPostsForMap(request, viewerId));
     }
 
     // 게시글 작성자용: 해당 게시글의 파인더 탐색 세션 목록
@@ -171,6 +175,7 @@ public class LostPostController implements LostPostControllerDocs {
         if (user != null) {
             searchHistoryService.saveLocation(user.getUserId(), request.centerLat(), request.centerLng(), request.radius(), request.placeName(), request.address());
         }
-        return ApiResponse.success(lostPostService.getPostsForList(request));
+        UUID viewerId = user != null ? user.getUserId() : null;
+        return ApiResponse.success(lostPostService.getPostsForList(request, viewerId));
     }
 }

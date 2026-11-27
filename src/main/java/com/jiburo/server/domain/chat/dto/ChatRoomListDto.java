@@ -9,14 +9,16 @@ import java.time.LocalDateTime;
 public record ChatRoomListDto(
         @Schema(description = "채팅방 ID (인코딩된 문자열)") String roomId,
         @Schema(description = "상대방(내가 아닌 참여자) 닉네임") String otherUserNickname,
+        @Schema(description = "채팅방 연결 게시글 제목 (게시글별 방 구분용)") String postTitle,
         @Schema(description = "마지막 메시지 내용") String lastMessage,
         @Schema(description = "마지막 메시지 전송 시각") LocalDateTime lastChatAt,
         @Schema(description = "읽지 않은 메시지 수") Long unreadCount
 ) {
-    public static ChatRoomListDto from(ChatRoom room, String otherNickname, long unreadCount) {
+    public static ChatRoomListDto from(ChatRoom room, String otherNickname, String postTitle, long unreadCount) {
         return new ChatRoomListDto(
                 HashidsUtils.encode(room.getId()),
                 otherNickname,
+                postTitle,
                 room.getLastMessage(),
                 room.getLastChatAt(),
                 unreadCount

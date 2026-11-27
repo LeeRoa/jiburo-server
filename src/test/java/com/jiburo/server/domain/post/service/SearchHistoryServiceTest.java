@@ -37,6 +37,10 @@ class SearchHistoryServiceTest {
     @Mock
     private RedisTemplate<String, Object> redisTemplate;
 
+    @org.mockito.Spy
+    private com.jiburo.server.global.setting.AppSettingService appSettingService =
+            com.jiburo.server.global.setting.TestSettings.defaults();
+
     @Mock
     private ZSetOperations<String, Object> zSetOps;
 

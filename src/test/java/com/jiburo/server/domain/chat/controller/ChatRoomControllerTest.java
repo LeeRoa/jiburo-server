@@ -40,7 +40,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         controllers = ChatRoomController.class,
         excludeAutoConfiguration = {OAuth2ClientAutoConfiguration.class}
 )
-@Import({SecurityConfig.class, JwtAuthenticationEntryPoint.class})
+@Import({SecurityConfig.class, JwtAuthenticationEntryPoint.class, com.jiburo.server.domain.user.jwt.JwtAccessDeniedHandler.class})
 class ChatRoomControllerTest {
 
     @Autowired private MockMvc mockMvc;
@@ -48,6 +48,7 @@ class ChatRoomControllerTest {
     @MockitoBean private ChatRoomService chatRoomService;
     @MockitoBean private JpaMetamodelMappingContext jpaMetamodelMappingContext;
     @MockitoBean private JwtTokenProvider jwtTokenProvider;
+    @MockitoBean private com.jiburo.server.domain.user.service.AuthTokenService authTokenService;
     @MockitoBean private CustomOAuth2UserService customOAuth2UserService;
     @MockitoBean private OAuth2SuccessHandler oAuth2SuccessHandler;
     @MockitoBean private ClientRegistrationRepository clientRegistrationRepository;

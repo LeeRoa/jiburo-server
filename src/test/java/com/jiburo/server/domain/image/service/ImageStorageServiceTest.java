@@ -44,6 +44,8 @@ class ImageStorageServiceTest {
     @Mock private S3Presigner s3Presigner;
     @Mock private ImageMetaRepository imageMetaRepository;
     @Mock private UserRepository userRepository;
+    @org.mockito.Spy private com.jiburo.server.global.setting.AppSettingService appSettingService =
+            com.jiburo.server.global.setting.TestSettings.defaults();
 
     private UUID userId;
     private User user;
@@ -52,7 +54,6 @@ class ImageStorageServiceTest {
     void setUp() {
         new HashidsUtils("test-salt", 8);
         ReflectionTestUtils.setField(imageStorageService, "bucketName", "test-bucket");
-        ReflectionTestUtils.setField(imageStorageService, "expirationMinutes", 15L);
 
         userId = UUID.randomUUID();
         user = User.builder()
@@ -72,7 +73,7 @@ class ImageStorageServiceTest {
         PresignedUrlRequestDto request =
                 new PresignedUrlRequestDto(UploadTargetType.POST, "photo.jpg", "jpg", 1024L);
 
-        given(imageMetaRepository.sumTotalFileSize()).willReturn(0L);
+        given(imageMetaRepository.sumUsedFileSize(any())).willReturn(0L);
         given(userRepository.findById(userId)).willReturn(Optional.of(user));
         given(imageMetaRepository.save(any(ImageMeta.class))).willReturn(mock(ImageMeta.class));
 
@@ -90,6 +91,28 @@ class ImageStorageServiceTest {
     }
 
     @Test
+    void presigned_URL에는_확장자에_맞는_Content_Type이_서명되고_응답에도_내려간다() throws MalformedURLException {
+        // given: 대문자 확장자도 소문자로 통일
+        PresignedUrlRequestDto request =
+                new PresignedUrlRequestDto(UploadTargetType.CHAT_VIDEO, "clip.MOV", "MOV", 1024L);
+        given(imageMetaRepository.sumUsedFileSize(any())).willReturn(0L);
+        given(userRepository.findById(userId)).willReturn(Optional.of(user));
+        PresignedPutObjectRequest presigned = mock(PresignedPutObjectRequest.class);
+        given(presigned.url()).willReturn(URI.create("https://test.r2.cloudflarestorage.com/key").toURL());
+        org.mockito.ArgumentCaptor<PutObjectPresignRequest> captor =
+                org.mockito.ArgumentCaptor.forClass(PutObjectPresignRequest.class);
+        given(s3Presigner.presignPutObject(captor.capture())).willReturn(presigned);
+
+        // when
+        PresignedUrlResponseDto result = imageStorageService.createPresignedUrl(userId, request);
+
+        // then
+        assertThat(captor.getValue().putObjectRequest().contentType()).isEqualTo("video/quicktime");
+        assertThat(result.contentType()).isEqualTo("video/quicktime");
+        assertThat(result.fileKey()).endsWith(".mov");
+    }
+
+    @Test
     void 허용되지_않은_확장자면_INVALID_FILE_FORMAT() {
         // given
         PresignedUrlRequestDto request =
@@ -104,17 +127,85 @@ class ImageStorageServiceTest {
     }
 
     @Test
-    void 용량_초과_시_IllegalStateException() {
+    void 용량_초과_시_STORAGE_CAPACITY_EXCEEDED() {
         // given
         long nearlyFull = 10L * 1024 * 1024 * 1024 - 100; // 10GB - 100bytes
         PresignedUrlRequestDto request =
                 new PresignedUrlRequestDto(UploadTargetType.POST, "big.jpg", "jpg", 200L);
 
-        given(imageMetaRepository.sumTotalFileSize()).willReturn(nearlyFull);
+        given(imageMetaRepository.sumUsedFileSize(any())).willReturn(nearlyFull);
 
         // when & then
         assertThatThrownBy(() -> imageStorageService.createPresignedUrl(userId, request))
-                .isInstanceOf(IllegalStateException.class);
+                .isInstanceOf(JiburoException.class)
+                .satisfies(ex -> assertThat(((JiburoException) ex).getErrorCode())
+                        .isEqualTo(ErrorCode.STORAGE_CAPACITY_EXCEEDED));
+    }
+
+    @Test
+    void 사용자별_용량을_넘으면_USER_STORAGE_QUOTA_EXCEEDED() {
+        // given: 기본 한도 2048MB 중 2047MB 사용 중에 2MB 요청
+        long mb = 1024L * 1024;
+        PresignedUrlRequestDto request =
+                new PresignedUrlRequestDto(UploadTargetType.POST, "photo.jpg", "jpg", 2 * mb);
+        given(imageMetaRepository.sumUsedFileSizeByUser(org.mockito.ArgumentMatchers.eq(userId), any(), any()))
+                .willReturn(2047 * mb);
+
+        // when & then
+        assertThatThrownBy(() -> imageStorageService.createPresignedUrl(userId, request))
+                .isInstanceOf(JiburoException.class)
+                .satisfies(ex -> assertThat(((JiburoException) ex).getErrorCode())
+                        .isEqualTo(ErrorCode.USER_STORAGE_QUOTA_EXCEEDED));
+        then(imageMetaRepository).should(never()).save(any());
+    }
+
+    @Test
+    void 관리자_전용_업로드는_사용자별_용량에서_제외된다() throws MalformedURLException {
+        // given: 이모티콘(관리자 전용)은 사용자 용량을 검사하지 않는다
+        PresignedUrlRequestDto request =
+                new PresignedUrlRequestDto(UploadTargetType.EMOTICON, "smile.png", "png", 1024L);
+        given(imageMetaRepository.sumUsedFileSize(any())).willReturn(0L);
+        given(userRepository.findById(userId)).willReturn(Optional.of(user));
+        PresignedPutObjectRequest presigned = mock(PresignedPutObjectRequest.class);
+        given(presigned.url()).willReturn(URI.create("https://test.r2.cloudflarestorage.com/key").toURL());
+        given(s3Presigner.presignPutObject(any(PutObjectPresignRequest.class))).willReturn(presigned);
+
+        imageStorageService.createPresignedUrl(userId, request);
+
+        then(imageMetaRepository).should(never()).sumUsedFileSizeByUser(any(), any(), any());
+    }
+
+    @Test
+    void 완료되지_않은_업로드가_한도에_이르면_URL을_발급하지_않는다() {
+        // given: 기본 한도(UPLOAD_MAX_PENDING_PER_USER=20)만큼 진행 중
+        PresignedUrlRequestDto request =
+                new PresignedUrlRequestDto(UploadTargetType.POST, "photo.jpg", "jpg", 1024L);
+        given(imageMetaRepository.countActivePendingByUser(any(), any())).willReturn(20L);
+
+        // when & then
+        assertThatThrownBy(() -> imageStorageService.createPresignedUrl(userId, request))
+                .isInstanceOf(JiburoException.class)
+                .satisfies(ex -> assertThat(((JiburoException) ex).getErrorCode())
+                        .isEqualTo(ErrorCode.UPLOAD_PENDING_LIMIT_EXCEEDED));
+        then(imageMetaRepository).should(never()).save(any());
+    }
+
+    @Test
+    void 용량_계산과_정리는_URL_만료와_여유시간이_지난_PENDING을_기준으로_한다() {
+        // given: presigned 유효 시간 기본 5분 + 여유 1시간
+        org.mockito.ArgumentCaptor<java.time.LocalDateTime> cutoff =
+                org.mockito.ArgumentCaptor.forClass(java.time.LocalDateTime.class);
+        given(imageMetaRepository.sumUsedFileSize(cutoff.capture())).willReturn(123L);
+
+        java.time.LocalDateTime before = java.time.LocalDateTime.now().minusMinutes(5).minus(ImageStorageServiceImpl.PENDING_GRACE);
+        long used = imageStorageService.usedBytes();
+        java.time.LocalDateTime after = java.time.LocalDateTime.now().minusMinutes(5).minus(ImageStorageServiceImpl.PENDING_GRACE);
+
+        assertThat(used).isEqualTo(123L);
+        assertThat(cutoff.getValue()).isBetween(before, after);
+
+        imageStorageService.cleanupStalePending();
+        then(imageMetaRepository).should().disableStalePending(any());
     }
 
     @Test
@@ -122,7 +213,7 @@ class ImageStorageServiceTest {
         // given
         PresignedUrlRequestDto request =
                 new PresignedUrlRequestDto(UploadTargetType.POST, "photo.jpg", "jpg", 1024L);
-        given(imageMetaRepository.sumTotalFileSize()).willReturn(0L);
+        given(imageMetaRepository.sumUsedFileSize(any())).willReturn(0L);
         given(userRepository.findById(userId)).willReturn(Optional.empty());
 
         // when & then

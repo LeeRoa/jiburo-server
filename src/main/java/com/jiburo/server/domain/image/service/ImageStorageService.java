@@ -9,4 +9,7 @@ public interface ImageStorageService {
     PresignedUrlResponseDto createPresignedUrl(UUID userId, PresignedUrlRequestDto request);
 
     void completeUpload(UUID userId, String fileKey);
+
+    /** 저장소 사용량(byte) — 완료 파일 + 아직 업로드될 수 있는 PENDING */
+    long usedBytes();
 }

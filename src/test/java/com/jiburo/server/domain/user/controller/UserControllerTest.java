@@ -10,6 +10,7 @@ import com.jiburo.server.domain.user.dto.UserProfileResponseDto;
 import com.jiburo.server.domain.user.dto.UserProfileUpdateRequestDto;
 import com.jiburo.server.domain.user.dto.UserSettingsResponseDto;
 import com.jiburo.server.domain.user.dto.UserSettingsUpdateRequestDto;
+import com.jiburo.server.domain.user.jwt.JwtAccessDeniedHandler;
 import com.jiburo.server.domain.user.jwt.JwtAuthenticationEntryPoint;
 import com.jiburo.server.domain.user.jwt.JwtTokenProvider;
 import com.jiburo.server.domain.user.jwt.OAuth2SuccessHandler;
@@ -57,7 +58,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         controllers = UserController.class,
         excludeAutoConfiguration = {OAuth2ClientAutoConfiguration.class}
 )
-@Import({SecurityConfig.class, JwtAuthenticationEntryPoint.class})
+@Import({SecurityConfig.class, JwtAuthenticationEntryPoint.class, JwtAccessDeniedHandler.class})
 class UserControllerTest {
 
     @Autowired private MockMvc mockMvc;
@@ -69,6 +70,7 @@ class UserControllerTest {
 
     @MockitoBean private JpaMetamodelMappingContext jpaMetamodelMappingContext;
     @MockitoBean private JwtTokenProvider jwtTokenProvider;
+    @MockitoBean private com.jiburo.server.domain.user.service.AuthTokenService authTokenService;
     @MockitoBean private CustomOAuth2UserService customOAuth2UserService;
     @MockitoBean private OAuth2SuccessHandler oAuth2SuccessHandler;
     @MockitoBean private ClientRegistrationRepository clientRegistrationRepository;

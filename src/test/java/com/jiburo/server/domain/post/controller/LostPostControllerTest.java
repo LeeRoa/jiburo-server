@@ -46,7 +46,9 @@ import java.util.UUID;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -55,7 +57,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         controllers = LostPostController.class,
         excludeAutoConfiguration = {OAuth2ClientAutoConfiguration.class}
 )
-@Import({SecurityConfig.class, JwtAuthenticationEntryPoint.class})
+@Import({SecurityConfig.class, JwtAuthenticationEntryPoint.class, com.jiburo.server.domain.user.jwt.JwtAccessDeniedHandler.class})
 class LostPostControllerTest {
 
     @Autowired private MockMvc mockMvc;
@@ -66,6 +68,7 @@ class LostPostControllerTest {
     @MockitoBean private FinderService finderService;
     @MockitoBean private JpaMetamodelMappingContext jpaMetamodelMappingContext;
     @MockitoBean private JwtTokenProvider jwtTokenProvider;
+    @MockitoBean private com.jiburo.server.domain.user.service.AuthTokenService authTokenService;
     @MockitoBean private CustomOAuth2UserService customOAuth2UserService;
     @MockitoBean private OAuth2SuccessHandler oAuth2SuccessHandler;
     @MockitoBean private ClientRegistrationRepository clientRegistrationRepository;
@@ -97,6 +100,54 @@ class LostPostControllerTest {
                 LocalDate.of(2024, 1, 1), 10000, LocalDateTime.now(),
                 isLiked, likeCount
         );
+    }
+
+    // ───────── CORS ─────────
+
+    @Test
+    void 허용된_origin의_PATCH_preflight는_통과한다() throws Exception {
+        // 기존에는 허용 메서드에 PATCH가 없어 웹에서 게시글 수정/상태 변경이 preflight 단계에서 막혔음
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .options("/api/v1/posts/{id}/status", encodedId)
+                        .header("Origin", "https://jiburo.on-do.kro.kr")
+                        .header("Access-Control-Request-Method", "PATCH"))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                        .header().string("Access-Control-Allow-Origin", "https://jiburo.on-do.kro.kr"));
+    }
+
+    @Test
+    void 허용되지_않은_origin의_요청은_거부된다() throws Exception {
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .options("/api/v1/posts/{id}/status", encodedId)
+                        .header("Origin", "https://evil.example.com")
+                        .header("Access-Control-Request-Method", "PATCH"))
+                .andExpect(status().isForbidden());
+    }
+
+    // ───────── PATCH /{id}/status ─────────
+
+    @Test
+    void 상태_변경_유효한_요청은_200_반환() throws Exception {
+        // 회귀 테스트: enum 필드에 @Pattern이 붙어 있어 @Valid 검증 시 UnexpectedTypeException(500)이 나던 문제
+        mockMvc.perform(patch("/api/v1/posts/{id}/status", encodedId)
+                        .with(withUser())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"statusCode\":\"COMPLETE\",\"resultNote\":\"경비실에서 보관\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+
+        then(lostPostService).should().updateStatus(eq(userId), eq(1L), any());
+    }
+
+    @Test
+    void 상태_변경_statusCode_누락시_400_반환() throws Exception {
+        mockMvc.perform(patch("/api/v1/posts/{id}/status", encodedId)
+                        .with(withUser())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"resultNote\":\"메모만\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errorCode").value("INVALID_INPUT_VALUE"));
     }
 
     // ───────── POST /{id}/like ─────────
@@ -220,7 +271,7 @@ class LostPostControllerTest {
     void 반경_조회_sortType_DISTANCE_200_반환() throws Exception {
         // given
         LostPostResponseDto dto = mockDto(false, 0L);
-        given(lostPostService.getPostsForList(any()))
+        given(lostPostService.getPostsForList(any(), any()))
                 .willReturn(new SliceImpl<>(List.of(dto), PageRequest.of(0, 20), false));
 
         // when & then
@@ -238,7 +289,7 @@ class LostPostControllerTest {
     void 반경_조회_sortType_LATEST_200_반환() throws Exception {
         // given
         LostPostResponseDto dto = mockDto(false, 0L);
-        given(lostPostService.getPostsForList(any()))
+        given(lostPostService.getPostsForList(any(), any()))
                 .willReturn(new SliceImpl<>(List.of(dto), PageRequest.of(0, 20), false));
 
         // when & then
@@ -256,7 +307,7 @@ class LostPostControllerTest {
     void 반경_조회_sortType_생략시_200_반환() throws Exception {
         // given: sortType 미전달 → DISTANCE 기본값으로 처리
         LostPostResponseDto dto = mockDto(false, 0L);
-        given(lostPostService.getPostsForList(any()))
+        given(lostPostService.getPostsForList(any(), any()))
                 .willReturn(new SliceImpl<>(List.of(dto), PageRequest.of(0, 20), false));
 
         // when & then

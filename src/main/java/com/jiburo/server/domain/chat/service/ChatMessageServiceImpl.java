@@ -3,18 +3,28 @@ package com.jiburo.server.domain.chat.service;
 import com.jiburo.server.domain.chat.domain.ChatMessage;
 import com.jiburo.server.domain.chat.domain.ChatParticipant;
 import com.jiburo.server.domain.chat.domain.ChatRoom;
+import com.jiburo.server.domain.chat.domain.enums.ChatMsgType;
 import com.jiburo.server.domain.chat.dto.ChatMessageRequestDto;
 import com.jiburo.server.domain.chat.dto.ChatMessageResponseDto;
 import com.jiburo.server.domain.chat.dto.ChatReadDto;
 import com.jiburo.server.domain.chat.repository.ChatMessageRepository;
 import com.jiburo.server.domain.chat.repository.ChatParticipantRepository;
 import com.jiburo.server.domain.chat.repository.ChatRoomRepository;
+import com.jiburo.server.domain.emoticon.service.EmoticonService;
+import com.jiburo.server.domain.image.domain.UploadTargetType;
+import com.jiburo.server.domain.image.service.UploadedFileValidator;
+import com.jiburo.server.domain.moderation.service.BannedWordFilter;
 import com.jiburo.server.global.error.ErrorCode;
 import com.jiburo.server.global.error.JiburoException;
+import com.jiburo.server.global.setting.AppSettingService;
+import com.jiburo.server.global.setting.SettingKey;
+import com.jiburo.server.global.util.HashidsUtils;
+import com.jiburo.server.domain.push.service.UserPushListener;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -25,6 +35,11 @@ public class ChatMessageServiceImpl implements ChatMessageService {
     private final ChatMessageRepository chatMessageRepository;
     private final ChatRoomRepository chatRoomRepository;
     private final ChatParticipantRepository chatParticipantRepository;
+    private final AppSettingService appSettingService;
+    private final EmoticonService emoticonService;
+    private final BannedWordFilter bannedWordFilter;
+    private final UploadedFileValidator uploadedFileValidator;
+    private final org.springframework.context.ApplicationEventPublisher eventPublisher;
 
     /**
      * 실시간 채팅 메시지 저장 및 방 정보 갱신
@@ -35,21 +50,89 @@ public class ChatMessageServiceImpl implements ChatMessageService {
         ChatRoom room = chatRoomRepository.findById(roomId)
                 .orElseThrow(() -> new JiburoException(ErrorCode.CHAT_ROOM_NOT_FOUND));
 
-        // 2. 보낸 사람이 이 방의 참여자가 맞는지 권한 체크
+        // 2. 보낸 사람이 이 방의 (나가지 않은) 참여자가 맞는지 권한 체크
         ChatParticipant participant = chatParticipantRepository.findByChatRoomIdAndUserId(roomId, senderId)
+                .filter(p -> !p.isExited())
                 .orElseThrow(() -> new JiburoException(ErrorCode.NOT_CHAT_PARTICIPANT));
 
-        // 3. 메시지 엔티티 생성 및 저장 (DTO의 toEntity 활용)
+        // 2-1. 정지 계정은 이미 연결된 소켓으로도 보낼 수 없다 (Access Token이 아직 살아 있어도 차단)
+        if (participant.getUser().isSuspended()) {
+            throw new JiburoException(ErrorCode.USER_SUSPENDED);
+        }
+
+        // 3. 입력 검증 (타입·길이·첨부 파일 소유)
+        validateMessage(dto, senderId);
+
+        // 3-1. 이모티콘은 ID로 받아 이미지 키로 바꿔 저장 (이후 이모티콘이 삭제·비노출돼도 과거 메시지는 유지)
+        if (dto.messageTypeCode() == ChatMsgType.EMOTICON) {
+            String imageKey = emoticonService.resolveImageKey(HashidsUtils.decode(dto.content()));
+            dto = new ChatMessageRequestDto(imageKey, ChatMsgType.EMOTICON);
+        }
+
+        // 3-2. 텍스트의 금지어는 *** 로 가려 저장 (원문은 저장하지 않음)
+        if (dto.messageTypeCode() == ChatMsgType.TALK) {
+            dto = new ChatMessageRequestDto(bannedWordFilter.mask(dto.content()), ChatMsgType.TALK);
+        }
+
+        // 4. 메시지 엔티티 생성 및 저장 (DTO의 toEntity 활용)
         ChatMessage message = dto.toEntity(room, participant.getUser());
         chatMessageRepository.save(message);
 
-        // 4. 방의 마지막 대화 내용과 시간 최신화 (목록 정렬 및 노출용)
-        room.updateLastChat(message.getContent());
+        // 5. 보낸 사람은 자기 메시지를 읽은 것으로 처리 (안 하면 내 메시지가 내 '안 읽음' 수에 집계됨)
+        participant.updateLastRead(message.getId());
 
-        int unreadCount = room.getParticipants().size() - 1;
+        // 6. 방의 마지막 대화 내용과 시간 최신화 (목록 정렬 및 노출용)
+        room.updateLastChat(message.getMessageTypeCode(), message.getContent());
 
-        // 5. 응답용 DTO로 변환하여 반환
+        // 나간 참여자는 읽을 수 없으므로 안 읽음 수에서 뺀다
+        int unreadCount = (int) Math.max(0, room.getParticipants().stream().filter(p -> !p.isExited()).count() - 1);
+
+        // 6-1. 다른 참여자에게 푸시 (커밋 후 비동기 발송 — UserPushListener)
+        java.util.List<UUID> recipients = room.getParticipants().stream()
+                .filter(p -> !p.isExited() && !p.getUser().getId().equals(senderId))
+                .map(p -> p.getUser().getId())
+                .toList();
+        if (!recipients.isEmpty()) {
+            eventPublisher.publishEvent(new UserPushListener.ChatMessageSentEvent(room.getId(), message.getId(),
+                    participant.getUser().getNickname(), message.getMessageTypeCode(), message.getContent(), recipients));
+        }
+
+        // 7. 응답용 DTO로 변환하여 반환
         return ChatMessageResponseDto.from(message, unreadCount);
+    }
+
+    // 파일 키 최대 길이 (image_meta.file_key 컬럼과 동일)
+    private static final int MAX_FILE_KEY_LENGTH = 500;
+
+    private void validateMessage(ChatMessageRequestDto dto, UUID senderId) {
+        if (dto == null || dto.messageTypeCode() == null
+                || dto.content() == null || dto.content().isBlank()) {
+            throw new JiburoException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        String content = dto.content();
+        switch (dto.messageTypeCode()) {
+            // 텍스트·위치: 관리자 설정 길이 제한
+            case TALK, MAP -> {
+                if (content.length() > appSettingService.getInt(SettingKey.CHAT_MAX_TEXT_LENGTH)) {
+                    throw new JiburoException(ErrorCode.INVALID_INPUT_VALUE);
+                }
+            }
+            // 이미지·동영상: 본인이 채팅용으로 올려 업로드를 마친 파일 키만 허용 (외부 URL·남의 파일 차단)
+            case IMAGE -> validateChatFile(content, senderId, UploadTargetType.CHAT);
+            case VIDEO -> validateChatFile(content, senderId, UploadTargetType.CHAT_VIDEO);
+            // 이모티콘 ID는 이후 resolveImageKey에서 검증
+            case EMOTICON -> {
+            }
+            // 시스템 메시지(SYS)는 서버만 만든다 — 클라이언트가 보내면 '관리자가 삭제한 메시지' 등을 위조할 수 있음
+            default -> throw new JiburoException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+    }
+
+    private void validateChatFile(String fileKey, UUID senderId, UploadTargetType type) {
+        if (fileKey.length() > MAX_FILE_KEY_LENGTH) {
+            throw new JiburoException(ErrorCode.INVALID_UPLOADED_FILE);
+        }
+        uploadedFileValidator.requireOwnedUpload(senderId, fileKey, Set.of(type));
     }
 
     @Transactional
@@ -57,12 +140,18 @@ public class ChatMessageServiceImpl implements ChatMessageService {
     public ChatReadDto.Response processReadReceipt(UUID userId, Long chatRoomId, Long messageId) {
 
         ChatParticipant participant = chatParticipantRepository.findByChatRoomIdAndUserId(chatRoomId, userId)
+                .filter(p -> !p.isExited())
                 .orElseThrow(() -> new JiburoException(ErrorCode.NOT_CHAT_PARTICIPANT));
 
-        // DB 업데이트 (더티 체킹)
+        // 이 방의 메시지인지 확인 (다른 방·존재하지 않는 ID로 커서를 앞당겨 안 읽음 수·읽음 표시를 조작하지 못하게)
+        if (messageId == null || !chatMessageRepository.existsByIdAndChatRoomId(messageId, chatRoomId)) {
+            throw new JiburoException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+
+        // DB 업데이트 (더티 체킹). 커서는 앞으로만 움직인다
         participant.updateLastRead(messageId);
 
-        // 브로드캐스트할 응답 데이터 반환
-        return new ChatReadDto.Response(userId, messageId);
+        // 브로드캐스트할 응답 데이터 반환 (예전 ID가 와도 실제 커서 기준으로 알린다)
+        return new ChatReadDto.Response(userId, participant.getLastReadMessageId());
     }
 }

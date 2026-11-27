@@ -17,8 +17,10 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @Entity
 @Getter
@@ -26,7 +28,8 @@ import java.util.List;
 @Table(name = "lost_posts", indexes = {
         @Index(name = "idx_lost_post_location", columnList = "latitude, longitude"),
         @Index(name = "idx_lost_post_status", columnList = "status_code"),
-        @Index(name = "idx_lost_post_category", columnList = "category_code")
+        @Index(name = "idx_lost_post_category", columnList = "category_code"),
+        @Index(name = "idx_lost_post_deleted", columnList = "deleted")
 })
 public class LostPost extends BaseTimeEntity {
 
@@ -105,6 +108,16 @@ public class LostPost extends BaseTimeEntity {
     @Column(length = 500)
     private String resultNote;
 
+    // --- Soft Delete ---
+    // 채팅방/탐색 세션이 게시글을 FK로 참조하므로 물리 삭제 대신 플래그로 처리한다.
+    // 게시글 조회 시 deleted = false 조건을 명시적으로 붙여야 한다 (findByIdAndDeletedFalse, QueryDSL notDeleted()).
+    @Column(nullable = false, columnDefinition = "BOOLEAN DEFAULT FALSE")
+    @Comment("삭제 여부 (Soft Delete)")
+    private boolean deleted = false;
+
+    @Comment("삭제 시각")
+    private LocalDateTime deletedAt;
+
     @Builder
     public LostPost(User user, CategoryType categoryCode, String title, String content, PostStatus statusCode,
                     TargetDetailDto detail,
@@ -135,7 +148,7 @@ public class LostPost extends BaseTimeEntity {
                        CategoryType categoryCode,
                        TargetDetailDto detail,
                        Double latitude, Double longitude, String foundLocation,
-                       LocalDate lostDate, int reward) {
+                       LocalDate lostDate, Integer reward) {
 
         // Null 체크 후 업데이트
         if (title != null) this.title = title;
@@ -150,8 +163,8 @@ public class LostPost extends BaseTimeEntity {
         if (foundLocation != null) this.foundLocation = foundLocation;
         if (lostDate != null) this.lostDate = lostDate;
 
-        // primitive type인 int는 0이 올 수 있으므로 주의 (여기선 그냥 덮어쓰기)
-        this.reward = reward;
+        // null이면 기존 값 유지 (다른 필드와 동일한 PATCH 규칙). 0을 보내면 0으로 변경
+        if (reward != null) this.reward = reward;
     }
 
     // LostPost.java
@@ -188,6 +201,34 @@ public class LostPost extends BaseTimeEntity {
                     .order(i)
                     .build());
         }
+    }
+
+    // 관리자 복구 (삭제 시 정리된 좋아요·취소된 탐색 세션은 되살리지 않음)
+    public void restore() {
+        this.deleted = false;
+        this.deletedAt = null;
+    }
+
+    public void softDelete() {
+        this.deleted = true;
+        this.deletedAt = LocalDateTime.now();
+    }
+
+    /**
+     * 조회 권한 판단
+     * - 작성자 본인: 항상 가능
+     * - PUBLIC: 누구나 / PROTECTED: 로그인 사용자 / PRIVATE: 작성자만
+     * @param viewerId 비로그인이면 null
+     */
+    public boolean isVisibleTo(UUID viewerId) {
+        if (viewerId != null && viewerId.equals(this.user.getId())) {
+            return true;
+        }
+        return switch (this.visibilityCode) {
+            case PUBLIC -> true;
+            case PROTECTED -> viewerId != null;
+            case PRIVATE -> false;
+        };
     }
 
     public void complete(User finder, String resultNote) {

@@ -9,6 +9,11 @@ services:
     restart: always
     ports:
       - "18080:8080"
+    # .env의 모든 값을 컨테이너 환경변수로 전달 (R2_*, CORS_ALLOWED_ORIGINS, ADMIN_OAUTH_IDS, FIREBASE_* 등).
+    # 아래 environment에 같은 이름이 있으면 environment가 우선한다. .env가 없으면 건너뜀
+    env_file:
+      - path: .env
+        required: false
     environment:
       # 1. DB 연결
       SPRING_DATASOURCE_URL: jdbc:mariadb://db:3306/jiburo_db
@@ -39,6 +44,9 @@ services:
       SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_NAVER_CLIENT-ID: ${NAVER_CLIENT_ID}
       SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_NAVER_CLIENT-SECRET: ${NAVER_CLIENT_SECRET}
       SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_NAVER_REDIRECT-URI: "https://jiburo.on-do.kro.kr/login/oauth2/code/naver"
+
+      # 7. 푸시 (FCM) — Firebase 서비스 계정 키 JSON 내용. 비우면 푸시를 보내지 않고 로그만 남김
+      FIREBASE_CREDENTIALS_JSON: ${FIREBASE_CREDENTIALS_JSON:-}
 
     depends_on:
       - db

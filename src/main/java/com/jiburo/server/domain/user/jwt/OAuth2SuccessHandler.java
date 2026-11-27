@@ -1,10 +1,12 @@
 package com.jiburo.server.domain.user.jwt;
 
 import com.jiburo.server.domain.user.dao.UserRepository;
+import com.jiburo.server.global.error.ErrorCode;
 import com.jiburo.server.domain.user.domain.User;
 import com.jiburo.server.domain.user.domain.enums.RoleType;
 import com.jiburo.server.domain.user.dto.CustomOAuth2User;
 import com.jiburo.server.domain.user.dto.TokenResponseDto;
+import com.jiburo.server.domain.user.service.AuthTokenService;
 import com.jiburo.server.global.domain.enums.LogActionType;
 import com.jiburo.server.global.log.event.AuditLogEvent;
 import jakarta.servlet.ServletException;
@@ -14,7 +16,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.oauth2.core.user.OAuth2User;
@@ -31,7 +33,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
 
-    private final JwtTokenProvider jwtTokenProvider;
+    private final AuthTokenService authTokenService;
     private final UserRepository userRepository;
     private final ApplicationEventPublisher eventPublisher;
 
@@ -44,40 +46,47 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         OAuth2AuthenticationToken authToken = (OAuth2AuthenticationToken) authentication;
         OAuth2User oAuth2User = (OAuth2User) authentication.getPrincipal();
 
+        // 1. CustomOAuth2UserService에서 이미 저장/갱신한 사용자 조회
+        User dbUser = resolveUser(authToken, oAuth2User);
 
-        String provider = authToken.getAuthorizedClientRegistrationId();
-        String providerId = oAuth2User.getName();
-        String oauthId = provider + "_" + providerId;
+        // 1-1. 정지 계정은 토큰 대신 에러로 돌려보낸다 (프론트가 안내 화면 표시)
+        if (dbUser.isSuspended()) {
+            String errorUrl = UriComponentsBuilder.fromUriString(redirectUri)
+                    .queryParam("error", ErrorCode.USER_SUSPENDED.name())
+                    .build().toUriString();
+            getRedirectStrategy().sendRedirect(request, response, errorUrl);
+            return;
+        }
 
-        User dbUser = userRepository.findByOauthId(oauthId)
-                .orElseGet(() -> joinNewUser(oAuth2User, oauthId));
+        // 2. 토큰 발급 (Refresh Token은 Redis에 저장됨)
+        TokenResponseDto tokenDto = authTokenService.issueLoginTokens(dbUser);
 
-        // 2. UUID를 담은 CustomUser 생성
-        CustomOAuth2User internalUser = new CustomOAuth2User(
-                dbUser.getId(),
-                oAuth2User.getAuthorities()
-        );
-
-        // 3. 인증 객체 생성
-        Authentication dbAuthentication = new UsernamePasswordAuthenticationToken(
-                internalUser,
-                null,
-                oAuth2User.getAuthorities()
-        );
-
-        // 4. 토큰 생성 (UUID가 문자열로 변환되어 들어감)
-        TokenResponseDto tokenDto = jwtTokenProvider.generateTokenDto(dbAuthentication);
-
-        // 5. 로그 발행 (UUID userId 기록)
+        // 3. 로그 발행
         publishLoginLog(request, dbUser);
 
-        // 6. 리다이렉트
+        // 4. 리다이렉트
+        // 토큰을 URL에 직접 싣으면 브라우저 기록/서버·프록시 로그/Referer에 남으므로
+        // 짧게 유효한 1회용 code만 전달하고, 프론트가 POST /api/v1/auth/token 으로 토큰을 교환한다.
+        String loginCode = authTokenService.createLoginCode(tokenDto);
         String targetUrl = UriComponentsBuilder.fromUriString(redirectUri)
-                .queryParam("accessToken", tokenDto.accessToken())
-                .queryParam("refreshToken", tokenDto.refreshToken())
+                .queryParam("code", loginCode)
                 .build().toUriString();
 
         getRedirectStrategy().sendRedirect(request, response, targetUrl);
+    }
+
+    private User resolveUser(OAuth2AuthenticationToken authToken, OAuth2User oAuth2User) {
+        if (oAuth2User instanceof CustomOAuth2User customUser && customUser.getUserId() != null) {
+            return userRepository.findById(customUser.getUserId())
+                    .orElseGet(() -> findOrJoinByOauthId(authToken, oAuth2User));
+        }
+        return findOrJoinByOauthId(authToken, oAuth2User);
+    }
+
+    private User findOrJoinByOauthId(OAuth2AuthenticationToken authToken, OAuth2User oAuth2User) {
+        String oauthId = authToken.getAuthorizedClientRegistrationId() + "_" + oAuth2User.getName();
+        return userRepository.findByOauthId(oauthId)
+                .orElseGet(() -> joinNewUser(oAuth2User, oauthId));
     }
 
     private User joinNewUser(OAuth2User oAuth2User, String oauthId) {
@@ -96,7 +105,12 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
                 .roleCode(RoleType.USER)
                 .build();
 
-        return userRepository.save(newUser);
+        // 이 핸들러는 트랜잭션 밖이라 save()가 그 자리에서 커밋된다 → 동시 가입 충돌을 여기서 잡아 기존 사용자로 처리
+        try {
+            return userRepository.save(newUser);
+        } catch (DataIntegrityViolationException e) {
+            return userRepository.findByOauthId(oauthId).orElseThrow(() -> e);
+        }
     }
 
     private void publishLoginLog(HttpServletRequest request, User user) {

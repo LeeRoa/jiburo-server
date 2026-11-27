@@ -42,9 +42,16 @@ public class AuditLogAspect {
                 userId = ((CustomOAuth2User) auth.getPrincipal()).getUserId();
             }
 
+            // audit_logs.user_id는 NOT NULL — 비로그인 요청은 저장할 수 없으므로 건너뛴다.
+            // (로그인/재발급처럼 인증 전 시점의 로그는 서비스에서 userId를 채워 직접 발행)
+            if (userId == null) {
+                log.debug("감사 로그 생략 (인증 정보 없음): action={}", auditLog.action());
+                return;
+            }
+
             // 3. 파라미터 정보 (무엇을 수정했는지)
-            Object[] args = joinPoint.getArgs();
-            String targetData = (args.length > 0) ? args[0].toString() : "No Args";
+            //    로그인 사용자/요청 객체는 의미가 없으므로 제외하고 나머지 인자를 기록
+            String targetData = describeArgs(joinPoint.getArgs());
 
             // 4. 이벤트 발행 (DB 저장은 여기서 안 함!)
             AuditLogEvent event = AuditLogEvent.builder()
@@ -60,5 +67,21 @@ public class AuditLogAspect {
             // 로그 남기려다 메인 로직이 죽으면 안 되므로 에러는 삼킴
             log.error("감사 로그 기록 중 오류 발생", e);
         }
+    }
+
+    private static final int MAX_TARGET_DATA_LENGTH = 2000;
+
+    private String describeArgs(Object[] args) {
+        String joined = java.util.Arrays.stream(args)
+                .filter(java.util.Objects::nonNull)
+                .filter(arg -> !(arg instanceof CustomOAuth2User))
+                .filter(arg -> !(arg instanceof jakarta.servlet.ServletRequest))
+                .filter(arg -> !(arg instanceof jakarta.servlet.ServletResponse))
+                .map(Object::toString)
+                .collect(java.util.stream.Collectors.joining(", "));
+        if (joined.isEmpty()) {
+            return "No Args";
+        }
+        return joined.length() > MAX_TARGET_DATA_LENGTH ? joined.substring(0, MAX_TARGET_DATA_LENGTH) + "..." : joined;
     }
 }

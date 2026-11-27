@@ -82,7 +82,8 @@ WebSocket CONNECT → StompHandler.preSend
 
 - **세션 STATELESS** — 서버 세션 안 만듦
 - **CSRF/formLogin/httpBasic disabled**
-- **CORS** — `setAllowedOriginPatterns("*")` (운영 환경에서는 제한 필요)
+- **CORS** — REST·WebSocket 모두 `app.cors.allowed-origins`(운영 `CORS_ALLOWED_ORIGINS`) 목록만 허용
+- **토큰 폐기** — `AuthTokenService.isRevoked`: 로그아웃 블랙리스트 + 계정 정지 시 `revokeAllTokens`가 남긴 `auth:revoked-before:{userId}`(그 시각 이전 발급 AT 거부). 재발급은 Lua 스크립트로 RT 비교·교체를 원자적으로 (`AuthTokenRedisRepository.rotateRefreshToken`)
 - **`addFilterBefore(JwtFilter, UsernamePasswordAuthenticationFilter.class)`**
 
 ### permitAll 화이트리스트

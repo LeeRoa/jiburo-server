@@ -18,6 +18,7 @@ public enum LogActionType implements CommonCodeType {
 
     AUTH_LOGIN("AUTH_LOGIN", "log.auth.login"),
     AUTH_REISSUE("AUTH_REISSUE", "log.auth.reissue"),
+    AUTH_LOGOUT("AUTH_LOGOUT", "log.auth.logout"),
 
     REPORT_CREATE("REPORT_CREATE", "log.report.create"),
     BADGE_UPGRADE("BADGE_UPGRADE", "log.badge.upgrade"),
@@ -28,6 +29,31 @@ public enum LogActionType implements CommonCodeType {
     FINDER_SESSION_CREATE("FINDER_SESSION_CREATE", "log.finder.session.create"),
     FINDER_SESSION_SUBMIT("FINDER_SESSION_SUBMIT", "log.finder.session.submit"),
     FINDER_SESSION_CANCEL("FINDER_SESSION_CANCEL", "log.finder.session.cancel"),
+
+    // 관리자 작업 (관리자 API는 모두 ADMIN_ 접두사로 기록)
+    ADMIN_COMMON_CODE_RELOAD("ADMIN_COMMON_CODE_RELOAD", "log.admin.common_code.reload"),
+    ADMIN_SETTING_UPDATE("ADMIN_SETTING_UPDATE", "log.admin.setting.update"),
+    ADMIN_SETTING_RESET("ADMIN_SETTING_RESET", "log.admin.setting.reset"),
+    ADMIN_ROLE_CREATE("ADMIN_ROLE_CREATE", "log.admin.role.create"),
+    ADMIN_ROLE_UPDATE("ADMIN_ROLE_UPDATE", "log.admin.role.update"),
+    ADMIN_ROLE_MENU_UPDATE("ADMIN_ROLE_MENU_UPDATE", "log.admin.role.menu_update"),
+    ADMIN_ROLE_DELETE("ADMIN_ROLE_DELETE", "log.admin.role.delete"),
+    ADMIN_USER_ROLE_CHANGE("ADMIN_USER_ROLE_CHANGE", "log.admin.user.role_change"),
+    ADMIN_POST_DELETE("ADMIN_POST_DELETE", "log.admin.post.delete"),
+    ADMIN_POST_RESTORE("ADMIN_POST_RESTORE", "log.admin.post.restore"),
+    ADMIN_EMOTICON_PACK_CREATE("ADMIN_EMOTICON_PACK_CREATE", "log.admin.emoticon.pack.create"),
+    ADMIN_EMOTICON_PACK_UPDATE("ADMIN_EMOTICON_PACK_UPDATE", "log.admin.emoticon.pack.update"),
+    ADMIN_EMOTICON_PACK_DELETE("ADMIN_EMOTICON_PACK_DELETE", "log.admin.emoticon.pack.delete"),
+    ADMIN_EMOTICON_ADD("ADMIN_EMOTICON_ADD", "log.admin.emoticon.add"),
+    ADMIN_EMOTICON_DELETE("ADMIN_EMOTICON_DELETE", "log.admin.emoticon.delete"),
+    ADMIN_I18N_UPDATE("ADMIN_I18N_UPDATE", "log.admin.i18n.update"),
+    ADMIN_I18N_RESET("ADMIN_I18N_RESET", "log.admin.i18n.reset"),
+    ADMIN_BANNED_WORD_ADD("ADMIN_BANNED_WORD_ADD", "log.admin.banned_word.add"),
+    ADMIN_REPORT_RESOLVE("ADMIN_REPORT_RESOLVE", "log.admin.report.resolve"),
+    ADMIN_USER_SUSPEND("ADMIN_USER_SUSPEND", "log.admin.user.suspend"),
+    ADMIN_USER_UNSUSPEND("ADMIN_USER_UNSUSPEND", "log.admin.user.unsuspend"),
+    ADMIN_BANNED_WORD_UPDATE("ADMIN_BANNED_WORD_UPDATE", "log.admin.banned_word.update"),
+    ADMIN_BANNED_WORD_DELETE("ADMIN_BANNED_WORD_DELETE", "log.admin.banned_word.delete"),
 
     SPARE("SPARE", "log.spare");
 

@@ -47,7 +47,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         controllers = FinderController.class,
         excludeAutoConfiguration = {OAuth2ClientAutoConfiguration.class}
 )
-@Import({SecurityConfig.class, JwtAuthenticationEntryPoint.class})
+@Import({SecurityConfig.class, JwtAuthenticationEntryPoint.class, com.jiburo.server.domain.user.jwt.JwtAccessDeniedHandler.class})
 class
 FinderControllerTest {
 
@@ -57,6 +57,7 @@ FinderControllerTest {
     @MockitoBean private FinderService finderService;
     @MockitoBean private JpaMetamodelMappingContext jpaMetamodelMappingContext;
     @MockitoBean private JwtTokenProvider jwtTokenProvider;
+    @MockitoBean private com.jiburo.server.domain.user.service.AuthTokenService authTokenService;
     @MockitoBean private CustomOAuth2UserService customOAuth2UserService;
     @MockitoBean private OAuth2SuccessHandler oAuth2SuccessHandler;
     @MockitoBean private ClientRegistrationRepository clientRegistrationRepository;
